@@ -2,6 +2,8 @@
 
 Wersja poprawiona. Zmiany względem v1 są w sekcji 11, zmiany wprowadzone po v2 w sekcji 12. Stan wiedzy: 2026-09-19.
 
+> **Stan realizacji (2026-09-19):** powstał proof of concept, który odbiega od tego planu (Node zamiast Pythona, ścieżka `data/gtfs/mzk/`, zakres: linia 7 + N1/N2, bez GTFS/OTP). Szczegóły i nowe ustalenia są w sekcji 13, a instrukcja uruchomienia w `data/gtfs/mzk/README.md`.
+
 Oznaczenia: **[Z]** = zweryfikowane na prawdziwych plikach, **[?]** = założenie do sprawdzenia, **[NIEZWERYFIKOWANE]** = wartość wpisana z pamięci lub odczytu, wymaga potwierdzenia przed użyciem jako oczekiwanie testu.
 
 ---
@@ -625,3 +627,52 @@ pdftotext -bbox-layout 7-kier.-Wapienica-Dzwonkowa.pdf l7_bbox.html
 | 5 | Sekcja 5.1.1: lista PDF-ów jest w statycznym HTML **[Z]**; usunięte odwołanie do Playwrighta i `screenshots.py` | curl pobrał 141 KB z 112 linkami; w repo nie ma tych narzędzi |
 | 6 | Trasy kandydatów do linii demo oraz "pętle" na liniach 7 i 16 oznaczone jako **[NIEZWERYFIKOWANE]**; dodany zweryfikowany fakt o powtórzonej nazwie z różnymi tabliczkami | tylko linia 7 była sprawdzona na plikach |
 | 7 | `load_db.py` i komenda `load-db` w pipeline'ie; test importu do bazy | schemat wymaga ładowania i weryfikacji |
+
+## 13. Stan PoC (2026-09-19)
+
+### Decyzje zespołu
+
+- **Linia demo:** tylko linia 7 (obie strony). Linie 4, 16 i inne odpadają.
+- **Cel:** dowód, że dane da się wczytać (a docelowe ładowanie do aplikacji ustalimy później), a nie pełny routing.
+- **Środowisko:** silna konteneryzacja, wszystko w Dockerze.
+- **Zakres poza podstawą:** dochodzą linie nocne N1 i N2. Kolumna wakacyjna i wyjątki `N`/`R` nie wchodzą.
+
+### Odstępstwa od planu v2
+
+| Temat | Plan v2 | PoC | Powód |
+|---|---|---|---|
+| Język | Python (stdlib) | **Node, bez zależności npm** | zgodność z `data/seed/ingest-events.mjs` i zamrożonym stackiem z `AGENTS.md` (sekcja 4) |
+| Katalog | `data/mzk/` | **`data/gtfs/mzk/`** | struktura repo z `AGENTS.md` (sekcja 5) |
+| Docker | wspólny compose | osobny `compose.yaml` w katalogu modułu | nie dotykam `infra/docker-compose.yml` (własność Integration Leada) |
+| Baza w PoC | stała | efemeryczny PostGIS (tmpfs, bez portów, bez hasła) | brak sekretów w repo, brak kolizji z innymi kontenerami |
+| Etapy | A–G | fetch, extract, calendar, load-db, checks | bez `assemble`, `stops` (OSM), `gtfs`, OTP |
+| Tabele | 7 | 5 (`transit_line_direction`, `transit_stop`, `transit_source`, `transit_departure`, `transit_calendar_day`) | poziom 1 wystarcza do PULSE; `transit_trip` i `transit_stop_time` czekają na `assemble` |
+| Lokalizacja SQL | migracja EF Core | zwykły `sql/schema.sql` | migracja to zadanie Data Leada i Kuby (nowe pakiety EF wymagają jego zgody) |
+
+### Wynik [Z]
+
+- 6 PDF-ów (linia 7 x2, N1 x2, N2 x2) → **140 stron → 7337 odjazdów** → PostGIS (126 przystanków, 122 dni kalendarza).
+- 15 testów jednostkowych przechodzi. Ponowne załadowanie daje te same liczby wierszy.
+- Asercja SQL na wzorcowej stronie (linia 7, Szyndzielnia 13) przechodzi: 17 / 17 / 26 / 18.
+- Fixture wpisany ręcznie z obrazów stron 1 i 4, **bez potwierdzenia człowieka** (etap A0 nadal otwarty).
+
+### Nowe ustalenia, które poprawiają założenia planu [Z]
+
+- **Flagi w komórkach są bogatsze niż `#`, `N`, `R`.** W 6 PDF-ach występują też `K` (kurs skrócony do KARBOWA HALA SPORTOWA, 1288 wystąpień), `Ś` i `W` (kursuje w dniu, w którym normalnie nie kursuje) oraz `#` z dopiskiem "po trasie do: CIESZYŃSKA OS. WOJSKA POLSKIEGO". Znaczenie flagi jest opisane w legendzie strony, więc parser zapisuje legendę przy każdym rekordzie. Flaga `K` musi być uwzględniona przy składaniu kursów (kurs kończy się na Karbowej Hali Sportowej).
+- **Układ kolumn nie jest stały.** 139 z 140 stron ma cztery kolumny, ale jedna (linia 7, Karbowa Hala Sportowa 03) ma tylko dwie: dzień roboczy i wakacyjny dzień roboczy. Kolumny wykrywane po nagłówku i przypisywane do najbliższej lewej krawędzi komórek działają na obu układach.
+- **Linie nocne mają te same nagłówki kolumn, ale tylko godziny 0–3.** To uchyla wątpliwość z sekcji 2 ("N1/N2 mogą mieć inny zestaw typów dnia"). Odjazdy zapisujemy tak jak w PDF (`dep_sec` od 0 do 14399), bez przesuwania na 24–27. Nie wiadomo z PDF-a, czy godzina 0 w kolumnie "Soboty" to noc z piątku na sobotę, czy z soboty na niedzielę. Do rozstrzygnięcia przy `assemble` i w zapytaniach o powrót po północy.
+- **Numer linii z żółtego pola strony** (wysoki tekst po lewej) zgadza się z manifestem na wszystkich stronach. To tania kontrola, że plik jest tym, za co go uważamy.
+- **`KIERUNEK` bywa zapisany z kropką na końcu** ("Zajezdnia MZK."), więc parser ją obcina.
+- **Data obowiązywania różni się między liniami:** linia 7 od 2026-09-01, N1 od 2026-08-03, N2 od 2025-06-28. `valid_from` jest zapisany per kierunek.
+- **Strona z listą PDF-ów jest statycznym HTML-em**, a linię i kierunek da się wziąć z HTML (alt obrazka `7o`, tekst kotwicy "Kierunek: ...").
+- **Kolejność stron = kolejność trasy** potwierdzona na obu kierunkach linii 7 (25 i 28 stron).
+
+### Otwarte
+
+1. **Współrzędne przystanków** (`match = 'missing'` dla wszystkich 126). Krok OSM z sekcji 5.4 niezrobiony.
+2. **Składanie kursów i GTFS** (`assemble`, `gtfs`), w tym semantyka flag `K`, `#`, `Ś`, `W`.
+3. **Podpis człowieka pod fixture** (`tests/fixtures/expected.json`, `human_signoff`).
+4. **Święto w sobotę = rozkład niedzielny** to założenie. Wigilia (24.12) nie jest w liście świąt; do potwierdzenia, czy MZK traktuje ją inaczej.
+5. **Wakacje szkolne** (`calendar_config.json`) puste, więc kolumna `weekday_holiday` jest w bazie, ale nie występuje w kalendarzu.
+6. **Zgoda na nową technologię:** `AGENTS.md` wymaga zgody Backend/Core Leada na nowe zależności. PoC nie dodaje pakietów npm ani NuGet, ale używa `poppler-utils` w obrazie i osobnego PostGIS w compose; warto potwierdzić.
+7. **Główny `.gitignore` ma nierozwiązane znaczniki konfliktu merge'a** (`<<<<<<< HEAD`, `=======`, `>>>>>>>` w liniach 1, 94, 107, 112, 231, 247). Poza zakresem tego zadania, ale do naprawienia.
