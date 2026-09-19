@@ -112,6 +112,7 @@ export function AttendanceView({
               type="button"
               disabled={!isAvailable || isSubmitting}
               aria-pressed={isSelected}
+              aria-label={`Select ${choice.label}`}
               onClick={() => onSelectMode(choice.mode)}
               className={`relative min-h-32 rounded-3xl p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-35 ${
                 isSelected

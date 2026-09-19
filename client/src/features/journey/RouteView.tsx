@@ -12,6 +12,7 @@ import {
   TriangleAlert,
 } from 'lucide-react'
 import { FlowBackButton } from '../../components/FlowBackButton'
+import { RouteMap } from '../../components/route/RouteMap'
 import {
   Alert,
   AlertDescription,
@@ -26,13 +27,21 @@ import type {
   JourneyOption,
   RouteResponse,
   RouteStep,
+  TransportMode,
 } from '../../types/contracts'
 
 export interface RouteViewProps {
   event: EventDetails
   route: RouteResponse
+  selectedMode: TransportMode
   onBack: () => void
   onContinue: () => void
+}
+
+function supportsRouteMap(
+  mode: TransportMode,
+): mode is Extract<TransportMode, 'Walking' | 'Bike' | 'Car'> {
+  return mode === 'Walking' || mode === 'Bike' || mode === 'Car'
 }
 
 const timeFormatter = new Intl.DateTimeFormat('en-GB', {
@@ -125,7 +134,13 @@ function JourneyTimes({ journey }: { journey: JourneyOption }) {
   )
 }
 
-export function RouteView({ event, route, onBack, onContinue }: RouteViewProps) {
+export function RouteView({
+  event,
+  route,
+  selectedMode,
+  onBack,
+  onContinue,
+}: RouteViewProps) {
   return (
     <section className="min-h-full w-full bg-background px-5 pb-6 pt-4 text-white">
       <header className="mb-7 flex items-center justify-between gap-3">
@@ -141,6 +156,14 @@ export function RouteView({ event, route, onBack, onContinue }: RouteViewProps) 
           {route.plannerSource}
         </Badge>
       </header>
+
+      {supportsRouteMap(selectedMode) && (
+        <RouteMap
+          key={`${event.id}-${selectedMode}`}
+          mode={selectedMode}
+          event={event}
+        />
+      )}
 
       <Card className="mb-4 p-5">
         <div className="mb-5 flex items-center justify-between">

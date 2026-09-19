@@ -99,6 +99,34 @@ button:not(:disabled), summary { cursor: pointer; }
   pointer-events: none;
 }
 
+.flowbb-map-popup .maplibregl-popup-content {
+  min-width: 150px;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  border-radius: 14px;
+  background: #171717;
+  padding: 12px 30px 12px 12px;
+  box-shadow: 0 14px 34px rgb(0 0 0 / 0.32);
+}
+
+.flowbb-map-popup .maplibregl-popup-tip {
+  border-top-color: #171717;
+  border-bottom-color: #171717;
+}
+
+.flowbb-map-popup .maplibregl-popup-close-button {
+  top: 3px;
+  right: 4px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  color: #d4d4d4;
+  font-size: 20px;
+}
+
+.flowbb-map-popup .maplibregl-popup-close-button:hover {
+  background: rgb(255 255 255 / 0.08);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: .01ms !important;

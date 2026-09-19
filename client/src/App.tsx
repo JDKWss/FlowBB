@@ -295,6 +295,7 @@ export default function App() {
       <RouteView
         event={eventQuery.data}
         route={routeQuery.data}
+        selectedMode={selectedMode}
         onBack={() => goBack('attendance')}
         onContinue={() => navigate('crew')}
       />

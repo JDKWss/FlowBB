@@ -11,9 +11,22 @@ await new Promise(resolve => socket.addEventListener('open', resolve, { once: tr
 let sequence = 0
 const pending = new Map()
 const errors = []
+const smokeMapStyle = Buffer.from(JSON.stringify({
+  version: 8,
+  sources: {},
+  layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#d4d4d4' } }],
+})).toString('base64')
 socket.addEventListener('message', ({ data }) => {
   const message = JSON.parse(data)
   if (message.method === 'Runtime.exceptionThrown') errors.push(message.params.exceptionDetails.text)
+  if (message.method === 'Fetch.requestPaused') {
+    void command('Fetch.fulfillRequest', {
+      requestId: message.params.requestId,
+      responseCode: 200,
+      responseHeaders: [{ name: 'Content-Type', value: 'application/json' }],
+      body: smokeMapStyle,
+    })
+  }
   const callback = pending.get(message.id)
   if (callback) { pending.delete(message.id); callback(message) }
 })
@@ -48,8 +61,11 @@ async function viewport(width) {
 }
 try {
   await command('Runtime.enable')
+  await command('Fetch.enable', {
+    patterns: [{ urlPattern: 'https://tiles.openfreemap.org/styles/liberty*', requestStage: 'Request' }],
+  })
   await viewport(390)
-  await command('Page.navigate', { url: appUrl })
+  await command('Page.navigate', { url: `${appUrl}?smoke=${Date.now()}` })
   await visibleText('Koncert na Rynku')
   const validation = await evaluate(`(async () => {
     const data = await import('/src/mocks/data.ts')
@@ -71,9 +87,15 @@ try {
   await visibleText('How can you get there?')
   assert.equal(await evaluate(`history.state?.screen`), 'details')
   await click('Plan my trip\nChoose how you\'ll get there')
+  await click('Select Walk')
   await click("I'm going")
   await visibleText('83 people')
   await click('See my route')
+  await visibleText('DEMO ROUTE')
+  await visibleText('Walking')
+  assert.equal(await evaluate(`Boolean(document.querySelector('[data-testid="route-map"]'))`), true)
+  await until(`Boolean(document.querySelector('[data-testid="route-start-marker"]'))`)
+  await until(`Boolean(document.querySelector('[data-testid="route-destination-marker"]'))`)
   await visibleText('18:12')
   await visibleText('21:44')
   await click('Find your crew')
@@ -101,6 +123,7 @@ try {
   await click("I'm going")
   await click('See my route')
   await visibleText('Limited return connection')
+  assert.equal(await evaluate(`Boolean(document.querySelector('[data-testid="route-map-section"]'))`), false)
   assert.deepEqual(errors, [])
   console.log('PASS: schemas, browser back/forward, attendance idempotency, route, return gap, join/leave/full crew, responsive widths, no runtime errors.')
 } finally {
