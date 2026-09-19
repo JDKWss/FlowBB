@@ -1,9 +1,10 @@
 using FluentAssertions;
 using FlowBB.Application.Abstractions.Persistence;
 using FlowBB.Application.Attendance.UpsertAttendance;
+using FlowBB.Application.Pulse;
+using FlowBB.Domain.Attendance;
 using FlowBB.Domain.Common;
 using Moq;
-using AttendanceIntent = FlowBB.Domain.Attendance.Attendance;
 
 namespace FlowBB.Application.Tests.Attendance;
 
@@ -18,7 +19,7 @@ public sealed class UpsertAttendanceHandlerTests
         var userId = Guid.NewGuid();
         using var cancellation = new CancellationTokenSource();
         AttendanceIntent? savedAttendance = null;
-        var modalSplit = ModalSplit(publicTransport: 49, walking: 18);
+        var modalSplit = CreateModalSplit(publicTransport: 49, walking: 18);
         var repository = new Mock<IAttendanceRepository>(MockBehavior.Strict);
         repository
             .Setup(x => x.UpsertAsync(It.IsAny<AttendanceIntent>(), cancellation.Token))
@@ -53,7 +54,7 @@ public sealed class UpsertAttendanceHandlerTests
             Guid.NewGuid(),
             Guid.NewGuid(),
             TransportMode.Walking);
-        var modalSplit = ModalSplit(publicTransport: 48, walking: 19);
+        var modalSplit = CreateModalSplit(publicTransport: 48, walking: 19);
         var repository = new Mock<IAttendanceRepository>();
         repository
             .SetupSequence(x => x.UpsertAsync(
@@ -88,11 +89,11 @@ public sealed class UpsertAttendanceHandlerTests
             .ReturnsAsync(new AttendanceUpsertPersistenceResult(
                 true,
                 83,
-                ModalSplit(publicTransport: 48, walking: 19)))
+                CreateModalSplit(publicTransport: 48, walking: 19)))
             .ReturnsAsync(new AttendanceUpsertPersistenceResult(
                 false,
                 83,
-                ModalSplit(publicTransport: 49, walking: 18)));
+                CreateModalSplit(publicTransport: 49, walking: 18)));
         var handler = CreateHandler(repository.Object);
 
         var initial = await handler.HandleAsync(
@@ -102,23 +103,34 @@ public sealed class UpsertAttendanceHandlerTests
 
         updated.IsNew.Should().BeFalse();
         updated.ParticipantsCount.Should().Be(initial.ParticipantsCount);
-        updated.ModalSplit[TransportMode.Walking].Should().Be(18);
-        updated.ModalSplit[TransportMode.PublicTransport].Should().Be(49);
+        updated.ModalSplit.Walking.Should().Be(18);
+        updated.ModalSplit.PublicTransport.Should().Be(49);
+    }
+
+    [Theory]
+    [InlineData(99)]
+    [InlineData(-1)]
+    public async Task HandleAsync_WithUndefinedTransportMode_ThrowsWithoutCallingRepository(int value)
+    {
+        var repository = new Mock<IAttendanceRepository>(MockBehavior.Strict);
+        var handler = CreateHandler(repository.Object);
+        var command = new UpsertAttendanceCommand(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            (TransportMode)value);
+
+        var action = () => handler.HandleAsync(command);
+
+        await action.Should().ThrowAsync<ArgumentOutOfRangeException>();
+        repository.VerifyNoOtherCalls();
     }
 
     private static UpsertAttendanceHandler CreateHandler(IAttendanceRepository repository) =>
         new(repository, new FixedTimeProvider(Now));
 
-    private static IReadOnlyDictionary<TransportMode, int> ModalSplit(
+    private static ModalSplit CreateModalSplit(
         int publicTransport,
-        int walking) => new Dictionary<TransportMode, int>
-        {
-            [TransportMode.PublicTransport] = publicTransport,
-            [TransportMode.Walking] = walking,
-            [TransportMode.Bike] = 6,
-            [TransportMode.Car] = 7,
-            [TransportMode.Unknown] = 3
-        };
+        int walking) => new(publicTransport, walking, Bike: 6, Car: 7, Unknown: 3);
 
     private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
     {

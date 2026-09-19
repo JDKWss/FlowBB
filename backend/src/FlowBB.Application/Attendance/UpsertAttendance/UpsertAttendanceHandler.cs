@@ -1,5 +1,5 @@
 using FlowBB.Application.Abstractions.Persistence;
-using AttendanceIntent = FlowBB.Domain.Attendance.Attendance;
+using FlowBB.Domain.Attendance;
 
 namespace FlowBB.Application.Attendance.UpsertAttendance;
 

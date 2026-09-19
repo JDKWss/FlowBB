@@ -1,5 +1,5 @@
-using FlowBB.Domain.Common;
-using AttendanceIntent = FlowBB.Domain.Attendance.Attendance;
+using FlowBB.Application.Pulse;
+using FlowBB.Domain.Attendance;
 
 namespace FlowBB.Application.Abstractions.Persistence;
 
@@ -18,9 +18,9 @@ public interface IAttendanceRepository
 public sealed record AttendanceUpsertPersistenceResult(
     bool IsNew,
     int ParticipantsCount,
-    IReadOnlyDictionary<TransportMode, int> ModalSplit);
+    ModalSplit ModalSplit);
 
 public sealed record AttendanceDeletePersistenceResult(
     bool WasDeleted,
     int ParticipantsCount,
-    IReadOnlyDictionary<TransportMode, int> ModalSplit);
+    ModalSplit ModalSplit);

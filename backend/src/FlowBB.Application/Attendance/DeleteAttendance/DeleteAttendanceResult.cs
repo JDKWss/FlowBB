@@ -1,4 +1,4 @@
-using FlowBB.Domain.Common;
+using FlowBB.Application.Pulse;
 
 namespace FlowBB.Application.Attendance.DeleteAttendance;
 
@@ -7,5 +7,5 @@ public sealed record DeleteAttendanceResult(
     Guid UserId,
     bool WasDeleted,
     int ParticipantsCount,
-    IReadOnlyDictionary<TransportMode, int> ModalSplit,
+    ModalSplit ModalSplit,
     DateTimeOffset ChangedAt);

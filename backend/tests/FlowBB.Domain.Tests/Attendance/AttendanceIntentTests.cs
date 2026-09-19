@@ -1,10 +1,10 @@
 using FluentAssertions;
+using FlowBB.Domain.Attendance;
 using FlowBB.Domain.Common;
-using AttendanceIntent = FlowBB.Domain.Attendance.Attendance;
 
 namespace FlowBB.Domain.Tests.Attendance;
 
-public sealed class AttendanceTests
+public sealed class AttendanceIntentTests
 {
     [Fact]
     public void Constructor_WithValidValues_CreatesAttendanceAndNormalizesTimeToUtc()
@@ -51,5 +51,23 @@ public sealed class AttendanceTests
         action.Should()
             .Throw<ArgumentException>()
             .WithParameterName("userId");
+    }
+
+    [Theory]
+    [InlineData(99)]
+    [InlineData(-1)]
+    public void Constructor_WithUndefinedTransportMode_ThrowsArgumentOutOfRangeException(int value)
+    {
+        var transportMode = (TransportMode)value;
+
+        var action = () => new AttendanceIntent(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            transportMode,
+            DateTimeOffset.UtcNow);
+
+        action.Should()
+            .Throw<ArgumentOutOfRangeException>()
+            .WithParameterName("transportMode");
     }
 }

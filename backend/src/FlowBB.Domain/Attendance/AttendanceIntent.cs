@@ -2,9 +2,9 @@ using FlowBB.Domain.Common;
 
 namespace FlowBB.Domain.Attendance;
 
-public sealed record Attendance
+public sealed record AttendanceIntent
 {
-    public Attendance(
+    public AttendanceIntent(
         Guid eventId,
         Guid userId,
         TransportMode transportMode,
@@ -18,6 +18,14 @@ public sealed record Attendance
         if (userId == Guid.Empty)
         {
             throw new ArgumentException("User id cannot be empty.", nameof(userId));
+        }
+
+        if (!Enum.IsDefined(transportMode))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(transportMode),
+                transportMode,
+                "Transport mode is not supported.");
         }
 
         EventId = eventId;

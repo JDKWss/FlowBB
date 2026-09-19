@@ -1,3 +1,4 @@
+using FlowBB.Application.Pulse;
 using FlowBB.Domain.Common;
 
 namespace FlowBB.Application.Attendance.UpsertAttendance;
@@ -9,4 +10,4 @@ public sealed record UpsertAttendanceResult(
     int ParticipantsCount,
     bool IsNew,
     DateTimeOffset UpdatedAt,
-    IReadOnlyDictionary<TransportMode, int> ModalSplit);
+    ModalSplit ModalSplit);
