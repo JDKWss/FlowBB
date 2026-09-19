@@ -25,7 +25,7 @@ Wlasciciele: **Data/Neo4j** (schemat, constraints, seed, Cypher, adaptery), **Co
 | `Name` | string | tak | jest | |
 | `DefaultOriginLatitude` | float | tak | jest | domyslny punkt rozpoczecia podrozy, `[-90, 90]` |
 | `DefaultOriginLongitude` | float | tak | jest | domyslny punkt rozpoczecia podrozy, `[-180, 180]` |
-| `Email`, `PasswordHash` | string | dla logowania | sa | na zlecenie Data/Neo4j dodano weryfikacje email/haslo w repozytorium; hash ASP.NET Core Identity, nigdy czyste haslo. Nie zwracac hasha przez API. |
+| `Email`, `PasswordHash` | string | nie | sa | pozostalosc po wczesniejszym modelu. Logowanie jest poza zakresem MVP; pola nie moga byc uzywane do uwierzytelniania ani zwracane przez API. |
 
 Dokladny punkt startowy jest danymi wewnetrznymi i nie moze byc zwracany przez publiczne API.
 
@@ -91,10 +91,6 @@ Reguly:
 | `(Event)-[:HOSTED_AT]->(Venue)` | jest | wymagana dla P0 |
 | `(Crew)-[:FOR_EVENT]->(Event)`, `(User)-[:MEMBER_OF]->(Crew)` | jest | mikrogrupy powiazane z wydarzeniem |
 | `IS_INTERESTED_IN`, `FRIENDS_WITH`, `FOLLOWS`, `LIKES_TAG`, `HAS_TAG`, `MANAGES` | sa w kodzie i seedzie | poza P0; nie rozwijac przed zamknieciem scenariusza demo |
-| `(User)-[:IS_ORGANIZATION_MEMBER]->(BusinessOwner)` | jest w repozytorium | czlonkostwo nadawane przez zaufany serwis; uprawnia do publikacji w lokalach organizacji |
-| `(BusinessOwner)-[:CREATED_EVENT]->(Event)` | jest w repozytorium | autor wydarzenia utworzonego przez `CreateEventForBusinessOwnerAsync` |
-
-Rozszerzenia zamowione przez Data/Neo4j (rekomendacje, punkt startowy, weryfikacja hasla, publikacja B2B) i ich granice bezpieczenstwa opisuje [instrukcja repozytorium](NEO4J_REPOSITORY.md). Nie zmieniaja kontraktu HTTP ani nie dodaja endpointow.
 
 ## Constraints i indeksy
 
