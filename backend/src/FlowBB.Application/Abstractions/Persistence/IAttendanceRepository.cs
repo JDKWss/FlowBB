@@ -5,7 +5,8 @@ namespace FlowBB.Application.Abstractions.Persistence;
 
 public interface IAttendanceRepository
 {
-    Task<AttendanceUpsertPersistenceResult> UpsertAsync(
+    /// <returns>Wynik zapisu albo <c>null</c>, gdy wydarzenie lub uzytkownik nie istnieje (nic nie zapisano).</returns>
+    Task<AttendanceUpsertPersistenceResult?> UpsertAsync(
         AttendanceIntent attendance,
         CancellationToken cancellationToken = default);
 
