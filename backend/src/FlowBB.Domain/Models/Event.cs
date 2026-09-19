@@ -1,8 +1,9 @@
 namespace FlowBB.Domain.Models;
 
 public sealed record Event(
-    string EventId,
-    string Title,
+    Guid EventId,
+    string Name,
     string Description,
     string EventUrl,
-    DateTimeOffset DateTime);
+    DateTimeOffset StartAt,
+    DateTimeOffset? EndAt);
