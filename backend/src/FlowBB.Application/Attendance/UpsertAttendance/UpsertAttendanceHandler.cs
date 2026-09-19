@@ -19,7 +19,8 @@ public sealed class UpsertAttendanceHandler
         _timeProvider = timeProvider;
     }
 
-    public async Task<UpsertAttendanceResult> HandleAsync(
+    /// <returns>Wynik zapisu albo <c>null</c>, gdy wydarzenie lub uzytkownik nie istnieje.</returns>
+    public async Task<UpsertAttendanceResult?> HandleAsync(
         UpsertAttendanceCommand command,
         CancellationToken cancellationToken = default)
     {
@@ -32,6 +33,10 @@ public sealed class UpsertAttendanceHandler
             _timeProvider.GetUtcNow());
 
         var persisted = await _repository.UpsertAsync(attendance, cancellationToken);
+        if (persisted is null)
+        {
+            return null;
+        }
 
         return new UpsertAttendanceResult(
             attendance.EventId,
