@@ -60,12 +60,14 @@ Przeczytaj AGENTS.md i contracts/. Potwierdz granice roli @nazwa-roli. Nie edytu
 
 ## 5. Pierwsze przypisania
 
-1. Kuba + `@core-backend`: minimalne API Attendance i `PulseUpdated`.
-2. Drugi programista C# + `@integration-backend`: Docker Compose, health check i `DemoRoutePlanner`.
+1. Core Backend Owner (Kuba) + `@core-backend` i `@integration-backend`: integracja backendu i `Program.cs`, Attendance (po Events), SignalR i `PulseUpdated`, PULSE API, routing i `DemoRoutePlanner`, Docker Compose calej aplikacji.
+2. Backend Events + `@events-backend`: endpointy Events i `IEventLookup`.
 3. Frontend Lead + `@frontend`: dwa projekty React + Vite + TypeScript - `/client` z przeplywem Events -> Event -> Ide -> Route -> Crew oraz `/dashboard` z klientem SignalR.
-4. Data Lead + `@data`: PostGIS, pierwsza migracja i seed wystarczajacy do widocznych heksagonow.
+4. Data/Neo4j Owner + `@data`: schemat i seed Neo4j (pola Events i Attendance z `docs/NEO4J_CONTRACT.md`), gesty seed punktow startowych wystarczajacy do widocznych heksagonow oraz przygotowanie i konsultacje czesci Docker Compose dotyczacej Neo4j (do calego Compose wlacza ja Core Backend Owner).
 
-Pierwsza wspolna bramka: przegladarka `/client` -> API -> PostgreSQL -> SignalR -> dashboard.
+Pierwsza wspolna bramka: przegladarka `/client` -> API -> Neo4j -> SignalR -> dashboard.
+
+Baza runtime to Neo4j ([ADR 001](docs/adr/001-runtime-persistence.md)); PostgreSQL/PostGIS w `data/gtfs/mzk/` to odseparowany PoC. Kolejnosc prac i bramki: [docs/MVP_WORK_PLAN.md](docs/MVP_WORK_PLAN.md).
 
 ## 6. Bezpieczna praca rownolegla
 

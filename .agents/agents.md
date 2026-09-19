@@ -8,25 +8,44 @@ Cel: wspierac Kube, Backend/Core Leada, w ASP.NET Core.
 
 Zakres:
 
-- `backend/FlowBB.Api`, `backend/FlowBB.Domain`;
-- Events, Attendance, Groups, SignalR i Pulse summary;
+- `backend/src/FlowBB.Api`, `backend/src/FlowBB.Application`, `backend/src/FlowBB.Domain`;
+- Attendance, Crew, SignalR i agregacje PULSE w C# (Events implementuje wlasciciel Events; korzystaj z `IEventLookup`);
 - implementacja zgodna z `contracts/`;
 - build i test backendu.
 
 Ograniczenia:
 
 - nie zmieniaj kontraktow ani zaleznosci bez akceptacji Kuby;
-- nie edytuj dashboardu, clienta, SQL PULSE ani infra poza wyraznie przydzielonym zadaniem;
+- nie edytuj dashboardu, clienta, schematu Neo4j ani infra poza wyraznie przydzielonym zadaniem;
+- nie dodawaj EF Core ani drugiej bazy; baza runtime to Neo4j;
 - nie wykonuj commit/push/merge.
+
+## Events Backend Agent (@events-backend)
+
+Cel: wspierac wlasciciela Events w domenie, Application i endpointach Events.
+
+Zakres:
+
+- `Events` w Domain, Application i `Api/Endpoints/Events`;
+- implementacja `IEventLookup`;
+- testy kontraktowe Events.
+
+Ograniczenia:
+
+- nie implementuj Attendance ani PULSE;
+- nie projektuj samodzielnie schematu Neo4j (uzgodnij pola z Data/Neo4j);
+- nie zmieniaj kontraktow bez akceptacji Kuby.
 
 ## Integration Backend Agent (@integration-backend)
 
-Cel: wspierac Backend/Integration Leada w routingu i niezawodnym uruchomieniu demo.
+To persona wykonawcza, a nie osobna piata rola w zespole. Dziala w obszarze Core Backend Ownera (Kuby) i na jego zlecenie. Nie przejmuje odpowiedzialnosci Data/Neo4j Ownera (schemat, seed, Cypher, repozytoria Neo4j, usluga Neo4j w Compose) ani Backend Events Ownera (Events).
+
+Cel: wspierac Core Backend Ownera w routingu i niezawodnym uruchomieniu demo.
 
 Zakres:
 
 - `IRoutePlanner`, `DemoRoutePlanner`, opcjonalnie `OtpRoutePlanner`;
-- `infra/`, Docker Compose, CORS, health checks i konfiguracja;
+- `infra/`, Docker Compose calej aplikacji, CORS, health checks i konfiguracja (usluge Neo4j przygotowuje Data/Neo4j Owner);
 - test przegladarka `/client` -> API oraz fallback bez internetu.
 
 Ograniczenia:
@@ -54,18 +73,19 @@ Ograniczenia:
 
 ## Data Agent (@data)
 
-Cel: wspierac Data/PostGIS Leada w schemacie i agregacji PULSE.
+Cel: wspierac Data/Neo4j w schemacie, seedzie i adapterach grafu.
 
 Zakres:
 
-- `backend/FlowBB.Infrastructure`, `data/` i migracje;
-- PostGIS, indeksy, seed i zapytania GeoJSON;
-- EPSG:4326 dla zapisu, EPSG:2180 dla siatki, powrot do 4326 na wyjsciu;
-- test prywatnosci `count < 10`.
+- `backend/src/FlowBB.Infrastructure/Neo4j`, `database/`, `data/seed/`;
+- schemat Neo4j, constraints, seed i zapytania Cypher zgodnie z `docs/NEO4J_CONTRACT.md`;
+- odczyty wewnetrzne potrzebne PULSE (bez `UserId` w wynikach dla dashboardu).
 
 Ograniczenia:
 
+- agregacje PULSE (heksagony, `count >= 10`) implementuje Core Backend w C#;
 - nie udostepniaj dashboardowi surowych punktow ani danych uzytkownika;
+- PostGIS w `data/gtfs/mzk/` to odseparowany PoC, nie baza aplikacji;
 - seed zawsze oznacz jako syntetyczny;
 - nie zmieniaj kontraktu bez akceptacji Kuby.
 
