@@ -38,4 +38,26 @@ public interface IFlowBbGraphRepository
     Task UnfollowVenueAsync(Guid userId, string venueId);
     Task UnlikeTagAsync(Guid userId, string tagId);
     Task RemoveUserFromCrewAsync(Guid userId, Guid crewId);
+
+    Task<IReadOnlyList<EventRecommendation>> GetRecommendedEventsAsync(Guid userId, int limit = 5);
+    Task<IReadOnlyList<CrewRecommendation>> GetRecommendedCrewsAsync(Guid userId, int limit = 5);
+    Task<IReadOnlyList<PersonRecommendation>> GetPeopleYouMayKnowAsync(Guid userId, int limit = 10);
+    Task<IReadOnlyList<Tag>> GetEventTagsAsync(Guid eventId);
+    Task<bool> SetDefaultOriginAsync(Guid userId, double latitude, double longitude);
+
+    /// <summary>Login is the user's email. Does not issue tokens or authorize requests.</summary>
+    Task<bool> VerifyLoginAsync(string email, string password);
+    /// <summary>Trusted service operation: caller must authorize the password change or reset.</summary>
+    Task<bool> SetUserPasswordAsync(Guid userId, string password);
+
+    /// <summary>Trusted administration operation. Never expose as unauthenticated self-enrollment.</summary>
+    Task AddOrganizationMemberAsync(Guid userId, string ownerId);
+    Task RemoveOrganizationMemberAsync(Guid userId, string ownerId);
+    Task<bool> IsOrganizationMemberAsync(Guid userId, string ownerId);
+    Task<IReadOnlyList<Venue>> GetManagedVenuesAsync(Guid userId);
+    /// <summary>
+    /// Actor must come from the authenticated principal. Returns false if actor is not a member
+    /// or organization does not manage the venue. Existing EventId causes a constraint error.
+    /// </summary>
+    Task<bool> CreateEventForBusinessOwnerAsync(Guid actorUserId, string ownerId, string venueId, Event @event);
 }

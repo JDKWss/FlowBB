@@ -103,4 +103,29 @@ public sealed partial class Neo4jFlowBbGraphRepository : IFlowBbGraphRepository,
             throw new InvalidOperationException(missingNodesMessage);
         }
     }
+
+    private async Task<IReadOnlyList<T>> ExecuteListAsync<T>(
+        string query, object parameters, Func<IRecord, T> map)
+    {
+        var result = await driver.ExecutableQuery(query)
+            .WithParameters(parameters)
+            .WithConfig(new QueryConfig(database: database, routing: RoutingControl.Readers))
+            .ExecuteAsync();
+        return result.Result.Select(map).ToArray();
+    }
+
+    private async Task<bool> ExecuteBooleanAsync(string query, object parameters)
+    {
+        var result = await driver.ExecutableQuery(query)
+            .WithParameters(parameters)
+            .WithConfig(new QueryConfig(database: database))
+            .ExecuteAsync();
+        return result.Result.Single().Get<bool>("Success");
+    }
+
+    private static void ValidateLimit(int limit)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(limit, 100);
+    }
 }
