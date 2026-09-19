@@ -1,0 +1,1002 @@
+openapi: 3.0.3
+
+info:
+  title: FlowBB API
+  version: 0.1.0
+  description: |
+    Kontrakt API dla prototypu FlowBB tworzonego na HackBB 2026.
+
+    System laczy trzy moduly:
+    - FLOW - wydarzenia, deklaracja uczestnictwa i plan dojazdu,
+    - CREW - mikrogrupy wokol wydarzen,
+    - PULSE - zagregowane dane popytu dla miasta.
+
+    MVP nie ma pelnego uwierzytelniania. `userId` wskazuje jednego z
+    seedowanych uzytkownikow demonstracyjnych.
+
+servers:
+  - url: http://localhost:5000
+    description: Lokalne API podczas developmentu i prezentacji
+
+tags:
+  - name: Health
+    description: Kontrola gotowosci API
+  - name: Events
+    description: Wydarzenia dostepne dla mieszkanca
+  - name: Attendance
+    description: Deklaracje uczestnictwa i preferencje transportowe
+  - name: Groups
+    description: Mikrogrupy CREW
+  - name: Routing
+    description: Trasy z IRoutePlanner
+  - name: Pulse
+    description: Zagregowane dane dla panelu miasta
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Sprawdza gotowosc API
+      operationId: getHealth
+      responses:
+        "200":
+          description: API dziala
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /api/events:
+    get:
+      tags: [Events]
+      summary: Zwraca liste wydarzen
+      operationId: getEvents
+      parameters:
+        - name: from
+          in: query
+          required: false
+          description: Początek opcjonalnego zakresu czasu
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          description: Koniec opcjonalnego zakresu czasu
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Lista wydarzen
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EventSummary"
+              examples:
+                demo:
+                  value:
+                    - id: "11111111-1111-1111-1111-111111111111"
+                      name: "Koncert na Rynku"
+                      description: "Wieczorny koncert w centrum Bielska-Bialej."
+                      startAt: "2026-09-19T19:00:00+02:00"
+                      endAt: "2026-09-19T21:30:00+02:00"
+                      venueName: "Rynek w Bielsku-Bialej"
+                      category: Culture
+                      location:
+                        latitude: 49.82245
+                        longitude: 19.04431
+                      participantsCount: 82
+                      source: Demo
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/events/{eventId}:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+    get:
+      tags: [Events]
+      summary: Zwraca szczegoly wydarzenia
+      operationId: getEventById
+      responses:
+        "200":
+          description: Szczegoly wydarzenia
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventDetails"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/events/{eventId}/attendance:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+    post:
+      tags: [Attendance]
+      summary: Deklaruje uczestnictwo w wydarzeniu
+      description: |
+        Operacja jest idempotentna dla pary `userId-eventId`.
+        Pierwsze wywolanie tworzy `AttendanceIntent`. Powtorzenie aktualizuje
+        preferencje transportowa, ale nie zwieksza ponownie licznika.
+
+        Po zapisie backend publikuje komunikat SignalR `PulseUpdated`.
+      operationId: upsertAttendance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttendanceUpsertRequest"
+            examples:
+              publicTransport:
+                value:
+                  userId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+                  transportMode: PublicTransport
+      responses:
+        "200":
+          description: Deklaracja zapisana lub zaktualizowana
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceResponse"
+              examples:
+                joined:
+                  value:
+                    eventId: "11111111-1111-1111-1111-111111111111"
+                    userId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+                    transportMode: PublicTransport
+                    participantsCount: 83
+                    isNew: true
+                    updatedAt: "2026-09-19T17:20:00Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/events/{eventId}/attendance/{userId}:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+      - $ref: "#/components/parameters/UserId"
+    delete:
+      tags: [Attendance]
+      summary: Usuwa deklaracje uczestnictwa
+      description: |
+        Operacja jest idempotentna. Brak deklaracji nie powoduje bledu.
+        Po zmianie backend publikuje `PulseUpdated`.
+      operationId: deleteAttendance
+      responses:
+        "204":
+          description: Deklaracja nie istnieje po zakonczeniu operacji
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/events/{eventId}/groups:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+    get:
+      tags: [Groups]
+      summary: Zwraca mikrogrupy wydarzenia
+      operationId: getEventGroups
+      parameters:
+        - name: userId
+          in: query
+          required: false
+          description: Pozwala oznaczyc grupe, do ktorej dolaczyl uzytkownik
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Lista grup CREW
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GroupSummary"
+              examples:
+                demo:
+                  value:
+                    - id: "22222222-2222-2222-2222-222222222222"
+                      eventId: "11111111-1111-1111-1111-111111111111"
+                      name: "Nowi w Bielsku"
+                      description: "Mikrogrupa dla osob, ktore chca poznac miasto."
+                      currentMembers: 4
+                      maxMembers: 6
+                      tags: ["nowi-w-miescie", "muzyka"]
+                      meetingPoint:
+                        name: "Plac Chrobrego"
+                        latitude: 49.82205
+                        longitude: 19.04318
+                      joinedByCurrentUser: false
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/groups/{groupId}/members:
+    parameters:
+      - $ref: "#/components/parameters/GroupId"
+    post:
+      tags: [Groups]
+      summary: Dolacza uzytkownika do mikrogrupy
+      description: Operacja jest idempotentna dla pary `userId-groupId`.
+      operationId: joinGroup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GroupMembershipRequest"
+            example:
+              userId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+      responses:
+        "200":
+          description: Aktualny stan grupy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroupSummary"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Grupa jest pelna albo uzytkownik nalezy do innej wykluczajacej grupy
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/groups/{groupId}/members/{userId}:
+    parameters:
+      - $ref: "#/components/parameters/GroupId"
+      - $ref: "#/components/parameters/UserId"
+    delete:
+      tags: [Groups]
+      summary: Usuwa uzytkownika z mikrogrupy
+      description: Operacja jest idempotentna.
+      operationId: leaveGroup
+      responses:
+        "204":
+          description: Uzytkownik nie nalezy do grupy po zakonczeniu operacji
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/events/{eventId}/route:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+    get:
+      tags: [Routing]
+      summary: Zwraca proponowana trase na wydarzenie i powrot
+      description: |
+        Trasa zawsze jest pobierana przez `IRoutePlanner`. API zwraca
+        `plannerSource: Demo`, gdy OTP nie jest dostepny.
+      operationId: getEventRoute
+      parameters:
+        - $ref: "#/components/parameters/RequiredUserIdQuery"
+      responses:
+        "200":
+          description: Plan podrozy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RouteResponse"
+              examples:
+                demo:
+                  value:
+                    eventId: "11111111-1111-1111-1111-111111111111"
+                    userId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+                    plannerSource: Demo
+                    outbound:
+                      durationMinutes: 37
+                      departureAt: "2026-09-19T18:12:00+02:00"
+                      arrivalAt: "2026-09-19T18:49:00+02:00"
+                      steps:
+                        - type: Walk
+                          instruction: "Idz 6 minut do przystanku."
+                          durationMinutes: 6
+                        - type: Transit
+                          instruction: "Wsiadz do autobusu linii 7."
+                          durationMinutes: 19
+                          line: "7"
+                        - type: Walk
+                          instruction: "Idz 4 minuty na Rynek."
+                          durationMinutes: 4
+                    returns:
+                      - durationMinutes: 34
+                        departureAt: "2026-09-19T21:44:00+02:00"
+                        arrivalAt: "2026-09-19T22:18:00+02:00"
+                        steps:
+                          - type: Transit
+                            instruction: "Autobus linii 7."
+                            durationMinutes: 26
+                            line: "7"
+                    returnGap: false
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/pulse/summary:
+    get:
+      tags: [Pulse]
+      summary: Zwraca ogolne KPI panelu PULSE
+      operationId: getPulseSummary
+      responses:
+        "200":
+          description: Zagregowane KPI wszystkich wydarzen
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PulseSummary"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/pulse/events/{eventId}:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+    get:
+      tags: [Pulse]
+      summary: Zwraca KPI i alerty wybranego wydarzenia
+      operationId: getEventPulse
+      responses:
+        "200":
+          description: PULSE wydarzenia
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventPulseResponse"
+              example:
+                eventId: "11111111-1111-1111-1111-111111111111"
+                eventName: "Koncert na Rynku"
+                generatedAt: "2026-09-19T17:20:00Z"
+                participantsCount: 83
+                modalSplit:
+                  publicTransport: 49
+                  walking: 18
+                  bike: 6
+                  car: 7
+                  unknown: 3
+                participantsWithoutReturn: 21
+                alerts:
+                  - code: ReturnGap
+                    severity: Warning
+                    message: "21 osob nie ma dogodnego powrotu po 22:00."
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/pulse/hexagons:
+    get:
+      tags: [Pulse]
+      summary: Zwraca zagregowane heksagony popytu jako GeoJSON
+      description: |
+        Backend zwraca tylko komorki z `participants >= 10`.
+        Dashboard nigdy nie otrzymuje surowych lokalizacji ani identyfikatorow
+        uzytkownikow. Geometria wyjsciowa korzysta z EPSG:4326.
+      operationId: getPulseHexagons
+      parameters:
+        - name: eventId
+          in: query
+          required: true
+          description: Id wydarzenia
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: GeoJSON FeatureCollection z heksagonami
+          content:
+            application/geo+json:
+              schema:
+                $ref: "#/components/schemas/HexagonFeatureCollection"
+              example:
+                type: FeatureCollection
+                features:
+                  - type: Feature
+                    id: "hex-2180-001"
+                    geometry:
+                      type: Polygon
+                      coordinates:
+                        - - [19.0200, 49.8150]
+                          - [19.0300, 49.8150]
+                          - [19.0350, 49.8220]
+                          - [19.0300, 49.8290]
+                          - [19.0200, 49.8290]
+                          - [19.0150, 49.8220]
+                          - [19.0200, 49.8150]
+                    properties:
+                      participants: 37
+                      publicTransport: 23
+                      walking: 8
+                      bike: 2
+                      car: 4
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+components:
+  parameters:
+    EventId:
+      name: eventId
+      in: path
+      required: true
+      description: Id wydarzenia
+      schema:
+        type: string
+        format: uuid
+
+    GroupId:
+      name: groupId
+      in: path
+      required: true
+      description: Id mikrogrupy
+      schema:
+        type: string
+        format: uuid
+
+    UserId:
+      name: userId
+      in: path
+      required: true
+      description: Id seedowanego uzytkownika
+      schema:
+        type: string
+        format: uuid
+
+    RequiredUserIdQuery:
+      name: userId
+      in: query
+      required: true
+      description: Id seedowanego uzytkownika
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    BadRequest:
+      description: Nieprawidlowe dane wejsciowe
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+
+    NotFound:
+      description: Zasob nie istnieje
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+
+    InternalServerError:
+      description: Nieoczekiwany blad serwera
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+
+  schemas:
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [status, timestamp]
+      properties:
+        status:
+          type: string
+          enum: [Healthy]
+        timestamp:
+          type: string
+          format: date-time
+
+    GeoPoint:
+      type: object
+      required: [latitude, longitude]
+      properties:
+        latitude:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+
+    MeetingPoint:
+      allOf:
+        - $ref: "#/components/schemas/GeoPoint"
+        - type: object
+          required: [name]
+          properties:
+            name:
+              type: string
+              minLength: 1
+              maxLength: 120
+
+    EventSummary:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - startAt
+        - venueName
+        - category
+        - location
+        - participantsCount
+        - source
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        description:
+          type: string
+          maxLength: 1000
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+          nullable: true
+        venueName:
+          type: string
+          minLength: 1
+          maxLength: 160
+        category:
+          $ref: "#/components/schemas/EventCategory"
+        location:
+          $ref: "#/components/schemas/GeoPoint"
+        participantsCount:
+          type: integer
+          minimum: 0
+        source:
+          type: string
+          enum: [Demo, City, External]
+
+    EventDetails:
+      allOf:
+        - $ref: "#/components/schemas/EventSummary"
+        - type: object
+          required: [crewAvailable, availableTransportModes]
+          properties:
+            externalId:
+              type: string
+              nullable: true
+            crewAvailable:
+              type: boolean
+            availableTransportModes:
+              type: array
+              uniqueItems: true
+              items:
+                $ref: "#/components/schemas/TransportMode"
+
+    EventCategory:
+      type: string
+      enum:
+        - Culture
+        - Sport
+        - Education
+        - Community
+        - Other
+
+    TransportMode:
+      type: string
+      enum:
+        - Walking
+        - PublicTransport
+        - Bike
+        - Car
+        - Unknown
+
+    AttendanceUpsertRequest:
+      type: object
+      additionalProperties: false
+      required: [userId, transportMode]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        transportMode:
+          $ref: "#/components/schemas/TransportMode"
+
+    AttendanceResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - eventId
+        - userId
+        - transportMode
+        - participantsCount
+        - isNew
+        - updatedAt
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        transportMode:
+          $ref: "#/components/schemas/TransportMode"
+        participantsCount:
+          type: integer
+          minimum: 0
+        isNew:
+          type: boolean
+          description: True tylko, gdy utworzono nowa deklaracje
+        updatedAt:
+          type: string
+          format: date-time
+
+    GroupMembershipRequest:
+      type: object
+      additionalProperties: false
+      required: [userId]
+      properties:
+        userId:
+          type: string
+          format: uuid
+
+    GroupSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - eventId
+        - name
+        - description
+        - currentMembers
+        - maxMembers
+        - tags
+        - meetingPoint
+        - joinedByCurrentUser
+      properties:
+        id:
+          type: string
+          format: uuid
+        eventId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        currentMembers:
+          type: integer
+          minimum: 0
+        maxMembers:
+          type: integer
+          minimum: 2
+          maximum: 12
+        tags:
+          type: array
+          uniqueItems: true
+          maxItems: 10
+          items:
+            type: string
+            maxLength: 40
+        meetingPoint:
+          $ref: "#/components/schemas/MeetingPoint"
+        joinedByCurrentUser:
+          type: boolean
+
+    PlannerSource:
+      type: string
+      enum: [Demo, OpenTripPlanner]
+
+    RouteStepType:
+      type: string
+      enum: [Walk, Transit, Bike, Car, Wait]
+
+    RouteStep:
+      type: object
+      additionalProperties: false
+      required: [type, instruction, durationMinutes]
+      properties:
+        type:
+          $ref: "#/components/schemas/RouteStepType"
+        instruction:
+          type: string
+          maxLength: 300
+        durationMinutes:
+          type: integer
+          minimum: 0
+        line:
+          type: string
+          nullable: true
+          maxLength: 40
+
+    JourneyOption:
+      type: object
+      additionalProperties: false
+      required: [durationMinutes, departureAt, arrivalAt, steps]
+      properties:
+        durationMinutes:
+          type: integer
+          minimum: 0
+        departureAt:
+          type: string
+          format: date-time
+        arrivalAt:
+          type: string
+          format: date-time
+        steps:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/RouteStep"
+
+    RouteResponse:
+      type: object
+      additionalProperties: false
+      required: [eventId, userId, plannerSource, outbound, returns, returnGap]
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        plannerSource:
+          $ref: "#/components/schemas/PlannerSource"
+        outbound:
+          $ref: "#/components/schemas/JourneyOption"
+        returns:
+          type: array
+          items:
+            $ref: "#/components/schemas/JourneyOption"
+        returnGap:
+          type: boolean
+          description: True, gdy po wydarzeniu nie ma dogodnego powrotu
+
+    ModalSplit:
+      type: object
+      additionalProperties: false
+      required: [publicTransport, walking, bike, car, unknown]
+      properties:
+        publicTransport:
+          type: integer
+          minimum: 0
+        walking:
+          type: integer
+          minimum: 0
+        bike:
+          type: integer
+          minimum: 0
+        car:
+          type: integer
+          minimum: 0
+        unknown:
+          type: integer
+          minimum: 0
+
+    PulseSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - generatedAt
+        - eventsCount
+        - participantsCount
+        - modalSplit
+        - participantsWithoutReturn
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        eventsCount:
+          type: integer
+          minimum: 0
+        participantsCount:
+          type: integer
+          minimum: 0
+        modalSplit:
+          $ref: "#/components/schemas/ModalSplit"
+        participantsWithoutReturn:
+          type: integer
+          minimum: 0
+
+    PulseAlert:
+      type: object
+      additionalProperties: false
+      required: [code, severity, message]
+      properties:
+        code:
+          type: string
+          enum: [ReturnGap, HighDemand, LowCoverage]
+        severity:
+          type: string
+          enum: [Info, Warning, Critical]
+        message:
+          type: string
+          maxLength: 300
+
+    EventPulseResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - eventId
+        - eventName
+        - generatedAt
+        - participantsCount
+        - modalSplit
+        - participantsWithoutReturn
+        - alerts
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        eventName:
+          type: string
+        generatedAt:
+          type: string
+          format: date-time
+        participantsCount:
+          type: integer
+          minimum: 0
+        modalSplit:
+          $ref: "#/components/schemas/ModalSplit"
+        participantsWithoutReturn:
+          type: integer
+          minimum: 0
+        alerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/PulseAlert"
+
+    HexagonProperties:
+      type: object
+      additionalProperties: false
+      required: [participants, publicTransport, walking, bike, car]
+      properties:
+        participants:
+          type: integer
+          minimum: 10
+        publicTransport:
+          type: integer
+          minimum: 0
+        walking:
+          type: integer
+          minimum: 0
+        bike:
+          type: integer
+          minimum: 0
+        car:
+          type: integer
+          minimum: 0
+
+    PolygonGeometry:
+      type: object
+      additionalProperties: false
+      required: [type, coordinates]
+      properties:
+        type:
+          type: string
+          enum: [Polygon]
+        coordinates:
+          type: array
+          description: Tablica pierscieni GeoJSON; wspolrzedne maja kolejnosc longitude, latitude
+          minItems: 1
+          items:
+            type: array
+            minItems: 4
+            items:
+              type: array
+              minItems: 2
+              maxItems: 2
+              items:
+                type: number
+                format: double
+
+    HexagonFeature:
+      type: object
+      additionalProperties: false
+      required: [type, id, geometry, properties]
+      properties:
+        type:
+          type: string
+          enum: [Feature]
+        id:
+          type: string
+        geometry:
+          $ref: "#/components/schemas/PolygonGeometry"
+        properties:
+          $ref: "#/components/schemas/HexagonProperties"
+
+    HexagonFeatureCollection:
+      type: object
+      additionalProperties: false
+      required: [type, features]
+      properties:
+        type:
+          type: string
+          enum: [FeatureCollection]
+        features:
+          type: array
+          items:
+            $ref: "#/components/schemas/HexagonFeature"
+
+    PulseUpdatedMessage:
+      type: object
+      additionalProperties: false
+      required: [eventId, participantsCount, modalSplit, participantsWithoutReturn, changedAt]
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        participantsCount:
+          type: integer
+          minimum: 0
+        modalSplit:
+          $ref: "#/components/schemas/ModalSplit"
+        participantsWithoutReturn:
+          type: integer
+          minimum: 0
+        changedAt:
+          type: string
+          format: date-time
+
+    ProblemDetails:
+      type: object
+      description: Odpowiedz zgodna z RFC 7807 / ASP.NET Core ProblemDetails
+      additionalProperties: true
+      required: [title, status]
+      properties:
+        type:
+          type: string
+          format: uri
+          nullable: true
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        detail:
+          type: string
+          nullable: true
+        instance:
+          type: string
+          nullable: true
+        traceId:
+          type: string
+          nullable: true
+
+x-signalr:
+  hub: /hubs/pulse
+  clientEvents:
+    PulseUpdated:
+      description: Publikowane po dodaniu, aktualizacji lub usunieciu AttendanceIntent
+      payloadSchema:
+        $ref: "#/components/schemas/PulseUpdatedMessage"
