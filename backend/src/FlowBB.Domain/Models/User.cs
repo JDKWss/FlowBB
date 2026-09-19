@@ -1,7 +1,9 @@
 namespace FlowBB.Domain.Models;
 
 public sealed record User(
-    string UserId,
+    Guid UserId,
     string Email,
     string PasswordHash,
-    string Name);
+    string Name,
+    double DefaultOriginLatitude,
+    double DefaultOriginLongitude);

@@ -67,8 +67,10 @@ public sealed class UpsertAttendanceHandlerTests
         var first = await handler.HandleAsync(command);
         var repeated = await handler.HandleAsync(command);
 
-        first.IsNew.Should().BeTrue();
-        repeated.IsNew.Should().BeFalse();
+        first.Should().NotBeNull();
+        repeated.Should().NotBeNull();
+        first!.IsNew.Should().BeTrue();
+        repeated!.IsNew.Should().BeFalse();
         repeated.ParticipantsCount.Should().Be(first.ParticipantsCount);
         repeated.ModalSplit.Should().BeEquivalentTo(first.ModalSplit);
         repository.Verify(x => x.UpsertAsync(
@@ -101,8 +103,10 @@ public sealed class UpsertAttendanceHandlerTests
         var updated = await handler.HandleAsync(
             new UpsertAttendanceCommand(eventId, userId, TransportMode.PublicTransport));
 
-        updated.IsNew.Should().BeFalse();
-        updated.ParticipantsCount.Should().Be(initial.ParticipantsCount);
+        initial.Should().NotBeNull();
+        updated.Should().NotBeNull();
+        updated!.IsNew.Should().BeFalse();
+        updated.ParticipantsCount.Should().Be(initial!.ParticipantsCount);
         updated.ModalSplit.Walking.Should().Be(18);
         updated.ModalSplit.PublicTransport.Should().Be(49);
     }
@@ -123,6 +127,22 @@ public sealed class UpsertAttendanceHandlerTests
 
         await action.Should().ThrowAsync<ArgumentOutOfRangeException>();
         repository.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenEventOrUserDoesNotExist_ReturnsNull()
+    {
+        var repository = new Mock<IAttendanceRepository>(MockBehavior.Strict);
+        repository
+            .Setup(x => x.UpsertAsync(It.IsAny<AttendanceIntent>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((AttendanceUpsertPersistenceResult?)null);
+        var handler = CreateHandler(repository.Object);
+
+        var result = await handler.HandleAsync(
+            new UpsertAttendanceCommand(Guid.NewGuid(), Guid.NewGuid(), TransportMode.Bike));
+
+        result.Should().BeNull();
+        repository.VerifyAll();
     }
 
     private static UpsertAttendanceHandler CreateHandler(IAttendanceRepository repository) =>

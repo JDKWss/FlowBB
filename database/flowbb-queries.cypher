@@ -25,18 +25,24 @@ FOR (n:BusinessOwner) REQUIRE n.Email IS UNIQUE;
 CREATE CONSTRAINT tag_id_unique IF NOT EXISTS
 FOR (n:Tag) REQUIRE n.TagId IS UNIQUE;
 
+CREATE CONSTRAINT crew_id_unique IF NOT EXISTS
+FOR (n:Crew) REQUIRE n.CrewId IS UNIQUE;
+
 // 2. UŻYTKOWNICY — zaznacz od UNWIND do średnika i uruchom
 
 UNWIND [
-  {UserId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', Email: 'ania.demo@flowbb.local', Name: 'Ania Nowak'},
-  {UserId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', Email: 'bartek.demo@flowbb.local', Name: 'Bartek Kowalski'},
-  {UserId: 'cccccccc-cccc-cccc-cccc-cccccccccccc', Email: 'celina.demo@flowbb.local', Name: 'Celina Wiśniewska'},
-  {UserId: 'dddddddd-dddd-dddd-dddd-dddddddddddd', Email: 'dawid.demo@flowbb.local', Name: 'Dawid Pietrzyk'}
+  {UserId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', Email: 'ania.demo@flowbb.local', Name: 'Ania Nowak', DefaultOriginLatitude: 49.8225, DefaultOriginLongitude: 19.0444},
+  {UserId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', Email: 'bartek.demo@flowbb.local', Name: 'Bartek Kowalski', DefaultOriginLatitude: 49.8155, DefaultOriginLongitude: 19.0340},
+  {UserId: 'cccccccc-cccc-cccc-cccc-cccccccccccc', Email: 'celina.demo@flowbb.local', Name: 'Celina Wiśniewska', DefaultOriginLatitude: 49.8330, DefaultOriginLongitude: 19.0520},
+  {UserId: 'dddddddd-dddd-dddd-dddd-dddddddddddd', Email: 'dawid.demo@flowbb.local', Name: 'Dawid Pietrzyk', DefaultOriginLatitude: 49.8050, DefaultOriginLongitude: 19.0340}
 ] AS row
 MERGE (u:User {UserId: row.UserId})
 SET u.Email = row.Email,
     u.PasswordHash = 'DEMO_HASH_NOT_FOR_AUTHENTICATION',
-    u.Name = row.Name
+    u.Name = row.Name,
+    u.DefaultOriginLatitude = row.DefaultOriginLatitude,
+    u.DefaultOriginLongitude = row.DefaultOriginLongitude
+REMOVE u.HomeLatitude, u.HomeLongitude, u.DemoData
 RETURN count(u) AS UsersCreatedOrUpdated;
 
 // 3. MIEJSCA
@@ -81,19 +87,38 @@ RETURN count(t) AS TagsCreatedOrUpdated;
 // 6. WYDARZENIA
 
 UNWIND [
-  {EventId: '11111111-1111-1111-1111-111111111111', Title: 'Koncert na Rynku', Description: 'Wieczorny koncert w centrum Bielska-Białej.', EventUrl: 'https://example.invalid/koncert-na-rynku', DateTime: '2026-09-19T19:00:00+02:00'},
-  {EventId: '22222222-2222-2222-2222-222222222222', Title: 'Wieczór z Planszówkami', Description: 'Spotkanie dla osób, które chcą poznać ludzi przy grach.', EventUrl: 'https://example.invalid/planszowki', DateTime: '2026-09-25T18:00:00+02:00'},
-  {EventId: '33333333-3333-3333-3333-333333333333', Title: 'Hackathon Bielsko 2030', Description: 'Warsztaty i pomysły na przyszłość miasta.', EventUrl: 'https://example.invalid/hackathon', DateTime: '2026-09-28T09:00:00+02:00'},
-  {EventId: '44444444-4444-4444-4444-444444444444', Title: 'Nocne wejście na Szyndzielnię', Description: 'Wspólny trekking z latarkami.', EventUrl: 'https://example.invalid/szyndzielnia', DateTime: '2026-10-02T20:00:00+02:00'}
+  {EventId: '11111111-1111-1111-1111-111111111111', Name: 'Koncert na Rynku', Description: 'Wieczorny koncert w centrum Bielska-Białej.', EventUrl: 'https://example.invalid/koncert-na-rynku', StartAt: '2026-09-19T19:00:00+02:00', EndAt: '2026-09-19T22:00:00+02:00'},
+  {EventId: '22222222-2222-2222-2222-222222222222', Name: 'Wieczór z Planszówkami', Description: 'Spotkanie dla osób, które chcą poznać ludzi przy grach.', EventUrl: 'https://example.invalid/planszowki', StartAt: '2026-09-25T18:00:00+02:00', EndAt: '2026-09-25T22:00:00+02:00'},
+  {EventId: '33333333-3333-3333-3333-333333333333', Name: 'Hackathon Bielsko 2030', Description: 'Warsztaty i pomysły na przyszłość miasta.', EventUrl: 'https://example.invalid/hackathon', StartAt: '2026-09-28T09:00:00+02:00', EndAt: '2026-09-28T18:00:00+02:00'},
+  {EventId: '44444444-4444-4444-4444-444444444444', Name: 'Nocne wejście na Szyndzielnię', Description: 'Wspólny trekking z latarkami.', EventUrl: 'https://example.invalid/szyndzielnia', StartAt: '2026-10-02T20:00:00+02:00', EndAt: '2026-10-02T23:30:00+02:00'}
 ] AS row
 MERGE (e:Event {EventId: row.EventId})
-SET e.Title = row.Title,
+SET e.Name = row.Name,
     e.Description = row.Description,
     e.EventUrl = row.EventUrl,
-    e.DateTime = datetime(row.DateTime)
+    e.StartAt = datetime(row.StartAt),
+    e.EndAt = datetime(row.EndAt)
+REMOVE e.Title, e.DateTime, e.Source, e.Category
 RETURN count(e) AS EventsCreatedOrUpdated;
 
-// 7. BUSINESSOWNER -[:MANAGES]-> VENUE
+// 7. MIKROGRUPY CREW
+
+UNWIND [
+  {CrewId: '55555555-5555-5555-5555-555555555555', Name: 'Ekipa na koncert', Description: 'Wspólne wyjście na koncert i powrót do centrum.', MaxMembers: 8, Tags: ['muzyka', 'centrum'], MeetingPointName: 'Fontanna na Rynku', MeetingPointLatitude: 49.82245, MeetingPointLongitude: 19.04431},
+  {CrewId: '66666666-6666-6666-6666-666666666666', Name: 'Hackathon Crew', Description: 'Grupa uczestników jadących razem na hackathon.', MaxMembers: 6, Tags: ['IT', 'hackathon'], MeetingPointName: 'Wejście do Cavatina Hall', MeetingPointLatitude: 49.82050, MeetingPointLongitude: 19.05050}
+] AS row
+MERGE (c:Crew {CrewId: row.CrewId})
+SET c.Name = row.Name,
+    c.Description = row.Description,
+    c.MaxMembers = row.MaxMembers,
+    c.Tags = row.Tags,
+    c.MeetingPointName = row.MeetingPointName,
+    c.MeetingPointLatitude = row.MeetingPointLatitude,
+    c.MeetingPointLongitude = row.MeetingPointLongitude
+REMOVE c.DemoData
+RETURN count(c) AS CrewsCreatedOrUpdated;
+
+// 8. BUSINESSOWNER -[:MANAGES]-> VENUE
 
 UNWIND [
   {OwnerId: 'owner-aquarium', VenueId: 'venue-aquarium-bb'},
@@ -104,7 +129,7 @@ MATCH (v:Venue {VenueId: row.VenueId})
 MERGE (o)-[:MANAGES]->(v)
 RETURN count(*) AS ManagesRelationships;
 
-// 8. EVENT -[:HOSTED_AT]-> VENUE
+// 9. EVENT -[:HOSTED_AT]-> VENUE
 
 UNWIND [
   {EventId: '11111111-1111-1111-1111-111111111111', VenueId: 'venue-rynek-bb'},
@@ -117,7 +142,7 @@ MATCH (v:Venue {VenueId: row.VenueId})
 MERGE (e)-[:HOSTED_AT]->(v)
 RETURN count(*) AS HostedAtRelationships;
 
-// 9. EVENT -[:HAS_TAG]-> TAG
+// 10. EVENT -[:HAS_TAG]-> TAG
 
 UNWIND [
   {EventId: '11111111-1111-1111-1111-111111111111', TagId: 'tag-muzyka-na-zywo'},
@@ -131,7 +156,7 @@ MATCH (t:Tag {TagId: row.TagId})
 MERGE (e)-[:HAS_TAG]->(t)
 RETURN count(*) AS HasTagRelationships;
 
-// 10. USER -[:LIKES_TAG]-> TAG
+// 11. USER -[:LIKES_TAG]-> TAG
 
 UNWIND [
   {UserId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', TagId: 'tag-muzyka-na-zywo'},
@@ -145,7 +170,7 @@ MATCH (t:Tag {TagId: row.TagId})
 MERGE (u)-[:LIKES_TAG]->(t)
 RETURN count(*) AS LikesTagRelationships;
 
-// 11. USER -[:IS_GOING_TO]-> EVENT
+// 12. USER -[:IS_GOING_TO]-> EVENT
 
 UNWIND [
   {UserId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', EventId: '11111111-1111-1111-1111-111111111111'},
@@ -159,7 +184,7 @@ MATCH (e:Event {EventId: row.EventId})
 MERGE (u)-[:IS_GOING_TO]->(e)
 RETURN count(*) AS GoingToRelationships;
 
-// 12. USER -[:IS_INTERESTED_IN]-> EVENT
+// 13. USER -[:IS_INTERESTED_IN]-> EVENT
 
 UNWIND [
   {UserId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', EventId: '22222222-2222-2222-2222-222222222222'},
@@ -172,7 +197,7 @@ MATCH (e:Event {EventId: row.EventId})
 MERGE (u)-[:IS_INTERESTED_IN]->(e)
 RETURN count(*) AS InterestedInRelationships;
 
-// 13. USER -[:FOLLOWS]-> VENUE
+// 14. USER -[:FOLLOWS]-> VENUE
 
 UNWIND [
   {UserId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', VenueId: 'venue-rynek-bb'},
@@ -185,7 +210,7 @@ MATCH (v:Venue {VenueId: row.VenueId})
 MERGE (u)-[:FOLLOWS]->(v)
 RETURN count(*) AS FollowsRelationships;
 
-// 14. USER -[:FRIENDS_WITH]-> USER — oba kierunki
+// 15. USER -[:FRIENDS_WITH]-> USER — oba kierunki
 
 UNWIND [
   {User1Id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', User2Id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'},
@@ -198,22 +223,46 @@ MERGE (u1)-[:FRIENDS_WITH]->(u2)
 MERGE (u2)-[:FRIENDS_WITH]->(u1)
 RETURN count(*) * 2 AS FriendsWithRelationships;
 
-// 15. KONTROLA — oczekiwane: 18 węzłów i 35 relacji
+// 16. CREW -[:FOR_EVENT]-> EVENT
+
+UNWIND [
+  {CrewId: '55555555-5555-5555-5555-555555555555', EventId: '11111111-1111-1111-1111-111111111111'},
+  {CrewId: '66666666-6666-6666-6666-666666666666', EventId: '33333333-3333-3333-3333-333333333333'}
+] AS row
+MATCH (c:Crew {CrewId: row.CrewId})
+MATCH (e:Event {EventId: row.EventId})
+MERGE (c)-[:FOR_EVENT]->(e)
+RETURN count(*) AS CrewEventRelationships;
+
+// 17. USER -[:MEMBER_OF]-> CREW
+
+UNWIND [
+  {UserId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', CrewId: '55555555-5555-5555-5555-555555555555'},
+  {UserId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', CrewId: '55555555-5555-5555-5555-555555555555'},
+  {UserId: 'cccccccc-cccc-cccc-cccc-cccccccccccc', CrewId: '66666666-6666-6666-6666-666666666666'},
+  {UserId: 'dddddddd-dddd-dddd-dddd-dddddddddddd', CrewId: '66666666-6666-6666-6666-666666666666'}
+] AS row
+MATCH (u:User {UserId: row.UserId})
+MATCH (c:Crew {CrewId: row.CrewId})
+MERGE (u)-[:MEMBER_OF]->(c)
+RETURN count(*) AS CrewMembershipRelationships;
+
+// 18. KONTROLA — oczekiwane: 20 węzłów i 41 relacji
 
 MATCH (n)
 OPTIONAL MATCH ()-[r]->()
 RETURN count(DISTINCT n) AS Nodes, count(DISTINCT r) AS Relationships;
 
-// 16. WYŚWIETLENIE CAŁEGO GRAFU
+// 19. WYŚWIETLENIE CAŁEGO GRAFU
 
 MATCH (a)-[r]->(b)
 RETURN a, r, b;
 
-// 17. UŻYTKOWNICY, WYDARZENIA, MIEJSCA I TAGI
+// 20. UŻYTKOWNICY, WYDARZENIA, MIEJSCA I TAGI
 
 MATCH (u:User)-[:IS_GOING_TO]->(e:Event)-[:HOSTED_AT]->(v:Venue)
 OPTIONAL MATCH (e)-[:HAS_TAG]->(t:Tag)
-RETURN u.Name AS User, e.Title AS Event, v.Name AS Venue,
+RETURN u.Name AS User, e.Name AS Event, v.Name AS Venue,
        collect(t.Name) AS Tags
 ORDER BY Event, User;
 

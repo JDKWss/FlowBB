@@ -2,7 +2,7 @@ namespace FlowBB.Infrastructure.Neo4j;
 
 public sealed partial class Neo4jFlowBbGraphRepository
 {
-    public Task SetUserGoingToEventAsync(string userId, string eventId)
+    public Task SetUserGoingToEventAsync(Guid userId, Guid eventId)
     {
         const string query = """
             MATCH (u:User {UserId: $UserId})
@@ -13,11 +13,11 @@ public sealed partial class Neo4jFlowBbGraphRepository
 
         return ExecuteRelationshipAsync(
             query,
-            new { UserId = userId, EventId = eventId },
+            new { UserId = ToDatabaseId(userId), EventId = ToDatabaseId(eventId) },
             "Cannot create IS_GOING_TO because the user or event does not exist.");
     }
 
-    public Task SetUserInterestedInEventAsync(string userId, string eventId)
+    public Task SetUserInterestedInEventAsync(Guid userId, Guid eventId)
     {
         const string query = """
             MATCH (u:User {UserId: $UserId})
@@ -28,13 +28,13 @@ public sealed partial class Neo4jFlowBbGraphRepository
 
         return ExecuteRelationshipAsync(
             query,
-            new { UserId = userId, EventId = eventId },
+            new { UserId = ToDatabaseId(userId), EventId = ToDatabaseId(eventId) },
             "Cannot create IS_INTERESTED_IN because the user or event does not exist.");
     }
 
-    public Task CreateFriendshipAsync(string firstUserId, string secondUserId)
+    public Task CreateFriendshipAsync(Guid firstUserId, Guid secondUserId)
     {
-        if (string.Equals(firstUserId, secondUserId, StringComparison.Ordinal))
+        if (firstUserId == secondUserId)
         {
             throw new ArgumentException("A user cannot be friends with themselves.", nameof(secondUserId));
         }
@@ -49,11 +49,15 @@ public sealed partial class Neo4jFlowBbGraphRepository
 
         return ExecuteRelationshipAsync(
             query,
-            new { FirstUserId = firstUserId, SecondUserId = secondUserId },
+            new
+            {
+                FirstUserId = ToDatabaseId(firstUserId),
+                SecondUserId = ToDatabaseId(secondUserId)
+            },
             "Cannot create FRIENDS_WITH because one of the users does not exist.");
     }
 
-    public Task FollowVenueAsync(string userId, string venueId)
+    public Task FollowVenueAsync(Guid userId, string venueId)
     {
         const string query = """
             MATCH (u:User {UserId: $UserId})
@@ -64,11 +68,11 @@ public sealed partial class Neo4jFlowBbGraphRepository
 
         return ExecuteRelationshipAsync(
             query,
-            new { UserId = userId, VenueId = venueId },
+            new { UserId = ToDatabaseId(userId), VenueId = venueId },
             "Cannot create FOLLOWS because the user or venue does not exist.");
     }
 
-    public Task HostEventAtVenueAsync(string eventId, string venueId)
+    public Task HostEventAtVenueAsync(Guid eventId, string venueId)
     {
         const string query = """
             MATCH (e:Event {EventId: $EventId})
@@ -79,7 +83,7 @@ public sealed partial class Neo4jFlowBbGraphRepository
 
         return ExecuteRelationshipAsync(
             query,
-            new { EventId = eventId, VenueId = venueId },
+            new { EventId = ToDatabaseId(eventId), VenueId = venueId },
             "Cannot create HOSTED_AT because the event or venue does not exist.");
     }
 
@@ -98,7 +102,7 @@ public sealed partial class Neo4jFlowBbGraphRepository
             "Cannot create MANAGES because the business owner or venue does not exist.");
     }
 
-    public Task LikeTagAsync(string userId, string tagId)
+    public Task LikeTagAsync(Guid userId, string tagId)
     {
         const string query = """
             MATCH (u:User {UserId: $UserId})
@@ -109,11 +113,11 @@ public sealed partial class Neo4jFlowBbGraphRepository
 
         return ExecuteRelationshipAsync(
             query,
-            new { UserId = userId, TagId = tagId },
+            new { UserId = ToDatabaseId(userId), TagId = tagId },
             "Cannot create LIKES_TAG because the user or tag does not exist.");
     }
 
-    public Task TagEventAsync(string eventId, string tagId)
+    public Task TagEventAsync(Guid eventId, string tagId)
     {
         const string query = """
             MATCH (e:Event {EventId: $EventId})
@@ -124,31 +128,65 @@ public sealed partial class Neo4jFlowBbGraphRepository
 
         return ExecuteRelationshipAsync(
             query,
-            new { EventId = eventId, TagId = tagId },
+            new { EventId = ToDatabaseId(eventId), TagId = tagId },
             "Cannot create HAS_TAG because the event or tag does not exist.");
     }
 
-    public Task RemoveUserGoingToEventAsync(string userId, string eventId)
+    public Task AssignCrewToEventAsync(Guid crewId, Guid eventId)
+    {
+        const string query = """
+            MATCH (c:Crew {CrewId: $CrewId})
+            MATCH (e:Event {EventId: $EventId})
+            MERGE (c)-[:FOR_EVENT]->(e)
+            RETURN count(*) AS Matches
+            """;
+
+        return ExecuteRelationshipAsync(
+            query,
+            new { CrewId = ToDatabaseId(crewId), EventId = ToDatabaseId(eventId) },
+            "Cannot create FOR_EVENT because the crew or event does not exist.");
+    }
+
+    public Task AddUserToCrewAsync(Guid userId, Guid crewId)
+    {
+        const string query = """
+            MATCH (u:User {UserId: $UserId})
+            MATCH (c:Crew {CrewId: $CrewId})
+            MERGE (u)-[:MEMBER_OF]->(c)
+            RETURN count(*) AS Matches
+            """;
+
+        return ExecuteRelationshipAsync(
+            query,
+            new { UserId = ToDatabaseId(userId), CrewId = ToDatabaseId(crewId) },
+            "Cannot create MEMBER_OF because the user or crew does not exist.");
+    }
+
+    public Task RemoveUserGoingToEventAsync(Guid userId, Guid eventId)
     {
         const string query = """
             MATCH (:User {UserId: $UserId})-[r:IS_GOING_TO]->(:Event {EventId: $EventId})
             DELETE r
             """;
 
-        return ExecuteAsync(query, new { UserId = userId, EventId = eventId });
+        return ExecuteAsync(
+            query,
+            new { UserId = ToDatabaseId(userId), EventId = ToDatabaseId(eventId) });
     }
 
-    public Task RemoveUserInterestInEventAsync(string userId, string eventId)
+    public Task RemoveUserInterestInEventAsync(Guid userId, Guid eventId)
     {
         const string query = """
             MATCH (:User {UserId: $UserId})-[r:IS_INTERESTED_IN]->(:Event {EventId: $EventId})
             DELETE r
             """;
 
-        return ExecuteAsync(query, new { UserId = userId, EventId = eventId });
+        return ExecuteAsync(
+            query,
+            new { UserId = ToDatabaseId(userId), EventId = ToDatabaseId(eventId) });
     }
 
-    public Task RemoveFriendshipAsync(string firstUserId, string secondUserId)
+    public Task RemoveFriendshipAsync(Guid firstUserId, Guid secondUserId)
     {
         const string query = """
             MATCH (:User {UserId: $FirstUserId})-[r:FRIENDS_WITH]-(:User {UserId: $SecondUserId})
@@ -157,26 +195,42 @@ public sealed partial class Neo4jFlowBbGraphRepository
 
         return ExecuteAsync(
             query,
-            new { FirstUserId = firstUserId, SecondUserId = secondUserId });
+            new
+            {
+                FirstUserId = ToDatabaseId(firstUserId),
+                SecondUserId = ToDatabaseId(secondUserId)
+            });
     }
 
-    public Task UnfollowVenueAsync(string userId, string venueId)
+    public Task UnfollowVenueAsync(Guid userId, string venueId)
     {
         const string query = """
             MATCH (:User {UserId: $UserId})-[r:FOLLOWS]->(:Venue {VenueId: $VenueId})
             DELETE r
             """;
 
-        return ExecuteAsync(query, new { UserId = userId, VenueId = venueId });
+        return ExecuteAsync(query, new { UserId = ToDatabaseId(userId), VenueId = venueId });
     }
 
-    public Task UnlikeTagAsync(string userId, string tagId)
+    public Task UnlikeTagAsync(Guid userId, string tagId)
     {
         const string query = """
             MATCH (:User {UserId: $UserId})-[r:LIKES_TAG]->(:Tag {TagId: $TagId})
             DELETE r
             """;
 
-        return ExecuteAsync(query, new { UserId = userId, TagId = tagId });
+        return ExecuteAsync(query, new { UserId = ToDatabaseId(userId), TagId = tagId });
+    }
+
+    public Task RemoveUserFromCrewAsync(Guid userId, Guid crewId)
+    {
+        const string query = """
+            MATCH (:User {UserId: $UserId})-[r:MEMBER_OF]->(:Crew {CrewId: $CrewId})
+            DELETE r
+            """;
+
+        return ExecuteAsync(
+            query,
+            new { UserId = ToDatabaseId(userId), CrewId = ToDatabaseId(crewId) });
     }
 }

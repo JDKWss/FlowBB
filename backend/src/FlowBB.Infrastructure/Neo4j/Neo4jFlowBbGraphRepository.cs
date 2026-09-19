@@ -13,7 +13,8 @@ public sealed partial class Neo4jFlowBbGraphRepository : IFlowBbGraphRepository,
         "CREATE CONSTRAINT venue_id_unique IF NOT EXISTS FOR (n:Venue) REQUIRE n.VenueId IS UNIQUE",
         "CREATE CONSTRAINT owner_id_unique IF NOT EXISTS FOR (n:BusinessOwner) REQUIRE n.OwnerId IS UNIQUE",
         "CREATE CONSTRAINT owner_email_unique IF NOT EXISTS FOR (n:BusinessOwner) REQUIRE n.Email IS UNIQUE",
-        "CREATE CONSTRAINT tag_id_unique IF NOT EXISTS FOR (n:Tag) REQUIRE n.TagId IS UNIQUE"
+        "CREATE CONSTRAINT tag_id_unique IF NOT EXISTS FOR (n:Tag) REQUIRE n.TagId IS UNIQUE",
+        "CREATE CONSTRAINT crew_id_unique IF NOT EXISTS FOR (n:Crew) REQUIRE n.CrewId IS UNIQUE"
     ];
 
     private readonly IDriver driver;
@@ -51,6 +52,16 @@ public sealed partial class Neo4jFlowBbGraphRepository : IFlowBbGraphRepository,
     public ValueTask DisposeAsync()
     {
         return driver.DisposeAsync();
+    }
+
+    private static string ToDatabaseId(Guid id)
+    {
+        return id.ToString("D");
+    }
+
+    private static Guid FromDatabaseId(string id)
+    {
+        return Guid.ParseExact(id, "D");
     }
 
     private async Task ExecuteAsync(string query, object parameters)

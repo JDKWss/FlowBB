@@ -12,25 +12,30 @@ public interface IFlowBbGraphRepository
     Task UpsertVenueAsync(Venue venue);
     Task UpsertBusinessOwnerAsync(BusinessOwner owner);
     Task UpsertTagAsync(Tag tag);
+    Task UpsertCrewAsync(Crew crew);
 
-    Task<User?> GetUserAsync(string userId);
-    Task<Event?> GetEventAsync(string eventId);
+    Task<User?> GetUserAsync(Guid userId);
+    Task<Event?> GetEventAsync(Guid eventId);
     Task<Venue?> GetVenueAsync(string venueId);
     Task<BusinessOwner?> GetBusinessOwnerAsync(string ownerId);
     Task<Tag?> GetTagAsync(string tagId);
+    Task<Crew?> GetCrewAsync(Guid crewId);
 
-    Task SetUserGoingToEventAsync(string userId, string eventId);
-    Task SetUserInterestedInEventAsync(string userId, string eventId);
-    Task CreateFriendshipAsync(string firstUserId, string secondUserId);
-    Task FollowVenueAsync(string userId, string venueId);
-    Task HostEventAtVenueAsync(string eventId, string venueId);
+    Task SetUserGoingToEventAsync(Guid userId, Guid eventId);
+    Task SetUserInterestedInEventAsync(Guid userId, Guid eventId);
+    Task CreateFriendshipAsync(Guid firstUserId, Guid secondUserId);
+    Task FollowVenueAsync(Guid userId, string venueId);
+    Task HostEventAtVenueAsync(Guid eventId, string venueId);
     Task AssignVenueManagerAsync(string ownerId, string venueId);
-    Task LikeTagAsync(string userId, string tagId);
-    Task TagEventAsync(string eventId, string tagId);
+    Task LikeTagAsync(Guid userId, string tagId);
+    Task TagEventAsync(Guid eventId, string tagId);
+    Task AssignCrewToEventAsync(Guid crewId, Guid eventId);
+    Task AddUserToCrewAsync(Guid userId, Guid crewId);
 
-    Task RemoveUserGoingToEventAsync(string userId, string eventId);
-    Task RemoveUserInterestInEventAsync(string userId, string eventId);
-    Task RemoveFriendshipAsync(string firstUserId, string secondUserId);
-    Task UnfollowVenueAsync(string userId, string venueId);
-    Task UnlikeTagAsync(string userId, string tagId);
+    Task RemoveUserGoingToEventAsync(Guid userId, Guid eventId);
+    Task RemoveUserInterestInEventAsync(Guid userId, Guid eventId);
+    Task RemoveFriendshipAsync(Guid firstUserId, Guid secondUserId);
+    Task UnfollowVenueAsync(Guid userId, string venueId);
+    Task UnlikeTagAsync(Guid userId, string tagId);
+    Task RemoveUserFromCrewAsync(Guid userId, Guid crewId);
 }
