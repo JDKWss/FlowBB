@@ -1,7 +1,7 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { AppShell } from './components/AppShell'
-import { StatePanel } from './components/ui'
+import { Alert, AlertDescription, StatePanel } from './components/ui'
 import { EventDetailsView, EventListView } from './features/events'
 const AttendanceView = lazy(() => import('./features/journey/AttendanceView').then(module => ({ default: module.AttendanceView })))
 const RouteView = lazy(() => import('./features/journey/RouteView').then(module => ({ default: module.RouteView })))
@@ -21,6 +21,49 @@ import type {
 } from './types/contracts'
 
 type Screen = 'events' | 'details' | 'attendance' | 'route' | 'crew'
+
+type NavigationState = {
+  screen: Screen
+  eventId: string | null
+}
+
+type FlowHistoryState = NavigationState & {
+  flowBB: true
+  depth: number
+}
+
+const screens: Screen[] = ['events', 'details', 'attendance', 'route', 'crew']
+
+function readFlowHistoryState(value: unknown): FlowHistoryState | null {
+  if (!value || typeof value !== 'object') return null
+
+  const state = value as Partial<FlowHistoryState>
+  if (
+    state.flowBB !== true ||
+    !screens.includes(state.screen as Screen) ||
+    !Number.isInteger(state.depth) ||
+    (state.depth ?? -1) < 0
+  ) {
+    return null
+  }
+
+  const eventId = state.eventId ?? null
+  if (state.screen !== 'events' && !eventId) return null
+
+  return {
+    flowBB: true,
+    screen: state.screen as Screen,
+    eventId: state.screen === 'events' ? null : eventId,
+    depth: state.depth as number,
+  }
+}
+
+function getInitialNavigation(): NavigationState {
+  const entry = readFlowHistoryState(window.history.state)
+  return entry
+    ? { screen: entry.screen, eventId: entry.eventId }
+    : { screen: 'events', eventId: null }
+}
 
 const stepLabels: Record<Screen, string> = {
   events: 'Explore',
@@ -45,9 +88,9 @@ function ScreenState({
   onRetry?: () => void
 }) {
   return (
-    <div className="flex min-h-dvh items-center bg-slate-950 px-5 text-white">
+    <div className="flex min-h-full items-center bg-slate-950 px-5 text-white">
       <StatePanel
-        className="w-full border-white/10 bg-slate-900 text-white [&_h2]:text-white [&_p]:text-slate-400"
+        className="w-full bg-card text-white [&_h2]:text-white [&_p]:text-muted-foreground"
         kind={kind}
         title={title}
         description={description}
@@ -59,13 +102,78 @@ function ScreenState({
 }
 
 export default function App() {
-  const [screen, setScreen] = useState<Screen>('events')
-  const [eventId, setEventId] = useState<string | null>(null)
+  const [navigation, setNavigation] = useState(getInitialNavigation)
+  const { screen, eventId } = navigation
   const [selectedMode, setSelectedMode] =
     useState<TransportMode>('PublicTransport')
   const [confirmation, setConfirmation] =
     useState<AttendanceResponse | null>(null)
+  const initialNavigation = useRef(navigation)
   const screenRoot = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const currentEntry = readFlowHistoryState(window.history.state)
+    const initialEntry = initialNavigation.current
+    window.history.replaceState(
+      {
+        flowBB: true,
+        screen: initialEntry.screen,
+        eventId: initialEntry.eventId,
+        depth: currentEntry?.depth ?? 0,
+      } satisfies FlowHistoryState,
+      '',
+    )
+
+    const handlePopState = (event: PopStateEvent) => {
+      const entry = readFlowHistoryState(event.state)
+      if (!entry) return
+      setNavigation({ screen: entry.screen, eventId: entry.eventId })
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+    // This initializes history once; later changes are written by navigate().
+  }, [])
+
+  const navigate = useCallback(
+    (nextScreen: Screen, nextEventId: string | null = eventId) => {
+      const normalizedEventId = nextScreen === 'events' ? null : nextEventId
+      if (nextScreen !== 'events' && !normalizedEventId) return
+
+      const currentEntry = readFlowHistoryState(window.history.state)
+      if (
+        currentEntry?.screen === nextScreen &&
+        currentEntry.eventId === normalizedEventId
+      ) {
+        setNavigation({ screen: nextScreen, eventId: normalizedEventId })
+        return
+      }
+
+      const nextEntry: FlowHistoryState = {
+        flowBB: true,
+        screen: nextScreen,
+        eventId: normalizedEventId,
+        depth: (currentEntry?.depth ?? -1) + 1,
+      }
+      window.history.pushState(nextEntry, '')
+      setNavigation({ screen: nextScreen, eventId: normalizedEventId })
+    },
+    [eventId],
+  )
+
+  const goBack = useCallback(
+    (fallbackScreen: Screen, fallbackEventId: string | null = eventId) => {
+      const currentEntry = readFlowHistoryState(window.history.state)
+      if (currentEntry && currentEntry.depth > 0) {
+        window.history.back()
+        return
+      }
+
+      navigate(fallbackScreen, fallbackEventId)
+    },
+    [eventId, navigate],
+  )
+
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' })
     screenRoot.current?.focus({ preventScroll: true })
@@ -79,10 +187,9 @@ export default function App() {
   const groupMutation = useToggleGroup(eventId ?? 'none')
 
   const openEvent = (nextEventId: string) => {
-    setEventId(nextEventId)
     setConfirmation(null)
     setSelectedMode('PublicTransport')
-    setScreen('details')
+    navigate('details', nextEventId)
   }
 
   const startAttendance = () => {
@@ -93,7 +200,7 @@ export default function App() {
     setSelectedMode(defaultMode)
     setConfirmation(null)
     attendanceMutation.reset()
-    setScreen('attendance')
+    navigate('attendance')
   }
 
   const saveAttendance = async () => {
@@ -148,7 +255,7 @@ export default function App() {
     content = (
       <EventDetailsView
         event={eventQuery.data}
-        onBack={() => setScreen('events')}
+        onBack={() => goBack('events', null)}
         onContinue={startAttendance}
       />
     )
@@ -156,12 +263,9 @@ export default function App() {
     content = (
       <>
         {attendanceMutation.isError ? (
-          <div
-            className="fixed inset-x-5 top-4 z-50 mx-auto max-w-sm rounded-2xl border border-rose-300/30 bg-rose-950/95 p-4 text-sm text-rose-100 shadow-2xl"
-            role="alert"
-          >
-            {errorMessage(attendanceMutation.error)}
-          </div>
+          <Alert variant="destructive" className="fixed inset-x-5 top-[var(--phone-safe-top,1rem)] z-50 bg-rose-950/95 shadow-2xl">
+            <AlertDescription className="text-rose-100">{errorMessage(attendanceMutation.error)}</AlertDescription>
+          </Alert>
         ) : null}
         <AttendanceView
           event={eventQuery.data}
@@ -172,8 +276,8 @@ export default function App() {
             attendanceMutation.reset()
           }}
           onSubmit={() => void saveAttendance()}
-          onContinue={() => setScreen('route')}
-          onBack={() => setScreen('details')}
+          onContinue={() => navigate('route')}
+          onBack={() => goBack('details')}
           isSubmitting={attendanceMutation.isPending}
           confirmation={confirmation}
         />
@@ -191,8 +295,8 @@ export default function App() {
       <RouteView
         event={eventQuery.data}
         route={routeQuery.data}
-        onBack={() => setScreen('attendance')}
-        onContinue={() => setScreen('crew')}
+        onBack={() => goBack('attendance')}
+        onContinue={() => navigate('crew')}
       />
     ) : (
       <ScreenState
@@ -212,18 +316,15 @@ export default function App() {
     ) : groupsQuery.data ? (
       <>
         {groupMutation.isError ? (
-          <div
-            className="fixed inset-x-5 top-4 z-50 mx-auto max-w-sm rounded-2xl border border-rose-300/30 bg-rose-950/95 p-4 text-sm text-rose-100 shadow-2xl"
-            role="alert"
-          >
-            {errorMessage(groupMutation.error)}
-          </div>
+          <Alert variant="destructive" className="fixed inset-x-5 top-[var(--phone-safe-top,1rem)] z-50 bg-rose-950/95 shadow-2xl">
+            <AlertDescription className="text-rose-100">{errorMessage(groupMutation.error)}</AlertDescription>
+          </Alert>
         ) : null}
         <CrewView
           event={eventQuery.data}
           groups={groupsQuery.data}
           onToggleGroup={(group) => void toggleGroup(group)}
-          onBack={() => setScreen('route')}
+          onBack={() => goBack('route')}
           isUpdating={groupMutation.isPending}
         />
       </>

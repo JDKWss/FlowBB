@@ -2,7 +2,6 @@ import {
   Bike,
   BusFront,
   CarFront,
-  ChevronLeft,
   ChevronRight,
   Clock3,
   Footprints,
@@ -12,6 +11,16 @@ import {
   Timer,
   TriangleAlert,
 } from 'lucide-react'
+import { FlowBackButton } from '../../components/FlowBackButton'
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+  Badge,
+  Button,
+  Card,
+  Separator,
+} from '../../components/ui'
 import type {
   EventDetails,
   JourneyOption,
@@ -74,7 +83,7 @@ function JourneyTimeline({ journey }: { journey: JourneyOption }) {
               className="absolute left-[17px] top-9 h-[calc(100%-2rem)] w-px bg-white/10"
             />
           )}
-          <span className="z-10 grid size-9 shrink-0 place-items-center rounded-full border border-white/10 bg-slate-800 text-cyan-300">
+          <span className="z-10 grid size-9 shrink-0 place-items-center rounded-full bg-neutral-800 text-primary">
             <StepIcon type={step.type} />
           </span>
           <div className="min-w-0 pt-0.5">
@@ -102,9 +111,9 @@ function JourneyTimes({ journey }: { journey: JourneyOption }) {
         <p className="text-xs text-slate-500">Departure</p>
       </div>
       <div className="flex flex-1 items-center gap-2" aria-hidden="true">
-        <span className="size-2 rounded-full bg-cyan-300" />
-        <span className="h-px flex-1 bg-gradient-to-r from-cyan-300 to-violet-400" />
-        <span className="size-2 rounded-full bg-violet-400" />
+        <span className="size-2 rounded-full bg-primary" />
+        <span className="h-px flex-1 bg-neutral-600" />
+        <span className="size-2 rounded-full bg-white" />
       </div>
       <div className="text-right">
         <p className="text-2xl font-bold tracking-tight text-white">
@@ -118,32 +127,25 @@ function JourneyTimes({ journey }: { journey: JourneyOption }) {
 
 export function RouteView({ event, route, onBack, onContinue }: RouteViewProps) {
   return (
-    <section className="mx-auto min-h-dvh w-full max-w-md bg-slate-950 px-5 pb-6 pt-4 text-white">
+    <section className="min-h-full w-full bg-background px-5 pb-6 pt-4 text-white">
       <header className="mb-7 flex items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="grid size-11 shrink-0 place-items-center rounded-full border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
-          aria-label="Back to transport selection"
-        >
-          <ChevronLeft aria-hidden="true" size={22} />
-        </button>
+        <FlowBackButton label="Back to transport selection" onClick={onBack} />
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-300">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
             Your route
           </p>
           <p className="truncate text-sm text-slate-400">{event.name}</p>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full border border-violet-400/20 bg-violet-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-violet-200">
+        <Badge variant="secondary" className="h-auto bg-white/[0.06] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-neutral-300">
           <Sparkles aria-hidden="true" size={11} />
           {route.plannerSource}
-        </span>
+        </Badge>
       </header>
 
-      <div className="mb-4 rounded-3xl border border-white/10 bg-slate-900 p-5 shadow-2xl shadow-black/20">
+      <Card className="mb-4 p-5">
         <div className="mb-5 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="grid size-9 place-items-center rounded-xl bg-cyan-300 text-slate-950">
+            <span className="grid size-9 place-items-center rounded-xl bg-primary text-primary-foreground">
               <Route aria-hidden="true" size={19} />
             </span>
             <div>
@@ -160,20 +162,21 @@ export function RouteView({ event, route, onBack, onContinue }: RouteViewProps) 
         </div>
 
         <JourneyTimes journey={route.outbound} />
-        <div className="mt-5 border-t border-white/10 pt-5">
+        <Separator className="my-5" />
+        <div>
           <JourneyTimeline journey={route.outbound} />
         </div>
 
         <div className="mt-5 flex items-center gap-2 rounded-2xl bg-white/[0.04] p-3 text-sm text-slate-300">
-          <MapPin className="shrink-0 text-violet-300" aria-hidden="true" size={17} />
+          <MapPin className="shrink-0 text-primary" aria-hidden="true" size={17} />
           <span className="truncate">{event.venueName}</span>
         </div>
-      </div>
+      </Card>
 
       <div className="mb-4">
         <div className="mb-3 flex items-end justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-violet-300">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-400">
               After the event
             </p>
             <h2 className="mt-1 text-xl font-bold">Return options</h2>
@@ -184,19 +187,14 @@ export function RouteView({ event, route, onBack, onContinue }: RouteViewProps) 
         </div>
 
         {route.returnGap && (
-          <div
-            className="mb-3 flex gap-3 rounded-2xl border border-amber-300/25 bg-amber-300/10 p-4 text-amber-100"
-            role="alert"
-          >
-            <TriangleAlert className="mt-0.5 shrink-0 text-amber-300" aria-hidden="true" size={19} />
-            <div>
-              <p className="text-sm font-bold">Limited return connection</p>
-              <p className="mt-1 text-xs leading-5 text-amber-100/70">
+          <Alert className="mb-3 bg-amber-300/10 text-amber-100">
+            <TriangleAlert className="text-amber-300" aria-hidden="true" size={19} />
+            <AlertTitle>Limited return connection</AlertTitle>
+            <AlertDescription className="text-amber-100/70">
                 There may not be a convenient connection after this event. Check
                 the options before you go.
-              </p>
-            </div>
-          </div>
+            </AlertDescription>
+          </Alert>
         )}
 
         {route.returns.length > 0 ? (
@@ -205,10 +203,10 @@ export function RouteView({ event, route, onBack, onContinue }: RouteViewProps) 
               <details
                 open={index === 0}
                 key={`${journey.departureAt}-${index}`}
-                className="group rounded-2xl border border-white/10 bg-slate-900 p-4 open:border-violet-400/30"
+                className="group rounded-2xl bg-card p-4 open:ring-1 open:ring-primary/25"
               >
-                <summary className="flex cursor-pointer list-none items-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300">
-                  <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-violet-400/10 text-violet-300">
+                <summary className="flex cursor-pointer list-none items-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/[0.06] text-primary">
                     <StepIcon type={journey.steps.find(step => step.type !== 'Wait')?.type ?? 'Walk'} />
                   </span>
                   <div className="min-w-0 flex-1">
@@ -226,7 +224,8 @@ export function RouteView({ event, route, onBack, onContinue }: RouteViewProps) 
                     size={18}
                   />
                 </summary>
-                <div className="mt-4 border-t border-white/10 pt-4">
+                <Separator className="my-4" />
+                <div>
                   <JourneyTimeline journey={journey} />
                 </div>
               </details>
@@ -239,14 +238,15 @@ export function RouteView({ event, route, onBack, onContinue }: RouteViewProps) 
         )}
       </div>
 
-      <button
+      <Button
         type="button"
+        size="lg"
         onClick={onContinue}
-        className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-cyan-300 px-5 text-base font-extrabold text-slate-950 transition hover:bg-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+        className="w-full"
       >
         Find your crew
         <ChevronRight aria-hidden="true" size={20} />
-      </button>
+      </Button>
     </section>
   )
 }

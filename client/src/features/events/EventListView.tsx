@@ -2,12 +2,12 @@ import {
   ArrowUpRight,
   CalendarDays,
   MapPin,
-  Sparkles,
   UsersRound,
 } from 'lucide-react'
 import type { EventSummary } from '../../types/contracts'
 import { motion, useReducedMotion } from 'motion/react'
-import { StatePanel } from '../../components/ui'
+import { DemoBadge } from '../../components/DemoBadge'
+import { Badge, Card, Skeleton, StatePanel } from '../../components/ui'
 import {
   formatEventDate,
   formatEventTime,
@@ -32,24 +32,20 @@ function EventCard({
   const reducedMotion = useReducedMotion()
   return (
     <motion.li initial={reducedMotion ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .24 }}>
-      <button
+      <Card className="group relative p-0 transition duration-200 hover:-translate-y-0.5 hover:bg-neutral-800">
+        <button
         type="button"
         onClick={() => onSelect(event.id)}
         aria-label={`Open event: ${event.name}`}
-        className="group w-full overflow-hidden rounded-[1.75rem] border border-white/10 bg-zinc-900/80 text-left shadow-[0_18px_50px_rgba(0,0,0,0.24)] transition duration-200 hover:-translate-y-0.5 hover:border-emerald-300/40 hover:bg-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 focus-visible:ring-offset-4 focus-visible:ring-offset-black active:translate-y-0"
+        className="w-full overflow-hidden rounded-3xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-4 focus-visible:ring-offset-background"
       >
-        <span className="block h-1.5 bg-gradient-to-r from-emerald-300 via-cyan-300 to-blue-400" />
-
         <span className="block p-5">
           <span className="mb-4 flex items-center justify-between gap-3">
-            <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-[0.68rem] font-bold uppercase tracking-[0.18em] text-emerald-200">
+            <Badge variant="secondary" className="h-auto bg-white/[0.06] px-3 py-1 text-[0.68rem] font-bold uppercase tracking-[0.18em] text-neutral-300">
               {getCategoryLabel(event.category)}
-            </span>
+            </Badge>
             {event.source === 'Demo' && (
-              <span className="inline-flex items-center gap-1.5 text-[0.62rem] font-bold uppercase tracking-[0.14em] text-amber-200">
-                <Sparkles aria-hidden="true" className="size-3.5" />
-                Demo data
-              </span>
+              <DemoBadge compact />
             )}
           </span>
 
@@ -62,14 +58,14 @@ function EventCard({
                 {event.description}
               </span>
             </span>
-            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white text-black transition-transform duration-200 group-hover:rotate-6 group-hover:scale-105">
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white text-black transition-transform duration-200 group-hover:scale-105">
               <ArrowUpRight aria-hidden="true" className="size-5" />
             </span>
           </span>
 
-          <span className="mt-5 grid gap-3 border-t border-white/10 pt-4 text-sm text-zinc-300">
+          <span className="mt-5 grid gap-3 pt-3 text-sm text-neutral-300">
             <span className="flex items-center gap-3">
-              <CalendarDays aria-hidden="true" className="size-4 shrink-0 text-emerald-300" />
+              <CalendarDays aria-hidden="true" className="size-4 shrink-0 text-primary" />
               <span>
                 {formatEventDate(event.startAt)}
                 <span className="mx-2 text-zinc-600">•</span>
@@ -77,11 +73,11 @@ function EventCard({
               </span>
             </span>
             <span className="flex items-center gap-3">
-              <MapPin aria-hidden="true" className="size-4 shrink-0 text-emerald-300" />
+              <MapPin aria-hidden="true" className="size-4 shrink-0 text-primary" />
               <span className="truncate">{event.venueName}</span>
             </span>
             <span className="flex items-center gap-3">
-              <UsersRound aria-hidden="true" className="size-4 shrink-0 text-emerald-300" />
+              <UsersRound aria-hidden="true" className="size-4 shrink-0 text-primary" />
               <span>
                 <strong className="font-semibold text-white">{event.participantsCount}</strong>{' '}
                 people are going
@@ -89,7 +85,8 @@ function EventCard({
             </span>
           </span>
         </span>
-      </button>
+        </button>
+      </Card>
     </motion.li>
   )
 }
@@ -98,9 +95,9 @@ function EventListSkeleton() {
   return (
     <div aria-label="Loading events" aria-live="polite" className="grid gap-4">
       {[0, 1, 2].map((item) => (
-        <div
+        <Skeleton
           key={item}
-          className="h-64 animate-pulse rounded-[1.75rem] border border-white/10 bg-zinc-900/70"
+          className="h-64 rounded-3xl"
         />
       ))}
     </div>
@@ -115,17 +112,17 @@ export function EventListView({
   onRetry,
 }: EventListViewProps) {
   return (
-    <section aria-labelledby="events-title" className="mx-auto w-full max-w-lg px-4 pb-28 pt-8 sm:px-6">
+    <section aria-labelledby="events-title" className="w-full px-5 pb-28 pt-8">
       <header className="mb-7">
         <div className="mb-4 flex items-center justify-between gap-4">
-          <span className="text-xs font-bold uppercase tracking-[0.24em] text-emerald-300">
+          <span className="text-xs font-bold uppercase tracking-[0.24em] text-primary">
             Bielsko-Biała · 19–21 September
           </span>
         </div>
         <h1 id="events-title" className="text-4xl font-bold leading-[1.1] tracking-[-0.04em] text-white">
-          Your city.<br /><span className="text-cyan-300">Your next plan.</span>
+          Your city.<br /><span className="text-neutral-400">Your next plan.</span>
         </h1>
-        <p className="mt-3 max-w-md text-base leading-7 text-zinc-400">
+        <p className="mt-3 text-base leading-7 text-zinc-400">
           Choose an event. We&apos;ll help you plan the trip, get home, and find your crew.
         </p>
       </header>
@@ -135,11 +132,11 @@ export function EventListView({
       ) : error ? (
         <StatePanel kind="error" title="We couldn't load the events" description={error} actionLabel="Try again" onAction={onRetry} />
       ) : events.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-white/15 bg-white/[0.03] p-7 text-center">
+        <Card className="p-7 text-center">
           <CalendarDays aria-hidden="true" className="mx-auto size-8 text-zinc-500" />
           <p className="mt-4 font-semibold text-white">No upcoming events</p>
           <p className="mt-1 text-sm text-zinc-400">Check back soon—the city never stays quiet for long.</p>
-        </div>
+        </Card>
       ) : (
         <ul className="grid gap-4">
           {events.map((event) => (

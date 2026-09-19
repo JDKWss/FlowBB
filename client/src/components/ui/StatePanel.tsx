@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { CircleAlert, Inbox, LoaderCircle } from 'lucide-react'
-import { Button } from './Button'
+import { Button } from './button'
+import { Card, CardContent } from './card'
 
 export type StatePanelKind = 'loading' | 'empty' | 'error'
 
@@ -45,31 +46,31 @@ export function StatePanel({
   const isError = kind === 'error'
 
   return (
-    <section
+    <Card
       role={isError ? 'alert' : 'status'}
       aria-live={isError ? 'assertive' : 'polite'}
-      className={`rounded-[1.5rem] border p-6 text-center ${
-        isError ? 'border-rose-400/30 bg-rose-400/10' : 'border-line bg-surface'
-      } ${className}`}
+      className={`${isError ? 'bg-rose-950/35' : 'bg-card'} ${className}`}
     >
-      <div
-        className={`mx-auto mb-4 grid size-12 place-items-center rounded-2xl ${
-          isError ? 'bg-rose-400/10 text-rose-300' : 'bg-brand-100 text-brand-700'
-        }`}
-      >
-        {icon ?? <DefaultIcon kind={kind} />}
-      </div>
-      <h2 className="text-lg font-extrabold tracking-[-0.02em] text-ink-950">
-        {title ?? copy.title}
-      </h2>
-      <p className="mx-auto mt-2 max-w-64 text-sm leading-6 text-ink-600">
-        {description ?? copy.description}
-      </p>
-      {actionLabel && onAction ? (
-        <Button className="mt-5" variant={isError ? 'danger' : 'secondary'} onClick={onAction}>
-          {actionLabel}
-        </Button>
-      ) : null}
-    </section>
+      <CardContent className="text-center">
+        <div
+          className={`mx-auto mb-4 grid size-12 place-items-center rounded-2xl ${
+            isError ? 'bg-rose-400/10 text-rose-300' : 'bg-primary/10 text-primary'
+          }`}
+        >
+          {icon ?? <DefaultIcon kind={kind} />}
+        </div>
+        <h2 className="text-lg font-extrabold tracking-[-0.02em] text-foreground">
+          {title ?? copy.title}
+        </h2>
+        <p className="mx-auto mt-2 max-w-64 text-sm leading-6 text-muted-foreground">
+          {description ?? copy.description}
+        </p>
+        {actionLabel && onAction ? (
+          <Button className="mt-5" variant={isError ? 'destructive' : 'secondary'} onClick={onAction}>
+            {actionLabel}
+          </Button>
+        ) : null}
+      </CardContent>
+    </Card>
   )
 }

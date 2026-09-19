@@ -3,7 +3,6 @@ import {
   BusFront,
   CarFront,
   Check,
-  ChevronLeft,
   Footprints,
   LoaderCircle,
   type LucideIcon,
@@ -14,6 +13,8 @@ import type {
   TransportMode,
 } from '../../types/contracts'
 import { motion, useReducedMotion } from 'motion/react'
+import { FlowBackButton } from '../../components/FlowBackButton'
+import { Alert, AlertDescription, AlertTitle, Button } from '../../components/ui'
 
 export interface AttendanceViewProps {
   event: EventDetails
@@ -77,18 +78,11 @@ export function AttendanceView({
   )
 
   return (
-    <section className="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-slate-950 px-5 pb-6 pt-4 text-white">
+    <section className="flex min-h-full w-full flex-col bg-background px-5 pb-6 pt-4 text-white">
       <header className="mb-8 flex items-center gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="grid size-11 shrink-0 place-items-center rounded-full border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
-          aria-label="Back to event details"
-        >
-          <ChevronLeft aria-hidden="true" size={22} />
-        </button>
+        <FlowBackButton label="Back to event details" onClick={onBack} />
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-300">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
             Plan your trip
           </p>
           <p className="truncate text-sm text-slate-400">{event.name}</p>
@@ -119,10 +113,10 @@ export function AttendanceView({
               disabled={!isAvailable || isSubmitting}
               aria-pressed={isSelected}
               onClick={() => onSelectMode(choice.mode)}
-              className={`relative min-h-32 rounded-3xl border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 disabled:cursor-not-allowed disabled:opacity-35 ${
+              className={`relative min-h-32 rounded-3xl p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-35 ${
                 isSelected
-                  ? 'border-cyan-300 bg-cyan-300 text-slate-950 shadow-[0_14px_40px_-20px_rgba(103,232,249,0.8)]'
-                  : 'border-white/10 bg-slate-900 text-white hover:border-white/25 hover:bg-slate-800'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-card text-white hover:bg-neutral-800'
               }`}
             >
               <span
@@ -141,7 +135,7 @@ export function AttendanceView({
                 {isAvailable ? choice.description : 'Unavailable'}
               </span>
               {isSelected && (
-                <span className="absolute right-3 top-3 grid size-6 place-items-center rounded-full bg-slate-950 text-cyan-300">
+                <span className="absolute right-3 top-3 grid size-6 place-items-center rounded-full bg-black text-primary">
                   <Check aria-hidden="true" size={14} strokeWidth={3} />
                 </span>
               )}
@@ -152,37 +146,32 @@ export function AttendanceView({
 
       <div className="mt-auto pt-8">
         {confirmation && (
-          <div
-            className="mb-4 flex items-start gap-3 rounded-2xl border border-emerald-400/25 bg-emerald-400/10 p-4"
-            role="status"
-          >
-            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-emerald-300 text-emerald-950">
-              <Check aria-hidden="true" size={18} strokeWidth={3} />
-            </span>
-            <div>
-              <p className="font-bold text-emerald-100">You&apos;re going!</p>
-              <p className="mt-1 text-sm leading-5 text-emerald-100/70">
+          <Alert className="mb-4 bg-primary/10 text-primary" role="status">
+            <Check aria-hidden="true" size={18} strokeWidth={3} />
+            <AlertTitle>You&apos;re going!</AlertTitle>
+            <AlertDescription className="text-primary/75">
                 {confirmation.participantsCount} people are joining this event.
                 {selectedChoice ? ` Route mode: ${selectedChoice.label}.` : ''}
-              </p>
-            </div>
-          </div>
+            </AlertDescription>
+          </Alert>
         )}
 
         {confirmation ? (
-          <button
+          <Button
             type="button"
+            size="lg"
             onClick={onContinue}
-            className="flex min-h-14 w-full items-center justify-center rounded-2xl bg-cyan-300 px-5 text-base font-extrabold text-slate-950 shadow-[0_16px_45px_-18px_rgba(103,232,249,0.9)] transition hover:bg-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+            className="w-full"
           >
             See my route
-          </button>
+          </Button>
         ) : (
-          <button
+          <Button
             type="button"
+            size="lg"
             onClick={onSubmit}
             disabled={isSubmitting || !availableModes.has(selectedMode)}
-            className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-cyan-300 px-5 text-base font-extrabold text-slate-950 shadow-[0_16px_45px_-18px_rgba(103,232,249,0.9)] transition hover:bg-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full"
           >
             {isSubmitting ? (
               <>
@@ -192,7 +181,7 @@ export function AttendanceView({
             ) : (
               "I'm going"
             )}
-          </button>
+          </Button>
         )}
       </div>
     </section>

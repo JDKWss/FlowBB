@@ -26,19 +26,11 @@ export function StepProgress({
           {safeCurrent}/{safeTotal}
         </span>
       </div>
-      <div
-        role="progressbar"
+      <Progress
         aria-label={accessibilityLabel}
-        aria-valuemin={1}
-        aria-valuemax={safeTotal}
-        aria-valuenow={safeCurrent}
-        className="h-1.5 overflow-hidden rounded-full bg-brand-100"
-      >
-        <div
-          className="h-full rounded-full bg-brand-600 transition-[width] duration-500 ease-out"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
+        value={progress}
+      />
     </div>
   )
 }
+import { Progress } from './progress'

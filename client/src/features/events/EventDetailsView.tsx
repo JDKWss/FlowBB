@@ -1,5 +1,4 @@
 import {
-  ArrowLeft,
   ArrowRight,
   Bike,
   BusFront,
@@ -11,9 +10,11 @@ import {
   Clock3,
   Footprints,
   MapPin,
-  Sparkles,
   UsersRound,
 } from 'lucide-react'
+import { DemoBadge } from '../../components/DemoBadge'
+import { FlowBackButton } from '../../components/FlowBackButton'
+import { Badge, Button, Card } from '../../components/ui'
 import type { EventDetails } from '../../types/contracts'
 import {
   formatEventDateLong,
@@ -49,45 +50,32 @@ function TransportIcon({ mode }: { mode: TransportMode }) {
 
 export function EventDetailsView({ event, onBack, onContinue }: EventDetailsViewProps) {
   return (
-    <section aria-labelledby="event-title" className="mx-auto w-full max-w-lg pb-36">
-      <div className="relative overflow-hidden border-b border-white/10 bg-zinc-950 px-4 pb-8 pt-5 sm:px-6">
-        <div aria-hidden="true" className="absolute -right-20 -top-28 size-64 rounded-full bg-emerald-400/15 blur-3xl" />
-        <div aria-hidden="true" className="absolute -left-24 top-24 size-52 rounded-full bg-blue-500/10 blur-3xl" />
-
-        <button
-          type="button"
-          onClick={onBack}
-          aria-label="Back to events"
-          className="relative grid size-11 place-items-center rounded-full border border-white/10 bg-black/40 text-white backdrop-blur transition hover:border-white/25 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
-        >
-          <ArrowLeft aria-hidden="true" className="size-5" />
-        </button>
+    <section aria-labelledby="event-title" className="w-full pb-36">
+      <div className="bg-background px-5 pb-8 pt-5">
+        <FlowBackButton label="Back to events" onClick={onBack} />
 
         <div className="relative mt-10">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-[0.68rem] font-bold uppercase tracking-[0.18em] text-emerald-200">
+            <Badge variant="secondary" className="h-auto bg-white/[0.06] px-3 py-1 text-[0.68rem] font-bold uppercase tracking-[0.18em] text-neutral-300">
               {getCategoryLabel(event.category)}
-            </span>
+            </Badge>
             {event.source === 'Demo' && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-[0.62rem] font-bold uppercase tracking-[0.14em] text-amber-200">
-                <Sparkles aria-hidden="true" className="size-3.5" />
-                DEMO DATA / SYMULACJA
-              </span>
+              <DemoBadge />
             )}
           </div>
 
-          <h1 id="event-title" className="mt-5 text-4xl font-bold leading-[1.05] tracking-[-0.045em] text-white sm:text-5xl">
+          <h1 id="event-title" className="mt-5 text-4xl font-bold leading-[1.05] tracking-[-0.045em] text-white">
             {event.name}
           </h1>
           <p className="mt-4 text-base leading-7 text-zinc-300">{event.description}</p>
         </div>
       </div>
 
-      <div className="space-y-7 px-4 pt-6 sm:px-6">
+      <div className="space-y-7 px-5 pt-6">
         <div className="grid gap-3">
-          <article className="rounded-3xl border border-white/10 bg-zinc-900/80 p-5">
+          <Card className="p-5">
             <div className="flex items-start gap-4">
-              <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-emerald-300 text-black">
+              <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground">
                 <CalendarDays aria-hidden="true" className="size-5" />
               </span>
               <div>
@@ -99,11 +87,11 @@ export function EventDetailsView({ event, onBack, onContinue }: EventDetailsView
                 </p>
               </div>
             </div>
-          </article>
+          </Card>
 
-          <article className="rounded-3xl border border-white/10 bg-zinc-900/80 p-5">
+          <Card className="p-5">
             <div className="flex items-start gap-4">
-              <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-blue-400 text-black">
+              <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-white text-black">
                 <MapPin aria-hidden="true" className="size-5" />
               </span>
               <div>
@@ -112,17 +100,17 @@ export function EventDetailsView({ event, onBack, onContinue }: EventDetailsView
                 <p className="mt-1 text-sm text-zinc-400">Bielsko-Biała</p>
               </div>
             </div>
-          </article>
+          </Card>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <article className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
-            <UsersRound aria-hidden="true" className="size-5 text-emerald-300" />
+          <Card className="p-4">
+            <UsersRound aria-hidden="true" className="size-5 text-primary" />
             <p className="mt-4 text-2xl font-bold tracking-tight text-white">{event.participantsCount}</p>
             <p className="mt-1 text-xs leading-5 text-zinc-400">people are already going</p>
-          </article>
-          <article className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
-            <span className="inline-flex size-5 items-center justify-center rounded-full bg-cyan-300 text-xs font-black text-black">
+          </Card>
+          <Card className="p-4">
+            <span className="inline-flex size-5 items-center justify-center rounded-full bg-primary text-xs font-black text-primary-foreground">
               {event.crewAvailable ? <CircleCheck aria-hidden="true" className="size-5" /> : <CircleMinus aria-hidden="true" className="size-5" />}
             </span>
             <p className="mt-4 text-base font-bold text-white">
@@ -131,13 +119,13 @@ export function EventDetailsView({ event, onBack, onContinue }: EventDetailsView
             <p className="mt-1 text-xs leading-5 text-zinc-400">
               {event.crewAvailable ? 'Join after confirming attendance' : 'Groups are not available yet'}
             </p>
-          </article>
+          </Card>
         </div>
 
         <div>
           <div className="mb-3 flex items-end justify-between gap-4">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-300">Available transport</p>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">Available transport</p>
               <h2 className="mt-1 text-xl font-bold tracking-tight text-white">How can you get there?</h2>
             </div>
             <span className="text-xs text-zinc-500">Choose in the next step</span>
@@ -150,8 +138,8 @@ export function EventDetailsView({ event, onBack, onContinue }: EventDetailsView
           ) : (
             <ul className="grid grid-cols-2 gap-2">
               {event.availableTransportModes.map((mode) => (
-                <li key={mode} className="flex min-h-20 items-center gap-3 rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm font-medium text-zinc-200">
-                  <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/10 text-emerald-300">
+                <li key={mode} className="flex min-h-20 items-center gap-3 rounded-2xl bg-card px-4 py-3 text-sm font-medium text-zinc-200">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/[0.06] text-primary">
                     <TransportIcon mode={mode} />
                   </span>
                   {transportLabels[mode] ?? mode}
@@ -162,19 +150,20 @@ export function EventDetailsView({ event, onBack, onContinue }: EventDetailsView
         </div>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-[520px] border-t border-white/10 bg-black/90 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
-        <div className="mx-auto max-w-lg">
-          <button
+      <div className="fixed inset-x-0 bottom-0 z-20 w-full bg-black/90 px-5 pb-[var(--phone-safe-bottom,1rem)] pt-3 backdrop-blur-xl">
+        <div className="w-full">
+          <Button
             type="button"
+            size="lg"
             onClick={onContinue}
-            className="flex min-h-14 w-full items-center justify-between rounded-2xl bg-emerald-300 px-5 py-3.5 text-left font-bold text-black shadow-[0_12px_40px_rgba(110,231,183,0.22)] transition hover:bg-emerald-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-100 focus-visible:ring-offset-4 focus-visible:ring-offset-black active:scale-[0.99]"
+            className="h-auto min-h-14 w-full justify-between py-3.5 text-left"
           >
             <span>
               <span className="block text-base">Plan my trip</span>
               <span className="block text-xs font-medium text-black/60">Choose how you&apos;ll get there</span>
             </span>
             <ArrowRight aria-hidden="true" className="size-5" />
-          </button>
+          </Button>
         </div>
       </div>
     </section>

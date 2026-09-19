@@ -62,6 +62,14 @@ try {
   })()`)
   assert.equal(validation, 4)
   await click('Open event: Koncert na Rynku')
+  await visibleText('How can you get there?')
+  assert.equal(await evaluate(`history.state?.screen`), 'details')
+  await evaluate(`history.back()`)
+  await visibleText('Your next plan.')
+  assert.equal(await evaluate(`history.state?.screen`), 'events')
+  await evaluate(`history.forward()`)
+  await visibleText('How can you get there?')
+  assert.equal(await evaluate(`history.state?.screen`), 'details')
   await click('Plan my trip\nChoose how you\'ll get there')
   await click("I'm going")
   await visibleText('83 people')
@@ -94,7 +102,7 @@ try {
   await click('See my route')
   await visibleText('Limited return connection')
   assert.deepEqual(errors, [])
-  console.log('PASS: schemas, attendance idempotency, route, return gap, join/leave/full crew, responsive widths, no runtime errors.')
+  console.log('PASS: schemas, browser back/forward, attendance idempotency, route, return gap, join/leave/full crew, responsive widths, no runtime errors.')
 } finally {
   socket.close()
 }

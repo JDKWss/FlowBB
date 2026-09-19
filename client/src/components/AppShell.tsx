@@ -1,5 +1,8 @@
 import type { ReactNode } from 'react'
 import { ArrowLeft, Route } from 'lucide-react'
+import { DemoBadge } from './DemoBadge'
+import { Button } from './ui/button'
+import { TooltipProvider } from './ui/tooltip'
 import { StepProgress } from './ui/StepProgress'
 
 export interface AppShellProps {
@@ -30,26 +33,29 @@ export function AppShell({
   footer,
 }: AppShellProps) {
   return (
-    <div className="min-h-dvh bg-canvas text-ink-950">
-      <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-surface shadow-lifted sm:my-6 sm:min-h-[calc(100dvh-3rem)] sm:overflow-hidden sm:rounded-[2rem] sm:border sm:border-line lg:max-w-[520px]">
-        {bare && <header className="border-b border-line bg-slate-950 px-5 pb-4 pt-[max(1.25rem,env(safe-area-inset-top))]">
+    <TooltipProvider>
+    <div className="h-full min-h-0 overflow-hidden bg-canvas text-ink-950">
+      <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-surface">
+        {bare && <header className="shrink-0 bg-background px-5 pb-4 pt-[var(--phone-safe-top,1.25rem)]">
           <div className="mb-5 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5"><Route aria-hidden="true" className="size-7 text-cyan-300" /><span className="text-xl font-extrabold tracking-tight">FlowBB<span className="text-cyan-300">.</span></span></div>
-            <span className="max-w-32 text-right text-[10px] font-semibold tracking-wide text-amber-200">DEMO DATA / SYMULACJA</span>
+            <div className="flex items-center gap-2.5"><Route aria-hidden="true" className="size-7 text-primary" /><span className="text-xl font-extrabold tracking-tight">FlowBB<span className="text-primary">.</span></span></div>
+            <DemoBadge compact />
           </div>
           {currentStep !== undefined && <StepProgress currentStep={currentStep} totalSteps={totalSteps} label={stepLabel} />}
         </header>}
-        {!bare ? <header className="sticky top-0 z-20 border-b border-line/80 bg-surface/95 px-5 pb-4 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-xl sm:static sm:pt-5">
+        {!bare ? <header className="sticky top-0 z-20 shrink-0 border-b border-line/80 bg-surface/95 px-5 pb-4 pt-[var(--phone-safe-top,1rem)] backdrop-blur-xl">
           <div className="flex min-h-10 items-center gap-3">
             {onBack ? (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={onBack}
                 aria-label={backLabel}
-                className="-ml-1 grid size-10 shrink-0 cursor-pointer place-items-center rounded-full text-ink-800 transition-colors hover:bg-brand-50 hover:text-brand-700 active:bg-brand-100"
+                className="-ml-1 shrink-0 text-ink-800 hover:bg-brand-50 hover:text-brand-700"
               >
                 <ArrowLeft aria-hidden="true" className="size-5" strokeWidth={2.25} />
-              </button>
+              </Button>
             ) : (
               <div
                 className="grid size-10 shrink-0 place-items-center rounded-[0.9rem] bg-brand-600 text-white shadow-soft"
@@ -81,14 +87,15 @@ export function AppShell({
           ) : null}
         </header> : null}
 
-        <main className={bare ? 'flex-1 bg-slate-950' : 'flex-1 px-5 py-6'}>{children}</main>
+        <main className={bare ? 'min-h-0 flex-1 overflow-y-auto bg-slate-950' : 'min-h-0 flex-1 overflow-y-auto px-5 py-6'}>{children}</main>
 
         {!bare && footer ? (
-          <footer className="sticky bottom-0 z-20 border-t border-line/80 bg-surface/95 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-xl">
+          <footer className="sticky bottom-0 z-20 shrink-0 border-t border-line/80 bg-surface/95 px-5 pb-[var(--phone-safe-bottom,1rem)] pt-4 backdrop-blur-xl">
             {footer}
           </footer>
         ) : null}
       </div>
     </div>
+    </TooltipProvider>
   )
 }
