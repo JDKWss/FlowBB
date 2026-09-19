@@ -8,5 +8,12 @@ namespace FlowBB.Application.Abstractions.Persistence;
 /// </summary>
 public interface IPulseDataReader
 {
+    /// <summary>Punkty startu deklaracji wydarzenia. Pusta lista, gdy nikt sie nie zadeklarowal.</summary>
     Task<IReadOnlyList<PulsePoint>> GetPointsAsync(Guid eventId, CancellationToken cancellationToken = default);
+
+    /// <summary>Dane wydarzenia lub <c>null</c>, gdy wydarzenie nie istnieje.</summary>
+    Task<PulseEventInfo?> GetEventAsync(Guid eventId, CancellationToken cancellationToken = default);
+
+    /// <summary>Wszystkie wydarzenia (do KPI calego miasta).</summary>
+    Task<IReadOnlyList<PulseEventInfo>> GetEventsAsync(CancellationToken cancellationToken = default);
 }
