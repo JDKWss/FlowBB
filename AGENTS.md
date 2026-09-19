@@ -16,7 +16,7 @@ Priorytety konkursowe: realna wartosc dla mieszkanca i miasta, mozliwosc wdrozen
 
 Demo musi przechodzic caly przeplyw bez recznego poprawiania danych:
 
-1. Uzytkownik otwiera wydarzenie w aplikacji mobilnej.
+1. Uzytkownik otwiera wydarzenie w aplikacji klienckiej w przegladarce.
 2. Klika "Ide" i wybiera srodek transportu.
 3. API zapisuje `AttendanceIntent` w PostgreSQL.
 4. Backend przelicza agregaty.
@@ -43,7 +43,7 @@ Jesli zmiana nie wspiera tego scenariusza, nie jest P0.
 ### P1 - tylko po zamknieciu P0
 
 - OpenTripPlanner z GTFS + OSM.
-- Mapa w aplikacji mobilnej przez WebView.
+- Mapa w aplikacji klienckiej.
 - Lepsze dopasowanie grup.
 - Dodatkowe wydarzenia i filtry.
 
@@ -52,18 +52,18 @@ Jesli zmiana nie wspiera tego scenariusza, nie jest P0.
 - Neo4j, LLM/AI w produkcie, rekomendacje ML.
 - Pelne logowanie, OAuth, platnosci i zakup biletow.
 - Chat i wiadomosci 1:1, push notifications.
-- MapLibre React Native lub inne moduly wymagajace development builda.
+- Osobna aplikacja natywna; `/client` pozostaje aplikacja webowa.
 - GIOS jako zaleznosc krytyczna.
 
 ## 4. Zamrozony stack
 
 - Backend: .NET 10, ASP.NET Core Minimal API, EF Core 10, Npgsql, NetTopologySuite, SignalR.
 - Baza: PostgreSQL + PostGIS w Dockerze.
-- Mobile: Expo, React Native, TypeScript, Expo Go.
-- Dashboard: React, Vite, TypeScript, MapLibre GL JS, OpenFreeMap, deck.gl, `@microsoft/signalr`.
+- Client: React, Vite, TypeScript; mobile-first aplikacja webowa.
+- Dashboard: React, Vite, TypeScript.
 - Routing: `IRoutePlanner` z `DemoRoutePlanner` jako zawsze dzialajacym fallbackiem; OTP 2 jako P1.
 - Kontenery: Docker Compose.
-- Demo: fizyczny Android, Expo Go, scrcpy; cloudflared tylko jako awaryjny tunel do API.
+- Demo: `/client` w mobilnym rozmiarze viewportu przegladarki, `/dashboard` w przegladarce desktopowej; cloudflared tylko jako awaryjny tunel do API.
 
 Nie dodawaj produkcyjnej zaleznosci, frameworka, bazy ani zewnetrznej uslugi bez zgody Backend/Core Leada.
 
@@ -81,7 +81,7 @@ flowbb/
 |   |-- FlowBB.Api/
 |   |-- FlowBB.Domain/
 |   `-- FlowBB.Infrastructure/
-|-- mobile/
+|-- client/
 |-- dashboard/
 |-- infra/
 |   |-- docker-compose.yml
@@ -116,20 +116,20 @@ Odpowiada za:
 - `IRoutePlanner`, `DemoRoutePlanner`, a nastepnie opcjonalnie `OtpRoutePlanner`;
 - pobranie i walidacje GTFS/OSM oraz limit 2 godzin na uruchomienie OTP;
 - Docker Compose, konfiguracje srodowiskowa, CORS i serwowanie buildu dashboardu z API;
-- test polaczenia telefon -> API oraz awaryjny cloudflared;
+- test polaczenia przegladarki `/client` -> API oraz awaryjny cloudflared;
 - niezawodny fallback, gdy zewnetrzna usluga nie dziala.
 
 ### Frontend Lead - wlasciciel: programista frontend
 
 Odpowiada za:
 
-- dashboard PULSE jako pierwszy interfejs: KPI + SignalR + mapa + alert;
-- aplikacje Expo: Events -> Event -> Ide -> Route -> Crew;
-- wspolny, spójny wyglad mobile i dashboardu;
+- `/client`: Events -> Event -> Ide -> Route -> Crew;
+- `/dashboard`: KPI + SignalR + mapa + wybor wydarzenia + alerty transportowe i luki powrotowej;
+- wspolny, spójny wyglad klienta i dashboardu;
 - stany loading/error/empty potrzebne w demo;
 - prace na fixture'ach od poczatku, bez czekania na gotowe API.
 
-Najpierw dzialajacy dashboard i prosty mobile, potem animacje i dopracowanie.
+Najpierw dzialajacy dashboard i prosty `/client`, potem animacje i dopracowanie.
 
 ### Data/PostGIS Lead - wlasciciel: programista bazy danych
 
@@ -150,6 +150,12 @@ Odpowiada za:
 - Agent nie zmienia nazw pol, sciezek ani enumow tylko po to, aby ulatwic lokalna implementacje.
 - Gdy kontrakt jest niekompletny, zatrzymaj prace i opisz brak oraz najmniejsza proponowana zmiane.
 - Frontend importuje lub odwzorowuje typy z kontraktu; nie tworzy drugiego, rozbieznego modelu domeny.
+
+### Dokumentacja frontendu
+
+- Dla zadan w `/client` lub `/dashboard` przeczytanie `docs/frontend.md` jest obowiazkowe; dokument uzupelnia `AGENTS.md`.
+- Przed dodaniem zaleznosci frontendowej sprawdz odpowiedni `package.json` i `docs/frontend.md`.
+- `contracts/openapi.yaml` pozostaje zrodlem prawdy dla kontraktow API i ksztaltow DTO.
 
 Minimalne endpointy:
 
@@ -212,17 +218,17 @@ Po pracy:
 
 - Backend: `dotnet build` oraz `dotnet test`, gdy projekt testowy istnieje.
 - Dashboard: `npm run lint` i `npm run build`.
-- Mobile: `npm run lint` i `npx tsc --noEmit`.
+- Client: `npm run lint` i `npm run build`.
 - Infra: `docker compose config` i test health endpointu API.
 - SQL/PULSE: test, ze komorka 9-osobowa jest ukryta, a 10-osobowa jest zwracana.
-- Walking skeleton: fizyczny telefon -> API -> Postgres -> SignalR -> dashboard `+1`.
+- Walking skeleton: przegladarka `/client` -> API -> PostgreSQL -> SignalR -> dashboard `+1`.
 
 Nie instaluj globalnych narzedzi ani nie aktualizuj lockfile bez potrzeby zadania.
 
 ## 11. Git i integracja
 
 - `main` ma zawsze dzialac.
-- Zalecane galezie: `feature/core-api`, `feature/routing-infra`, `feature/mobile-dashboard`, `feature/data-pulse`.
+- Zalecane galezie: `feature/core-api`, `feature/routing-infra`, `feature/client-dashboard`, `feature/data-pulse`.
 - Jeden czlowiek/agent pracuje w jednym worktree. Nie uruchamiaj dwoch piszacych agentow w tym samym katalogu.
 - Commit ma obejmowac jedna logiczna zmiane i przejsc lokalna weryfikacje.
 - Czlowiek czyta diff przed commitem i merge'em.
@@ -230,7 +236,7 @@ Nie instaluj globalnych narzedzi ani nie aktualizuj lockfile bez potrzeby zadani
 
 ## 12. Kolejnosc realizacji i bramki
 
-1. Do 45 min: repo, struktura, kontrakt, fixture'y, telefon z Expo, PostGIS, API i dashboard uruchomione.
+1. Do 45 min: repo, struktura, kontrakt, fixture'y, `/client` w mobilnym viewporcie przegladarki, PostGIS, API i dashboard uruchomione w przegladarce desktopowej.
 2. Do 2 h: walking skeleton `Ide -> DB -> SignalR -> +1`.
 3. Nastepnie rownolegle: PULSE, CREW, karta trasy i dopracowanie obu interfejsow.
 4. OTP ma limit 2 godzin; po nim wracamy do `DemoRoutePlanner`.
@@ -283,11 +289,11 @@ nie implementuj jej przed zakończeniem podstawowego scenariusza.
 - Wartość biznesowa: mieszkaniec łatwiej dociera na wydarzenie, a miasto poznaje przyszły popyt.
 - Wdrożeniowość: ASP.NET Core, PostgreSQL/PostGIS, GTFS i otwarte standardy.
 - Innowacyjność: deklaracja „Idę” zamieniana w prognozę zapotrzebowania transportowego.
-- Zaawansowanie kodu: SignalR, PostGIS, GeoJSON, routing z fallbackiem i aplikacja mobilna.
+- Zaawansowanie kodu: SignalR, PostGIS, GeoJSON, routing z fallbackiem i aplikacja kliencka.
 - Kreatywność: połączenie FLOW, CREW i PULSE w jeden obieg danych.
 - Łatwość użytkowania: jeden prosty przebieg od wydarzenia do trasy i grupy.
-- UX/UI: czytelny mobile i efektowny dashboard heksagonalny.
-- Prezentacja: kliknięcie „Idę” na telefonie powoduje zmianę licznika na żywo.
+- UX/UI: czytelny mobilny widok `/client` i efektowny dashboard heksagonalny.
+- Prezentacja: kliknięcie „Idę” w mobilnym viewporcie `/client` powoduje zmianę licznika na żywo.
 
 ## 15. Jakosc kodu i SonarQube
 

@@ -62,10 +62,10 @@ Przeczytaj AGENTS.md i contracts/. Potwierdz granice roli @nazwa-roli. Nie edytu
 
 1. Kuba + `@core-backend`: minimalne API Attendance i `PulseUpdated`.
 2. Drugi programista C# + `@integration-backend`: Docker Compose, health check i `DemoRoutePlanner`.
-3. Frontend Lead + `@frontend`: pusty dashboard z klientem SignalR oraz proste trzy ekrany Expo na fixture'ach.
+3. Frontend Lead + `@frontend`: dwa projekty React + Vite + TypeScript - `/client` z przeplywem Events -> Event -> Ide -> Route -> Crew oraz `/dashboard` z klientem SignalR.
 4. Data Lead + `@data`: PostGIS, pierwsza migracja i seed wystarczajacy do widocznych heksagonow.
 
-Pierwsza wspolna bramka: fizyczny telefon -> POST Attendance -> PostgreSQL -> SignalR -> licznik dashboardu `+1`.
+Pierwsza wspolna bramka: przegladarka `/client` -> API -> PostgreSQL -> SignalR -> dashboard.
 
 ## 6. Bezpieczna praca rownolegla
 
