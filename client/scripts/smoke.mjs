@@ -4,8 +4,19 @@ import assert from 'node:assert/strict'
 import { writeFile } from 'node:fs/promises'
 
 const appUrl = process.env.APP_URL ?? 'http://127.0.0.1:5173'
+const chromeDebugUrl = process.env.CHROME_DEBUG_URL ?? 'http://127.0.0.1:9222'
+const useRemoteMapStyle = process.env.USE_REMOTE_MAP_STYLE === 'true'
+const routeMode = process.env.ROUTE_MODE ?? 'Walking'
+const routeModeButtons = {
+  Walking: 'Select Walk',
+  Bike: 'Select Bike',
+  Car: 'Select Car',
+}
+if (!(routeMode in routeModeButtons)) {
+  throw new Error(`Unsupported ROUTE_MODE: ${routeMode}`)
+}
 
-const pages = await fetch('http://127.0.0.1:9222/json').then(response => response.json())
+const pages = await fetch(`${chromeDebugUrl}/json`).then(response => response.json())
 const socket = new WebSocket(pages.find(page => page.type === 'page').webSocketDebuggerUrl)
 await new Promise(resolve => socket.addEventListener('open', resolve, { once: true }))
 let sequence = 0
@@ -61,9 +72,11 @@ async function viewport(width) {
 }
 try {
   await command('Runtime.enable')
-  await command('Fetch.enable', {
-    patterns: [{ urlPattern: 'https://tiles.openfreemap.org/styles/liberty*', requestStage: 'Request' }],
-  })
+  if (!useRemoteMapStyle) {
+    await command('Fetch.enable', {
+      patterns: [{ urlPattern: 'https://tiles.openfreemap.org/styles/liberty*', requestStage: 'Request' }],
+    })
+  }
   await viewport(390)
   await command('Page.navigate', { url: `${appUrl}?smoke=${Date.now()}` })
   await visibleText('Koncert na Rynku')
@@ -87,15 +100,37 @@ try {
   await visibleText('How can you get there?')
   assert.equal(await evaluate(`history.state?.screen`), 'details')
   await click('Plan my trip\nChoose how you\'ll get there')
-  await click('Select Walk')
+  await click(routeModeButtons[routeMode])
   await click("I'm going")
   await visibleText('83 people')
   await click('See my route')
   await visibleText('DEMO ROUTE')
-  await visibleText('Walking')
+  await visibleText(routeMode)
   assert.equal(await evaluate(`Boolean(document.querySelector('[data-testid="route-map"]'))`), true)
+  assert.equal(await evaluate(`Boolean(document.querySelector('[data-testid="route-fullscreen-toggle"]'))`), true)
   await until(`Boolean(document.querySelector('[data-testid="route-start-marker"]'))`)
   await until(`Boolean(document.querySelector('[data-testid="route-destination-marker"]'))`)
+  await command('Runtime.evaluate', {
+    expression: `document.querySelector('[data-testid="route-fullscreen-toggle"]').click()`,
+    userGesture: true,
+  })
+  await until(`document.fullscreenElement?.getAttribute('data-testid') === 'route-map'`)
+  await visibleText(routeMode)
+  assert.equal(await evaluate(`document.querySelector('[data-testid="route-fullscreen-toggle"]')?.getAttribute('aria-label')`), 'Exit full screen')
+  await command('Runtime.evaluate', {
+    expression: 'document.exitFullscreen()',
+    awaitPromise: true,
+    userGesture: true,
+  })
+  await until(`document.fullscreenElement === null`)
+  if (useRemoteMapStyle) {
+    await new Promise(resolve => setTimeout(resolve, 3_000))
+  }
+  const routeScreenshot = await command('Page.captureScreenshot', { format: 'png' })
+  await writeFile(
+    `/tmp/flowbb-route-${routeMode.toLowerCase()}-verified.png`,
+    Buffer.from(routeScreenshot.data, 'base64'),
+  )
   await visibleText('18:12')
   await visibleText('21:44')
   await click('Find your crew')

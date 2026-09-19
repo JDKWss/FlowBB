@@ -127,6 +127,12 @@ button:not(:disabled), summary { cursor: pointer; }
   background: rgb(255 255 255 / 0.08);
 }
 
+.flowbb-route-map:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  border-radius: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: .01ms !important;
