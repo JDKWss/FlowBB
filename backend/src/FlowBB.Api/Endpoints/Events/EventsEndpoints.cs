@@ -45,8 +45,7 @@ public static class EventsEndpoints
         return TypedResults.Ok(events.Select(item => item.ToSummaryResponse()).ToList());
     }
 
-    // Nieparsowalny lub pusty id to 400, a poprawny, lecz nieznany id to 404. Uwaga: contracts/openapi.yaml definiuje dla
-    // getEventById tylko 200, 404 i 500, wiec kod wyprzedza kontrakt do czasu dopisania 400 przez Core.
+    // Nieparsowalny lub pusty id to 400, a poprawny, lecz nieznany id to 404 (getEventById w contracts/openapi.yaml).
     private static async Task<IResult> GetEventAsync(
         string eventId, GetEventHandler handler, CancellationToken cancellationToken)
     {
