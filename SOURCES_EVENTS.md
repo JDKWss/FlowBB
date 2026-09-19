@@ -90,7 +90,7 @@ Data prezentacji nie jest w repo, więc okno „najbliższe dni” trzeba ustali
 
 ## Zasady wczytywania
 
-1. Jeden skrypt pobiera i normalizuje dane, wynik `events.seed.json` jest commitowany. Skrypt należy do obszaru Data/PostGIS Leada.
+1. Jeden skrypt pobiera i normalizuje dane, wynik `events.seed.json` jest commitowany. Skrypt należy do obszaru Data/Neo4j.
 2. Tytuły i terminy są realne, popyt (`AttendanceIntent`) syntetyczny. UI oznacza to jako `DEMO DATA / SYMULACJA`.
 3. `capacity` i `freeSeats` z Teatru to sygnał realny. Nie łącz go z syntetycznym licznikiem w jednym polu.
 4. Wszystkie czasy zapisuj jako ISO 8601 ze strefą `Europe/Warsaw`.

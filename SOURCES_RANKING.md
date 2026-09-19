@@ -69,7 +69,7 @@ Wartość dla demo FlowBB liczy się tak: czy źródło daje **datę i godzinę 
 
 ## Zasady wczytywania
 
-1. **Jedna droga, jeden skrypt:** skrypt pobierający i normalizujący dane trafia do `data/seed/` (obszar Data/PostGIS Leada), a jego wynik (`events.seed.json`) jest **commitowany**. Demo nie odpytuje zewnętrznych API.
+1. **Jedna droga, jeden skrypt:** skrypt pobierający i normalizujący dane trafia do `data/seed/` (obszar Data/Neo4j), a jego wynik (`events.seed.json`) jest **commitowany**. Demo nie odpytuje zewnętrznych API.
 2. **Zdarzenia prawdziwe, popyt syntetyczny.** Tytuły i terminy są realne, ale `AttendanceIntent` w seedzie już nie. UI musi pokazać `DEMO DATA / SYMULACJA` i nie sugerować, że liczniki są prawdziwe. `capacity`/`freeSeats` z Teatru to sygnał realny, nie mieszać go z syntetycznym popytem w jednym liczniku.
 3. **Wybór do demo:** ok. 8-12 wydarzeń: 4-5 sesji Teatru, 4-5 z Cavatiny, 2-3 z bb2026. Termin na najbliższe dni, żeby scenariusz "82 → 83" miał sens. Gęstość heksagonów zależy od seedu `AttendanceIntent`, nie od źródeł wydarzeń.
 4. **Lokalizacja:** ręczny `data/seed/venues.json` (ok. 15-20 lokali). Współrzędnych nie daje żadne źródło.

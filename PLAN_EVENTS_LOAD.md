@@ -1,5 +1,7 @@
 # Plan: wczytanie wydarzeń do FlowBB
 
+> **Stan: materialy historyczne wzgledem persystencji (2026-09-19).** Ten plan zakladal PostgreSQL/PostGIS i EF Core jako baze aplikacji. Obowiazuje [ADR 001](docs/adr/001-runtime-persistence.md): baza runtime to Neo4j, a PostGIS jest tylko odseparowanym PoC MZK. Nie implementuj sekcji o schemacie SQL, EF Core, migracjach i seederze EF wedlug tego dokumentu. Czesci o zrodlach wydarzen, krokach snapshotu (`data/seed/`), regulach normalizacji i ryzykach pozostaja aktualne; wczytanie do Neo4j wymaga przepisania (patrz `docs/MVP_WORK_PLAN.md`, sekcja 6, pkt 9 i `docs/NEO4J_CONTRACT.md`).
+
 Stan na 2026-09-19. Plan opisuje drogę od trzech źródeł JSON (`SOURCES_EVENTS.md`) do endpointów `GET /api/events` i `GET /api/events/{eventId}`, czyli punktu 1 krytycznego scenariusza demo z `AGENTS.md`. Nic z tego planu poza `data/seed/ingest-events.mjs` nie jest jeszcze zaimplementowane. Plan jest dopasowany do kontraktu z `contracts/openapi.yaml` (`EventSummary`, `EventDetails`) i do szkieletu backendu z gałęzi `develop` (`backend/src/...`, bez EF Core i bez encji).
 
 ## Decyzje (potwierdzone)

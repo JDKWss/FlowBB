@@ -2,6 +2,8 @@
 
 Wersja poprawiona. Zmiany względem v1 są w sekcji 11, zmiany wprowadzone po v2 w sekcji 12. Stan wiedzy: 2026-09-19.
 
+> **Status architektoniczny (2026-09-19):** ten dokument opisuje odseparowany pipeline danych transportowych. Baza w sekcji 6.1 (PostgreSQL + PostGIS) to baza PoC, a nie baza runtime aplikacji FlowBB; ta jest Neo4j ([ADR 001](adr/001-runtime-persistence.md)). Odniesienia do migracji i integracji z aplikacja w dalszej czesci sa materialem historycznym.
+
 > **Stan realizacji (2026-09-19):** powstał proof of concept, który odbiega od tego planu (Node zamiast Pythona, ścieżka `data/gtfs/mzk/`, zakres: linia 7 + N1/N2, bez GTFS/OTP). Szczegóły i nowe ustalenia są w sekcji 13, a instrukcja uruchomienia w `data/gtfs/mzk/README.md`.
 
 Oznaczenia: **[Z]** = zweryfikowane na prawdziwych plikach, **[?]** = założenie do sprawdzenia, **[NIEZWERYFIKOWANE]** = wartość wpisana z pamięci lub odczytu, wymaga potwierdzenia przed użyciem jako oczekiwanie testu.
@@ -643,7 +645,7 @@ pdftotext -bbox-layout 7-kier.-Wapienica-Dzwonkowa.pdf l7_bbox.html
 |---|---|---|---|
 | Język | Python (stdlib) | **Node, bez zależności npm** | zgodność z `data/seed/ingest-events.mjs` i zamrożonym stackiem z `AGENTS.md` (sekcja 4) |
 | Katalog | `data/mzk/` | **`data/gtfs/mzk/`** | struktura repo z `AGENTS.md` (sekcja 5) |
-| Docker | wspólny compose | osobny `compose.yaml` w katalogu modułu | nie dotykam `infra/docker-compose.yml` (własność Integration Leada) |
+| Docker | wspólny compose | osobny `compose.yaml` w katalogu modułu | nie dotykam `infra/docker-compose.yml` (własność Core Backend Ownera) |
 | Baza w PoC | stała | efemeryczny PostGIS (tmpfs, bez portów, bez hasła) | brak sekretów w repo, brak kolizji z innymi kontenerami |
 | Etapy | A–G | fetch, extract, calendar, load-db, checks | bez `assemble`, `stops` (OSM), `gtfs`, OTP |
 | Tabele | 7 | 5 (`transit_line_direction`, `transit_stop`, `transit_source`, `transit_departure`, `transit_calendar_day`) | poziom 1 wystarcza do PULSE; `transit_trip` i `transit_stop_time` czekają na `assemble` |

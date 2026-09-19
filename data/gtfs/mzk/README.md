@@ -1,5 +1,7 @@
 # MZK Bielsko-Biała — rozkłady PDF → odjazdy → PostGIS (PoC)
 
+> **Status: odseparowany PoC.** PostgreSQL/PostGIS w tym katalogu sluzy wylacznie do importu i analizy danych transportowych. Nie jest baza aplikacji FlowBB (jest nia Neo4j, patrz [ADR 001](../../../docs/adr/001-runtime-persistence.md)), nie przechowuje Events ani Attendance i nie jest synchronizowany z Neo4j. Dane nie zawieraja jeszcze pelnych kursow (trips), kolejnosci przystankow, kompletnego powiazania kursow ani wspolrzednych wszystkich przystankow, wiec nie sa systemem routingu. MVP uzywa deterministycznego `DemoRoutePlanner`.
+
 Proof of concept: pokazuje, że publiczne rozkłady przystankowe MZK (PDF) da się pobrać, sparsować i załadować do PostgreSQL/PostGIS. Plan i uzasadnienia: [docs/mzk-pipeline-implementation.md](../../../docs/mzk-pipeline-implementation.md) (sekcja 13 opisuje odstępstwa PoC od planu).
 
 **Zakres:** linie 4, 7 i 16 oraz linie nocne N1 i N2 (po dwa kierunki każda, 10 PDF-ów). Bez GTFS/OTP, bez składania kursów i bez współrzędnych przystanków. Dane są wtórne, pochodzą z publicznych rozkładów MZK i są nieoficjalne.
@@ -53,4 +55,4 @@ docker compose down -v                                             # sprzatanie 
 4. **Święta:** dzień świąteczny (także w sobotę) dostaje rozkład niedzielny. To założenie, nie potwierdzona praktyka MZK. Wakacje szkolne nie są wpisane, więc `weekday_holiday` nie występuje w kalendarzu.
 5. **Flagi:** poza `K`, `#`, `N`, `R`, `Ś`, `W` linie 4 i 16 mają flagę `D` (kurs skrócony do Warszawskiej Dworca, 882 wystąpienia). Legenda `#` bywa różna (np. „po trasie do: ŁAGODNA SZKOŁA”). Semantyka flag w kursach nie jest jeszcze użyta.
 6. **Zmiany tras:** strona linii 4 ma czerwony napis „ZMIANA TRASY” i czerwoną datę obowiązywania (17.08.2026). Parser tego nie odczytuje, więc nie wiadomo, które strony mają tymczasową trasę.
-7. **Docelowa integracja z aplikacją** to migracja EF Core (Data Lead + Backend/Core Lead). Ten schemat SQL jest tylko dowodem, że dane się ładują.
+7. **Integracja z aplikacją** nie jest zaplanowana w MVP. Baza aplikacji to Neo4j, a ten schemat SQL jest tylko dowodem, że dane się ładują. Ewentualne użycie danych MZK w backendzie wymaga osobnej decyzji (nowego ADR); nie synchronizujemy PostGIS z Neo4j.
