@@ -1,0 +1,14 @@
+{
+  "eventId": "11111111-1111-1111-1111-111111111111",
+  "name": "Koncert na Rynku",
+  "origin": {
+    "latitude": 49.81272,
+    "longitude": 19.03384,
+    "label": "Your location"
+  },
+  "destination": {
+    "latitude": 49.82245,
+    "longitude": 19.04431,
+    "label": "Rynek w Bielsku-Białej"
+  }
+}

@@ -14,6 +14,8 @@ import {
   Flag,
   Footprints,
   MapPin,
+  Maximize2,
+  Minimize2,
   Navigation,
   TriangleAlert,
   type LucideIcon,
@@ -29,9 +31,9 @@ import Map, {
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { EventDetails } from '../../types/contracts'
 import {
-  getMockRouteMap,
+  getDemoRoute,
+  type DemoRouteFixture,
   type MapRouteMode,
-  type MockRouteMap,
 } from '../../mocks/routeMap'
 import { Alert, AlertDescription, AlertTitle, Badge, Skeleton } from '../ui'
 
@@ -125,27 +127,26 @@ function MapUnavailable() {
   )
 }
 
-function InteractiveMap({ route, event }: { route: MockRouteMap; event: EventDetails }) {
+function InteractiveMap({ route, event }: { route: DemoRouteFixture; event: EventDetails }) {
   const mapRef = useRef<MapRef>(null)
+  const mapContainerRef = useRef<HTMLDivElement>(null)
   const [loaded, setLoaded] = useState(false)
   const [mapError, setMapError] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const [openPopup, setOpenPopup] = useState<'start' | 'destination' | null>(null)
 
   const routeGeoJson = useMemo(
     () => ({
       type: 'Feature' as const,
       properties: {},
-      geometry: {
-        type: 'LineString' as const,
-        coordinates: route.path.map((point) => [point.longitude, point.latitude]),
-      },
+      geometry: route.geometry,
     }),
-    [route.path],
+    [route.geometry],
   )
 
   const fitRoute = useCallback(() => {
-    const longitudes = route.path.map((point) => point.longitude)
-    const latitudes = route.path.map((point) => point.latitude)
+    const longitudes = route.geometry.coordinates.map(([longitude]) => longitude)
+    const latitudes = route.geometry.coordinates.map(([, latitude]) => latitude)
 
     mapRef.current?.fitBounds(
       [
@@ -158,11 +159,26 @@ function InteractiveMap({ route, event }: { route: MockRouteMap; event: EventDet
         maxZoom: 15,
       },
     )
-  }, [route.path])
+  }, [route.geometry.coordinates])
 
   useEffect(() => {
-    if (loaded) fitRoute()
-  }, [fitRoute, loaded])
+    if (!loaded) return
+
+    const frame = window.requestAnimationFrame(() => {
+      mapRef.current?.resize()
+      fitRoute()
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [fitRoute, isFullscreen, loaded])
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(document.fullscreenElement === mapContainerRef.current)
+    }
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
+  }, [])
 
   useEffect(() => {
     if (loaded) return
@@ -171,13 +187,29 @@ function InteractiveMap({ route, event }: { route: MockRouteMap; event: EventDet
     return () => window.clearTimeout(failureTimeout)
   }, [loaded])
 
+  const toggleFullscreen = async () => {
+    const mapContainer = mapContainerRef.current
+    if (!mapContainer) return
+
+    try {
+      if (document.fullscreenElement === mapContainer) {
+        await document.exitFullscreen()
+      } else if (!document.fullscreenElement) {
+        await mapContainer.requestFullscreen()
+      }
+    } catch {
+      setIsFullscreen(false)
+    }
+  }
+
   if (mapError) return <MapUnavailable />
 
   return (
     <div
+      ref={mapContainerRef}
       data-testid="route-map"
       aria-label={`${modeDetails[route.mode].label} route map to ${event.name}`}
-      className="relative h-[240px] overflow-hidden rounded-3xl bg-neutral-900"
+      className="flowbb-route-map relative h-[240px] overflow-hidden rounded-3xl bg-neutral-900"
     >
       {!loaded && (
         <Skeleton
@@ -282,12 +314,27 @@ function InteractiveMap({ route, event }: { route: MockRouteMap; event: EventDet
           </Popup>
         )}
       </Map>
+
+      <button
+        type="button"
+        data-testid="route-fullscreen-toggle"
+        aria-label={isFullscreen ? 'Exit full screen' : 'Expand route map'}
+        aria-pressed={isFullscreen}
+        onClick={() => void toggleFullscreen()}
+        className="absolute right-3 top-3 z-30 grid size-10 place-items-center rounded-full border border-white/15 bg-neutral-950/90 text-white shadow-lg backdrop-blur-sm transition hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      >
+        {isFullscreen ? (
+          <Minimize2 aria-hidden="true" className="size-5" />
+        ) : (
+          <Maximize2 aria-hidden="true" className="size-5" />
+        )}
+      </button>
     </div>
   )
 }
 
 export function RouteMap({ mode, event }: { mode: MapRouteMode; event: EventDetails }) {
-  const route = useMemo(() => getMockRouteMap(mode, event), [event, mode])
+  const route = useMemo(() => getDemoRoute(mode, event), [event, mode])
   const ModeIcon = modeDetails[mode].icon
 
   return (

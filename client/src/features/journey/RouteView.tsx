@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { FlowBackButton } from '../../components/FlowBackButton'
 import { RouteMap } from '../../components/route/RouteMap'
+import { hasDemoRoute } from '../../mocks/routeMap'
 import {
   Alert,
   AlertDescription,
@@ -157,7 +158,7 @@ export function RouteView({
         </Badge>
       </header>
 
-      {supportsRouteMap(selectedMode) && (
+      {supportsRouteMap(selectedMode) && hasDemoRoute(event.id) && (
         <RouteMap
           key={`${event.id}-${selectedMode}`}
           mode={selectedMode}
