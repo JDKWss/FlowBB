@@ -1,0 +1,10 @@
+{
+  "name": "flowbb-mzk-pipeline",
+  "private": true,
+  "type": "module",
+  "description": "PoC: rozklady MZK Bielsko-Biala (PDF) -> odjazdy JSON -> PostGIS. Bez zaleznosci npm.",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "pipeline": "node pipeline/cli.mjs"
+  }
+}

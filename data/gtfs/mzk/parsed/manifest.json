@@ -1,0 +1,102 @@
+[
+  {
+    "line": "4",
+    "url": "https://komunikacja.bielsko-biala.pl/wp-content/uploads/2026/08/Linia-nr-4-kier.-Os.-Wojska-Polskiego.pdf",
+    "kind": "kier",
+    "label": "Osiedle Wojska Polskiego",
+    "uploads_date": "2026/08",
+    "file": "Linia-nr-4-kier.-Os.-Wojska-Polskiego.pdf",
+    "sha256": "4bfdb1d6836fc38a496f2e7fff11cb82270ae3f6338b289128c11bdde782b83a",
+    "last_modified": "Wed, 12 Aug 2026 10:14:38 GMT"
+  },
+  {
+    "line": "4",
+    "url": "https://komunikacja.bielsko-biala.pl/wp-content/uploads/2026/08/Linia-nr-4-kier.-Os.-Langiewicza.pdf",
+    "kind": "kier",
+    "label": "Langiewicza Basen",
+    "uploads_date": "2026/08",
+    "file": "Linia-nr-4-kier.-Os.-Langiewicza.pdf",
+    "sha256": "23beba62d03c609b57e4fef1f5dc95fdf6f20334f4a7f1a0b66b1ba38b50c513",
+    "last_modified": "Wed, 12 Aug 2026 10:14:26 GMT"
+  },
+  {
+    "line": "7",
+    "url": "https://komunikacja.bielsko-biala.pl/wp-content/uploads/2026/08/7-kier.-Szyndzielnia.pdf",
+    "kind": "kier",
+    "label": "Szyndzielnia (Karbowa Hala Sportowa)",
+    "uploads_date": "2026/08",
+    "file": "7-kier.-Szyndzielnia.pdf",
+    "sha256": "b81b154cba0e1123be34e71860b05d9f64bcdbc111fe31674ff70bb3e5fd28dc",
+    "last_modified": null
+  },
+  {
+    "line": "7",
+    "url": "https://komunikacja.bielsko-biala.pl/wp-content/uploads/2026/08/7-kier.-Wapienica-Dzwonkowa.pdf",
+    "kind": "kier",
+    "label": "Wapienica Dzwonkowa",
+    "uploads_date": "2026/08",
+    "file": "7-kier.-Wapienica-Dzwonkowa.pdf",
+    "sha256": "c4c10d2824b7dd32e067a291e2718ea2954f22da601f3d552270a7478ce8a1e6",
+    "last_modified": null
+  },
+  {
+    "line": "16",
+    "url": "https://komunikacja.bielsko-biala.pl/wp-content/uploads/2026/03/16-kier.-Wapienica-Zapora.pdf",
+    "kind": "kier",
+    "label": "Wapienica Zapora",
+    "uploads_date": "2026/03",
+    "file": "16-kier.-Wapienica-Zapora.pdf",
+    "sha256": "a53fd84bad72d0bb2dda481e13f5884af03d2a78e4e09d398298f26b3ffd864f",
+    "last_modified": "Tue, 31 Mar 2026 13:05:49 GMT"
+  },
+  {
+    "line": "16",
+    "url": "https://komunikacja.bielsko-biala.pl/wp-content/uploads/2026/03/16-kier.-Sarni-Stok.pdf",
+    "kind": "kier",
+    "label": "Os. Sarni Stok (Warszawska Dworzec)",
+    "uploads_date": "2026/03",
+    "file": "16-kier.-Sarni-Stok.pdf",
+    "sha256": "1af0315539055242f9affd8f62416fa12fc1faf9666ec6121bae456a69033f6a",
+    "last_modified": "Tue, 31 Mar 2026 13:06:00 GMT"
+  },
+  {
+    "line": "N1",
+    "url": "https://komunikacja.bielsko-biala.pl/wp-content/uploads/2026/07/Linia-N1-kier.-Zajezdnia-MZK.pdf",
+    "kind": "kier",
+    "label": "Zajezdnia MZK",
+    "uploads_date": "2026/07",
+    "file": "Linia-N1-kier.-Zajezdnia-MZK.pdf",
+    "sha256": "db87779a9940af8b5467eefde6337c629664f63bcf74c6f81e9e6c6d796b5034",
+    "last_modified": null
+  },
+  {
+    "line": "N1",
+    "url": "https://komunikacja.bielsko-biala.pl/wp-content/uploads/2026/07/Linia-N1-kier.-Wapienica-Centrum.pdf",
+    "kind": "kier",
+    "label": "Wapienica Centrum",
+    "uploads_date": "2026/07",
+    "file": "Linia-N1-kier.-Wapienica-Centrum.pdf",
+    "sha256": "b6d3c72f8050dad125d24e2968a53d5b99ef58341c6c456121927fa33ac4ba63",
+    "last_modified": null
+  },
+  {
+    "line": "N2",
+    "url": "https://komunikacja.bielsko-biala.pl/wp-content/uploads/2026/04/N2-kier.-Zajezdnia-MZK.pdf",
+    "kind": "kier",
+    "label": "Zajezdnia MZK",
+    "uploads_date": "2026/04",
+    "file": "N2-kier.-Zajezdnia-MZK.pdf",
+    "sha256": "13928da027c6a5ab903b15a0ec344d5e9548d19704393fa2026a18a4ad91ddf2",
+    "last_modified": null
+  },
+  {
+    "line": "N2",
+    "url": "https://komunikacja.bielsko-biala.pl/wp-content/uploads/2026/04/N2-kier.-Halcnow-Kosciol.pdf",
+    "kind": "kier",
+    "label": "Hałcnów Kościół",
+    "uploads_date": "2026/04",
+    "file": "N2-kier.-Halcnow-Kosciol.pdf",
+    "sha256": "bbde7877909563dc349080e47861e1206e7d542e0ab961fa6b92a8569e45e886",
+    "last_modified": null
+  }
+]
