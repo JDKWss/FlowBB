@@ -1,11 +1,16 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MotionConfig } from 'motion/react'
+import App from './App'
 import './index.css'
+
+const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, staleTime: 30_000 } } })
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <main>
-      <h1>FlowBB Client</h1>
-    </main>
+    <QueryClientProvider client={queryClient}>
+      <MotionConfig reducedMotion="user"><App /></MotionConfig>
+    </QueryClientProvider>
   </StrictMode>,
 )
