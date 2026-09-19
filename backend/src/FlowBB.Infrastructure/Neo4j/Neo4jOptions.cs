@@ -13,11 +13,13 @@ public sealed record Neo4jOptions(
 
     public static Neo4jOptions FromEnvironment()
     {
+        var fileValues = Neo4jConfigurationFile.Load();
+
         return new Neo4jOptions(
-            Environment.GetEnvironmentVariable(UriVariable) ?? "neo4j://127.0.0.1:7687",
-            Environment.GetEnvironmentVariable(DatabaseVariable) ?? "flowbb",
-            GetRequiredVariable(UsernameVariable),
-            GetRequiredVariable(PasswordVariable));
+            GetValueOrDefault(UriVariable, fileValues, "neo4j://127.0.0.1:7687"),
+            GetValueOrDefault(DatabaseVariable, fileValues, "flowbb"),
+            GetRequiredValue(UsernameVariable, fileValues),
+            GetRequiredValue(PasswordVariable, fileValues));
     }
 
     public void Validate()
@@ -33,12 +35,37 @@ public sealed record Neo4jOptions(
         EnsureNotBlank(Password, nameof(Password));
     }
 
-    private static string GetRequiredVariable(string variableName)
+    private static string GetRequiredValue(
+        string variableName,
+        IReadOnlyDictionary<string, string> fileValues)
     {
-        var value = Environment.GetEnvironmentVariable(variableName);
-        return !string.IsNullOrWhiteSpace(value)
-            ? value
-            : throw new InvalidOperationException($"Required environment variable {variableName} is not set.");
+        var value = GetValue(variableName, fileValues);
+        return value ?? throw new InvalidOperationException(
+            $"Required Neo4j setting {variableName} is missing from the environment and configuration file.");
+    }
+
+    private static string? GetValue(
+        string variableName,
+        IReadOnlyDictionary<string, string> fileValues)
+    {
+        var environmentValue = Environment.GetEnvironmentVariable(variableName);
+        if (!string.IsNullOrWhiteSpace(environmentValue))
+        {
+            return environmentValue;
+        }
+
+        return fileValues.TryGetValue(variableName, out var fileValue) &&
+               !string.IsNullOrWhiteSpace(fileValue)
+            ? fileValue
+            : null;
+    }
+
+    private static string GetValueOrDefault(
+        string variableName,
+        IReadOnlyDictionary<string, string> fileValues,
+        string defaultValue)
+    {
+        return GetValue(variableName, fileValues) ?? defaultValue;
     }
 
     private static void EnsureNotBlank(string value, string propertyName)
