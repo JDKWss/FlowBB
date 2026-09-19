@@ -282,15 +282,25 @@ paths:
   /api/events/{eventId}/route:
     parameters:
       - $ref: "#/components/parameters/EventId"
-    get:
+    post:
       tags: [Routing]
-      summary: Zwraca proponowana trase na wydarzenie i powrot
+      summary: Wylicza proponowana trase na wydarzenie i powrot
       description: |
-        Trasa zawsze jest pobierana przez `IRoutePlanner`. API zwraca
-        `plannerSource: Demo`, gdy OTP nie jest dostepny.
-      operationId: getEventRoute
-      parameters:
-        - $ref: "#/components/parameters/RequiredUserIdQuery"
+        Trasa jest liczona przez `IRoutePlanner` od aktualnej lokalizacji
+        uzytkownika przekazanej w body. API zwraca `plannerSource: Demo`,
+        gdy OTP nie jest dostepny.
+      operationId: planEventRoute
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RouteRequest"
+            example:
+              userId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+              origin:
+                latitude: 49.82245
+                longitude: 19.04431
       responses:
         "200":
           description: Plan podrozy
@@ -461,15 +471,6 @@ components:
     UserId:
       name: userId
       in: path
-      required: true
-      description: Id seedowanego uzytkownika
-      schema:
-        type: string
-        format: uuid
-
-    RequiredUserIdQuery:
-      name: userId
-      in: query
       required: true
       description: Id seedowanego uzytkownika
       schema:
@@ -758,6 +759,17 @@ components:
           items:
             $ref: "#/components/schemas/RouteStep"
 
+    RouteRequest:
+      type: object
+      additionalProperties: false
+      required: [userId, origin]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        origin:
+          $ref: "#/components/schemas/GeoPoint"
+
     RouteResponse:
       type: object
       additionalProperties: false
@@ -950,7 +962,14 @@ components:
     PulseUpdatedMessage:
       type: object
       additionalProperties: false
-      required: [eventId, participantsCount, modalSplit, participantsWithoutReturn, changedAt]
+      required:
+        [
+          eventId,
+          participantsCount,
+          modalSplit,
+          participantsWithoutReturn,
+          changedAt,
+        ]
       properties:
         eventId:
           type: string
