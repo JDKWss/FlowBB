@@ -16,7 +16,7 @@ Zakres:
 Ograniczenia:
 
 - nie zmieniaj kontraktow ani zaleznosci bez akceptacji Kuby;
-- nie edytuj dashboardu, mobile, SQL PULSE ani infra poza wyraznie przydzielonym zadaniem;
+- nie edytuj dashboardu, clienta, SQL PULSE ani infra poza wyraznie przydzielonym zadaniem;
 - nie wykonuj commit/push/merge.
 
 ## Integration Backend Agent (@integration-backend)
@@ -27,7 +27,7 @@ Zakres:
 
 - `IRoutePlanner`, `DemoRoutePlanner`, opcjonalnie `OtpRoutePlanner`;
 - `infra/`, Docker Compose, CORS, health checks i konfiguracja;
-- test telefon -> API oraz fallback bez internetu.
+- test przegladarka `/client` -> API oraz fallback bez internetu.
 
 Ograniczenia:
 
@@ -41,15 +41,15 @@ Cel: wspierac Frontend Leada w zbudowaniu dwoch malych, spójnych interfejsow.
 
 Zakres:
 
-- `dashboard/`: KPI, SignalR, mapa, event selector, alert;
-- `mobile/`: Events -> Event -> Ide -> Route -> Crew;
+- `dashboard/`: miejski panel administracyjny z KPI, SignalR, mapa, event selector i alertami;
+- `client/`: mobile-first aplikacja webowa React/Vite z przeplywem Events -> Event -> Ide -> Route -> Crew;
 - loading/error/empty states i fixture'y z `contracts/fixtures`;
-- weryfikacja UI w przegladarce i na fizycznym telefonie.
+- weryfikacja `/client` w mobilnym rozmiarze viewportu oraz `/dashboard` w przegladarce desktopowej.
 
 Ograniczenia:
 
 - dashboard dzialajacy przed ozdobnikami;
-- Expo Go bez nowych modulow natywnych;
+- `/client` pozostaje aplikacja webowa React/Vite;
 - nie wymyslaj pol DTO ani endpointow.
 
 ## Data Agent (@data)
