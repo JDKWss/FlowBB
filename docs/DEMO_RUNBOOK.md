@@ -330,3 +330,9 @@ komend z tego dokumentu; jedyne odstepstwa to `-p flowbb-91b` (patrz uwaga o wie
 | `dotnet test backend/FlowBB.sln` na Windows | 95 + 127 + 7 + 287 PASS, **1 FAIL**: `AirQualityContract_DefinesPlannedEndpointAndStableEnums` (nie dotyczy #91): test porownuje `contracts/openapi.yaml` z tekstem z `
 `, a checkout na Windows ma `CRLF` (`core.autocrlf=true`); CI na Linuksie przechodzi. Naprawa: #131 |
 | Neo4j Aura, przegladarka, proba z timerem | bez zmian: niewykonane w tym przebiegu (patrz sekcje 10-12) |
+
+## 14. Pomiar realnego routingu drogowego (issue #127)
+
+Grafy `routing-prepare` powstaly w okolo 1,5 min (Overpass, promien 6 km wokol `49.8176, 19.0391`), a usluga `routing` zaladowala je w 7,4 s i zajmuje okolo 660 MiB. Cieple zapytanie to okolo 105 ms (Walking), 59 ms (Bike) i 8 ms (Car), przy limicie API 3 s. Artefakty maja 71,2 MB. Pomiar zrobiono na komputerze deweloperskim (16 rdzeni logicznych, 32 GB RAM), a nie na laptopie prezentacyjnym, wiec przed demo powtorz go tam. Pelna tabela bramki ADR 002 (punkty 1-12) jest w `docs/ROUTING_SERVICE.md`, sekcja 15.1.
+
+Powtorzenie na innym sprzecie: przygotuj grafy (krok 4), a potem uruchom testy golden routes z opisem w `docs/ROUTING_SERVICE.md` (`routing-service/tests/test_real_graphs.py`, 13 testow, pomijane bez `ROUTING_REAL_DATA_DIR`). Grafy zaleza od biezacych danych OSM, dlatego oczekiwane dystanse maja tolerancje 10%.
