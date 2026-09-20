@@ -147,6 +147,21 @@ public class AttendanceEndpointsTests
     }
 
     [Theory]
+    [InlineData("text/plain")]
+    [InlineData(null)]
+    public async Task Post_WithoutJsonContentType_Returns400WithoutPublishing(string? contentType)
+    {
+        await using var setup = await StartAsync();
+        using var content = new StringContent("{}");
+        content.Headers.ContentType = contentType is null ? null : new(contentType);
+
+        var response = await setup.Host.Client.PostAsync(AttendanceUrl(EventId), content);
+
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.BadRequest);
+        setup.Notifier.Updates.Should().BeEmpty();
+    }
+
+    [Theory]
     [InlineData("/api/events/00000000-0000-0000-0000-000000000000/attendance")]
     [InlineData("/api/events/not-a-guid/attendance")]
     public async Task Post_WithInvalidEventId_Returns400(string url)

@@ -217,6 +217,20 @@ public class CrewsEndpointsTests
     }
 
     [Theory]
+    [InlineData("text/plain")]
+    [InlineData(null)]
+    public async Task Join_WithoutJsonContentType_ReturnsBadRequestProblem(string? contentType)
+    {
+        await using var host = await CrewsTestHost.StartAsync();
+        using var content = new StringContent("{}");
+        content.Headers.ContentType = contentType is null ? null : new(contentType);
+
+        using var response = await host.Client.PostAsync(MembersUrl(FakeCrewRepository.NewcomersCrewId), content);
+
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.BadRequest);
+    }
+
+    [Theory]
     [InlineData("not-a-guid")]
     [InlineData("00000000-0000-0000-0000-000000000000")]
     public async Task Join_WithInvalidGroupId_ReturnsBadRequestProblem(string groupId)
