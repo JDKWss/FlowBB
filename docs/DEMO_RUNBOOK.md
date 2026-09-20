@@ -27,6 +27,8 @@ i pelny przebieg SignalR z frontendem.
 
 - Docker (Compose v2) albo .NET SDK 10 do uruchomienia API lokalnie.
 - PowerShell 7 (`pwsh`) do skryptu smoke testu.
+- Dla opcjonalnego realnego routingu drogowego: przygotowany wolumen
+  `routing-data` (jednorazowa komenda w kroku 4 ponizej).
 - Neo4j: instancja Aura (patrz `backend/README.md`) albo lokalny kontener (profil `local-db`).
 - Przegladarka desktopowa dla `/dashboard`, przegladarka w mobilnym viewporcie dla `/client`.
 - Zadnych sekretow w repozytorium: hasla i dane polaczenia tylko w `.env` (ignorowany przez git), wzor w `.env.example`.
@@ -38,10 +40,12 @@ i pelny przebieg SignalR z frontendem.
 3. Ustaw `NEO4J_SEED_ON_STARTUP=true`, aby backend przed startem automatycznie
    wykonal constraints i `database/flowbb-demo-seed.cypher`. Lokalne profile
    `dotnet run` maja te opcje wlaczona. Seed jest idempotentny.
-4. Uruchom stos: `docker compose -f infra/docker-compose.yml up --build` (dodaj `--profile local-db` dla lokalnego Neo4j).
-5. Sprawdz zdrowie API: `GET http://localhost:8080/health` powinno zwrocic `200 {"status":"ok"}`.
-6. Otworz Scalar z OpenAPI (srodowisko Development): `http://localhost:8080/scalar`.
-7. Uruchom smoke test (sekcja 5).
+4. Opcjonalnie przygotuj realne grafy Walking/Bike/Car (ten reczny krok wymaga
+   sieci i Overpass): `docker compose -f infra/docker-compose.yml --profile routing-tools run --rm routing-prepare`.
+5. Uruchom stos: `docker compose -f infra/docker-compose.yml up --build` (dodaj `--profile local-db` dla lokalnego Neo4j).
+6. Sprawdz zdrowie API: `GET http://localhost:8080/health` powinno zwrocic `200 {"status":"ok"}`. Wewnetrzny `/health` kontenera `routing` ma status `ready` tylko po zaladowaniu wszystkich trzech grafow.
+7. Otworz Scalar z OpenAPI (srodowisko Development): `http://localhost:8080/scalar`.
+8. Uruchom smoke test (sekcja 5).
 
 API mozna tez uruchomic recznie: `dotnet run --project backend/src/FlowBB.Api --urls http://localhost:8080`.
 Glowny host udostepnia `/health`, `/hubs/pulse` oraz endpointy Events,
@@ -122,9 +126,12 @@ Backup: nagraj przebieg scenariusza (sekcja 4) i zapisz zrzuty ekranu dashboardu
   pochodzic ze snapshotu Attendance, a nie z body zadania. `IRoutePlanner` i
   deterministyczny `DemoRoutePlanner` sa zaimplementowane i podlaczone.
   Dane MZK sa niekompletne i nie stanowia grafu routingu. Proponowany realny
-  routing Walking/Bike/Car to prywatna usluga Python/FastAPI wywolywana tylko
-  przez adapter ASP.NET `RoutingServiceRoutePlanner`; przegladarka nigdy nie
-  wywoluje jej bezposrednio. Szczegoly opisuje `docs/ROUTING_SERVICE.md`.
+  routing Walking/Bike/Car zostal zaimplementowany jako prywatna usluga
+  Python/FastAPI z lokalnymi grafami OSM oraz wewnetrzny klient ASP.NET;
+  przegladarka nigdy nie wywoluje FastAPI bezposrednio. Realny planer nie jest
+  jeszcze aktywnym `IRoutePlanner`, poniewaz zaakceptowany kontrakt nie ma
+  prawdziwego zrodla, dystansu ani geometrii. Szczegoly opisuje
+  `docs/ROUTING_SERVICE.md`.
   Geometria i dystans pozostaja wyraznie niezaakceptowana zmiana publicznego
   kontraktu. PublicTransport nie jest obslugiwany przez te usluge drogowa.
 - PostgreSQL/PostGIS w `data/gtfs/mzk/` to odseparowany PoC, nie baza aplikacji (patrz `docs/adr/001-runtime-persistence.md`).

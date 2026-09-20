@@ -4,6 +4,7 @@ using FlowBB.Api.Endpoints.Pulse;
 using FlowBB.Api.Endpoints.Routing;
 using FlowBB.Api.Hubs;
 using FlowBB.Infrastructure.Neo4j;
+using FlowBB.Infrastructure.Routing;
 using Scalar.AspNetCore;
 using Serilog;
 
@@ -24,6 +25,29 @@ builder.Services.AddEventsModule();
 builder.Services.AddAttendanceModule();
 builder.Services.AddPulseModule();
 builder.Services.AddRoutingModule();
+
+var routingServiceUrl = builder.Configuration["Routing:ServiceUrl"] ?? "http://routing:8000";
+if (!Uri.TryCreate(routingServiceUrl, UriKind.Absolute, out var routingServiceUri))
+{
+    throw new InvalidOperationException("Routing:ServiceUrl must be an absolute URI.");
+}
+
+var routingTimeoutSeconds = builder.Configuration.GetValue<double?>("Routing:TimeoutSeconds") ?? 3;
+if (routingTimeoutSeconds <= 0)
+{
+    throw new InvalidOperationException("Routing:TimeoutSeconds must be greater than zero.");
+}
+
+var routingOptions = new RoutingServiceOptions(
+    routingServiceUri,
+    TimeSpan.FromSeconds(routingTimeoutSeconds),
+    builder.Configuration.GetValue("Routing:DemoFallbackEnabled", true));
+builder.Services.AddSingleton(routingOptions);
+builder.Services.AddHttpClient<RoutingServiceClient>(client =>
+{
+    client.BaseAddress = routingOptions.ServiceUrl;
+    client.Timeout = routingOptions.Timeout;
+});
 
 var allowedOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins")

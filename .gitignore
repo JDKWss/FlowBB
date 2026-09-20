@@ -218,6 +218,10 @@ $RECYCLE.BIN/
 # Archiwa lokalne i paczki przekazywane recznie
 # -----------------------------------------------------------------------------
 *.7z
+
+# Wygenerowane lokalnie artefakty grafow drogowych (manifest i .graphml).
+routing-service/data/*
+!routing-service/data/.gitkeep
 *.rar
 *.tar
 *.tar.gz

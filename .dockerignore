@@ -6,6 +6,8 @@
 **/TestResults
 **/node_modules
 **/dist
+routing-service/data/*
+!routing-service/data/.gitkeep
 **/.env*
 .env*
 backend/Neo4j-*.txt

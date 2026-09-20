@@ -25,7 +25,7 @@ Rola integracyjna nalezy do Core Backend Ownera: integracja backendu, `Program.c
 | Attendance | Application, Api, SignalR (`Hubs`) | encja, handlery, endpointy, testy i adapter `IAttendanceRepository` dla Neo4j sa zaimplementowane | tak |
 | Crew | Domain (`Crews`), Application (`Crews/*`), Api | istnieje model grafu `Crew` i operacje ogolnego repozytorium; brak modulu Application/API | nie |
 | PULSE | Application (`Pulse/*`), Api, `Hubs` | handlery agregacji, endpointy, testy i adapter `IPulseDataReader` dla Neo4j sa zaimplementowane | tak |
-| Routing | Domain (`Routing`), Application (`Abstractions/Routing`, `Routing`), Infrastructure (`Routing`), Api (`Endpoints/Routing`); proponowana prywatna usluga Python/FastAPI | `IRoutePlanner`, `DemoRoutePlanner`, handler i endpoint sa zaimplementowane i podlaczone; `RoutingServiceRoutePlanner` i usluga FastAPI sa tylko projektem | tak |
+| Routing | Domain (`Routing`), Application (`Abstractions/Routing`, `Routing`), Infrastructure (`Routing`), Api (`Endpoints/Routing`); prywatna usluga Python/FastAPI | `IRoutePlanner`, `DemoRoutePlanner`, handler i endpoint sa podlaczone; FastAPI, generator grafow, Compose i wewnetrzny klient HTTP sa zaimplementowane jako spike. Publiczne wlaczenie realnego planera blokuje brak prawdziwego `PlannerSource`, dystansu i geometrii w zaakceptowanym kontrakcie | tak, nadal `DemoRoutePlanner` |
 | SignalR | Api (`Hubs`) | hub i notifier istnieja; `/hubs/pulse` jest mapowany | tak |
 
 Uruchamiany host mapuje `/health`, Events, Attendance, PULSE, Routing,

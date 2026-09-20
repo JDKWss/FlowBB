@@ -1,7 +1,14 @@
 # FlowBB road-routing service
 
-Status: **Proposed design; not implemented**
+Status: **Bounded spike implemented; public activation blocked by the accepted contract**
 Decision record: [ADR 002](adr/002-road-routing-engine.md)
+
+Implementation status on `develop` (2026-09-20): the private FastAPI service,
+manual OSMnx artifact builder, synthetic tests, private Compose services and a
+provider-neutral ASP.NET HTTP client exist. The public `IRoutePlanner` remains
+`DemoRoutePlanner`: `PlannerSource` has no truthful road-service value and the
+accepted `RouteResponse` has no route distance or geometry. ADR 002 remains
+`Proposed`; this implementation does not change its decision status.
 
 ## 1. Purpose
 
@@ -206,12 +213,11 @@ Official references:
 - [OSRM profiles](https://project-osrm.org/docs/v26.4.0/profiles)
 - [GraphHopper repository and feature overview](https://github.com/graphhopper/graphhopper)
 
-### Recommended bounded spike
+### Implemented bounded spike
 
-Start with **OSMnx + NetworkX**, using local, prepared graphs and existing
-shortest-path algorithms. Evaluate `pyrosm` as the offline PBF ingestion step
-if direct local-PBF preprocessing is cleaner or faster for the chosen artifact
-pipeline.
+The bounded spike uses **OSMnx 2.1.1 + NetworkX 3.6.1** on Python 3.12.11,
+using local prepared GraphML graphs and NetworkX weighted shortest paths.
+`pyrosm` is not required by the implemented Overpass preprocessing path.
 
 Reasons:
 
@@ -316,7 +322,7 @@ For each request:
 
 1. validate finite WGS84 coordinates and supported mode;
 2. choose the mode-specific graph;
-3. snap origin and destination with a spatial index;
+3. snap origin and destination to the nearest graph node;
 4. reject points outside the approved maximum snap distance;
 5. calculate the weighted path;
 6. select the traversed edge for every node pair, including parallel edges;
@@ -324,9 +330,12 @@ For each request:
 8. calculate distance/duration from traversed edges;
 9. return a valid GeoJSON `LineString` in `[longitude, latitude]` order.
 
-The spike must determine a safe maximum snap distance and behavior near graph
-boundaries. A valid but unroutable pair is `route_not_found`, not a reason to
-fabricate a demo route.
+The bounded implementation scans the in-memory nodes with haversine distance;
+it does not claim edge snapping. It rejects either endpoint beyond the
+configurable `ROUTING_MAX_SNAP_METERS` (default 500 m). A spatial index and
+nearest-edge snapping remain a measured follow-up if graph size or route
+quality requires them. A valid but unroutable pair is `ROUTE_NOT_FOUND`, not a
+reason to fabricate a demo route.
 
 If the Python-native stack cannot produce reliable provider-neutral maneuvers
 within P0, return an empty `steps` array and keep distance/duration/geometry
@@ -424,12 +433,13 @@ full request bodies or raw route geometries in routine logs.
 
 ## 13. Docker Compose topology
 
-Conceptual target, still not implemented by this task:
+Implemented topology for this spike:
 
 ```text
 docker compose
 |-- api          ASP.NET FlowBB.Api; public FlowBB API
 |-- routing      FastAPI; private port 8000; mounted/bundled graph artifacts
+|-- routing-prepare  manual profile; populates the routing-data volume
 |-- neo4j        only application runtime database
 |-- client       resident web app
 `-- dashboard    city/admin web app
@@ -439,6 +449,19 @@ Only `api` calls `http://routing:8000` on the private Compose network. The
 `routing` service normally has no public host port; an optional development
 override may expose one for debugging. This is one FlowBB repository and one
 deployment, not a separate routing repository.
+
+Prepare artifacts once, then start the runtime stack:
+
+```bash
+docker compose -f infra/docker-compose.yml \
+  --profile routing-tools run --rm routing-prepare
+docker compose -f infra/docker-compose.yml up --build
+```
+
+`routing` mounts `routing-data` read-only and has only Compose `expose: 8000`,
+not a public `ports` mapping. The API has no healthy dependency on routing, so
+an unavailable graph service does not prevent the valid demo API path from
+starting.
 
 Route calculation must work without Internet after the artifact and images
 are present. MapLibre/OpenFreeMap basemap rendering can still depend on network
@@ -459,8 +482,11 @@ The internal routing request therefore contains no `userId` or `eventId`.
 
 ## 15. Verification and spike gate
 
-Before adding production dependencies or wiring Compose, a disposable spike
-must prove:
+The synthetic suite proves validation, readiness, all three modes, stable
+errors, snapping limits, deterministic paths, distance and directed edge
+geometry without network access. The real Bielsko artifact/golden-route run
+must still be recorded on demo hardware before the spike can be accepted. Its
+remaining gate is:
 
 1. a reproducible clipped Bielsko-Biala dataset plus margin;
 2. distinct Walking/Bike/Car graphs and golden routes;
@@ -482,18 +508,23 @@ defer real routing.
 
 ## 16. Remaining decisions
 
-- exact Python/runtime and library versions after the spike;
-- whether preprocessing uses OSMnx XML input, pyrosm PBF import or another
-  reproducible converter;
-- artifact format and storage/distribution mechanism;
-- Bielsko-Biala clip margin and maximum snap distance;
-- per-mode speed/cost assumptions and bicycle suitability penalties;
-- internal error schema and contract versioning;
+- whether to keep Python 3.12.11, OSMnx 2.1.1 and NetworkX 3.6.1 after the
+  measured golden-route run;
+- whether later preprocessing should replace the implemented manual Overpass
+  `graph_from_point` step with a pinned local PBF;
+- artifact distribution and refresh ownership beyond the local named volume;
+- whether nearest-edge/indexed snapping should replace the implemented
+  bounded nearest-node scan;
+- whether Bike needs a separately approved suitability cost beyond length;
+- internal contract versioning;
 - final timeout and whether one retry is justified by measurements;
 - worker count, given that each worker may duplicate in-memory graphs;
 - whether P0 requires maneuvers or allows `steps: []`;
 - OSM attribution presentation and artifact refresh owner;
 - the separate public OpenAPI change for geometry, distance and planner source.
 
-Until these are resolved and ADR 002 is accepted, the current deterministic
-`DemoRoutePlanner` remains the supported MVP route planner.
+The minimum separate public-contract delta is a truthful road-service
+`PlannerSource` value plus total distance and GeoJSON LineString fields (and
+the corresponding Domain/API mapping). Until that is accepted and ADR 002 is
+accepted, the current deterministic `DemoRoutePlanner` remains the active MVP
+route planner.
