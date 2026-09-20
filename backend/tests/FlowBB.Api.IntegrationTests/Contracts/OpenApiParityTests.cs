@@ -8,8 +8,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace FlowBB.Api.IntegrationTests.Contracts;
 
 /// <summary>
-/// Pilnuje, aby operacje w <c>contracts/openapi.yaml</c> (operationId, sciezka, metoda) odpowiadaly endpointom, ktore host
-/// faktycznie mapuje. Ksztalty odpowiedzi sprawdzaja testy endpointow; tu tylko spis operacji.
+/// Pilnuje, aby aktywne operacje w <c>contracts/openapi.yaml</c> (operationId, sciezka, metoda) odpowiadaly endpointom,
+/// ktore host faktycznie mapuje. Operacje oznaczone <c>x-runtime-status: planned</c> sa sprawdzane osobno.
 /// </summary>
 public sealed class OpenApiParityTests(WebApplicationFactory<Program> factory)
     : IClassFixture<WebApplicationFactory<Program>>
@@ -50,5 +50,13 @@ public sealed class OpenApiParityTests(WebApplicationFactory<Program> factory)
                 actual.Operation.Method.Should().Be(expected.Method, "method of {0}", operationId);
             }
         }
+    }
+
+    [Fact]
+    public void ContractFirstOperations_AreExplicitlyMarkedAsPlanned()
+    {
+        var planned = OpenApiContract.ReadPlannedOperations().Keys;
+
+        planned.Should().BeEquivalentTo(["getEventAirQuality"]);
     }
 }

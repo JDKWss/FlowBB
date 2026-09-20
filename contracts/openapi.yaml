@@ -33,6 +33,8 @@ tags:
     description: Trasy z IRoutePlanner
   - name: Pulse
     description: Zagregowane dane dla panelu miasta
+  - name: AirQuality
+    description: Jakosc powietrza dla lokalizacji wydarzenia
 
 paths:
   /health:
@@ -203,6 +205,66 @@ paths:
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalServerError"
+
+  /api/events/{eventId}/air-quality:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+    get:
+      tags: [AirQuality]
+      summary: Zwraca jakosc powietrza dla lokalizacji wydarzenia
+      description: |
+        Kontrakt planowanej operacji. Implementacja runtime nalezy do issue #97.
+        Stacja jest wybierana wzgledem wspolrzednych wydarzenia, nigdy wzgledem
+        lokalizacji mieszkanca. Awaria, timeout albo bezuzyteczna odpowiedz GIOS
+        nie powoduja publicznego 5xx: przyszla implementacja zwroci 200 ze
+        `status: Fallback` i `source: Demo`.
+      x-runtime-status: planned
+      operationId: getEventAirQuality
+      responses:
+        "200":
+          description: Dane GIOS albo deterministyczne dane demonstracyjne fallback
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AirQualityResponse"
+              example:
+                eventId: "11111111-1111-1111-1111-111111111111"
+                station:
+                  name: "Bielsko-Biała, ul. Kossak-Szczuckiej"
+                  distanceMeters: 1450
+                measuredAt: "2026-09-20T07:00:00+02:00"
+                qualityLevel: Good
+                status: Fresh
+                source: Gios
+                pm10:
+                  value: 18.4
+                  unit: "µg/m³"
+                pm25: null
+                no2:
+                  value: 12.1
+                  unit: "µg/m³"
+                o3:
+                  value: 46.8
+                  unit: "µg/m³"
+                alert: null
+        "400":
+          description: "`eventId` nie jest niepustym UUID"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+        "404":
+          description: UUID jest poprawny, ale wydarzenie nie istnieje
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+        "500":
+          description: Nieoczekiwany blad FlowBB, niezalezny od dostepnosci GIOS
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
 
   /api/events/{eventId}/attendance:
     parameters:
@@ -746,6 +808,120 @@ components:
               uniqueItems: true
               items:
                 $ref: "#/components/schemas/TransportMode"
+
+    AirQualityResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - eventId
+        - station
+        - measuredAt
+        - qualityLevel
+        - status
+        - source
+        - pm10
+        - pm25
+        - no2
+        - o3
+        - alert
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        station:
+          $ref: "#/components/schemas/AirQualityStation"
+        measuredAt:
+          type: string
+          format: date-time
+          description: ISO 8601 z jawnym offsetem Europe/Warsaw, np. `2026-09-20T07:00:00+02:00`.
+        qualityLevel:
+          $ref: "#/components/schemas/AirQualityLevel"
+        status:
+          $ref: "#/components/schemas/AirQualityStatus"
+        source:
+          $ref: "#/components/schemas/AirQualitySource"
+        pm10:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/AirQualityMeasurement"
+        pm25:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/AirQualityMeasurement"
+        no2:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/AirQualityMeasurement"
+        o3:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/AirQualityMeasurement"
+        alert:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/AirQualityAlert"
+
+    AirQualityStation:
+      type: object
+      additionalProperties: false
+      required: [name, distanceMeters]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        distanceMeters:
+          type: number
+          format: double
+          minimum: 0
+          description: Odleglosc w linii prostej od lokalizacji wydarzenia do stacji.
+
+    AirQualityMeasurement:
+      type: object
+      additionalProperties: false
+      required: [value, unit]
+      properties:
+        value:
+          type: number
+          format: double
+          minimum: 0
+        unit:
+          type: string
+          enum: ["µg/m³"]
+
+    AirQualityLevel:
+      type: string
+      description: |
+        Odwzorowanie indeksu GIOS: Bardzo dobry = VeryGood, Dobry = Good,
+        Umiarkowany = Moderate, Dostateczny = Sufficient, Zly = Bad,
+        Bardzo zly = VeryBad, Brak indeksu = Unknown.
+      enum: [VeryGood, Good, Moderate, Sufficient, Bad, VeryBad, Unknown]
+
+    AirQualityStatus:
+      type: string
+      description: |
+        Fresh: wiek pomiaru <= 90 minut. Stale: dostepny pomiar GIOS jest starszy
+        niz 90 minut. Fallback: brak uzytecznych danych zewnetrznych i uzyto
+        deterministycznych danych demonstracyjnych.
+      enum: [Fresh, Stale, Fallback]
+
+    AirQualitySource:
+      type: string
+      description: Gios oznacza dane z GIOS; Demo oznacza snapshot demonstracyjny FlowBB.
+      enum: [Gios, Demo]
+
+    AirQualityAlert:
+      type: object
+      additionalProperties: false
+      required: [severity, message]
+      properties:
+        severity:
+          type: string
+          enum: [Info, Warning]
+        message:
+          type: string
+          minLength: 1
+          maxLength: 300
 
     EventCategory:
       type: string

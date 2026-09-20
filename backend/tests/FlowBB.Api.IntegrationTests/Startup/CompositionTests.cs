@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using FlowBB.Application.Abstractions.Persistence;
 using FlowBB.Application.Abstractions.Realtime;
 using FlowBB.Application.Abstractions.Routing;
@@ -26,7 +25,8 @@ namespace FlowBB.Api.IntegrationTests.Startup;
 [Collection(CompositionTestCollection.Name)]
 public sealed class CompositionTests
 {
-    private const string OperationIdPattern = @"operationId:\s*(\w+)";
+    private const string OperationIdPrefix = "      operationId:";
+    private const string PlannedRuntimeMarker = "      x-runtime-status: planned";
 
     private static readonly Type[] MappedHandlerTypes =
     [
@@ -108,15 +108,34 @@ public sealed class CompositionTests
 
     private static HashSet<string> GetContractOperations()
     {
-        var contract = File.ReadAllText(FindOpenApiContract());
-        return Regex.Matches(
-                contract,
-                OperationIdPattern,
-                RegexOptions.CultureInvariant,
-                TimeSpan.FromSeconds(1))
-            .Select(match => match.Groups[1].Value)
-            .ToHashSet(StringComparer.Ordinal);
+        var operations = new HashSet<string>(StringComparer.Ordinal);
+        var isPlanned = false;
+
+        foreach (var line in File.ReadLines(FindOpenApiContract()))
+        {
+            if (IsHttpMethodLine(line))
+            {
+                isPlanned = false;
+            }
+            else if (line == PlannedRuntimeMarker)
+            {
+                isPlanned = true;
+            }
+            else if (!isPlanned && line.StartsWith(OperationIdPrefix, StringComparison.Ordinal))
+            {
+                operations.Add(line[OperationIdPrefix.Length..].Trim());
+            }
+        }
+
+        return operations;
     }
+
+    private static bool IsHttpMethodLine(string line) => line is
+        "    get:" or
+        "    post:" or
+        "    put:" or
+        "    patch:" or
+        "    delete:";
 
     private static string FindOpenApiContract()
     {
