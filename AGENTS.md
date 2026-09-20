@@ -69,7 +69,7 @@ Jesli zmiana nie wspiera tego scenariusza, nie jest P0.
 - Kontenery: Docker Compose.
 - Demo: `/client` w mobilnym rozmiarze viewportu przegladarki, `/dashboard` w przegladarce desktopowej; cloudflared tylko jako awaryjny tunel do API.
 
-Pakiety EF Core i Npgsql, ktore nadal sa w `FlowBB.Infrastructure.csproj`, sa pozostaloscia po wczesniejszym planie i nie naleza do stacku. Ich usuniecie to osobny maly task porzadkowy, wykonywany po potwierdzeniu, ze kod runtime ich nie uzywa (patrz `docs/MVP_WORK_PLAN.md`); do tego czasu nie korzystaj z nich w nowym kodzie.
+Nieuzywane pakiety dawnego stacku relacyjnego zostaly usuniete z `FlowBB.Infrastructure.csproj`, poniewaz nie naleza do stacku. Nie dodawaj ich ponownie bez nowej decyzji architektonicznej i zgody Backend/Core Leada.
 
 Nie dodawaj produkcyjnej zaleznosci, frameworka, bazy ani zewnetrznej uslugi bez zgody Backend/Core Leada.
 
