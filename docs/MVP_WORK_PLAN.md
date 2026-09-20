@@ -27,6 +27,7 @@ Kuba pozostaje liderem projektu oraz zatwierdza wspolne kontrakty i nowe zalezno
 | Routing | `CompositeRoutePlanner` wybiera RoadRouting dla Walking/Bike/Car, Demo dla PublicTransport i kontrolowanego fallbacku | `backend/src/FlowBB.Infrastructure/Routing/CompositeRoutePlanner.cs` |
 | Client | `HttpClientService` jest domyslny; mocki wlacza dopiero `VITE_USE_MOCKS=true` | `client/src/services/clientService.ts`, `client/.env.example` |
 | Dashboard | operacyjny widok PULSE korzysta z REST, SignalR i GeoJSON; zawiera tez tworzenie wydarzenia | `dashboard/src/App.tsx`, `dashboard/src/hooks/usePulseConnection.ts`, `dashboard/src/components/PulseMap.tsx` |
+| Air Quality | endpoint GIOS v1 ma cache, timeout i deterministyczny fallback; Client i Dashboard pokazuja pomiary oraz zrodlo | `backend/src/FlowBB.Infrastructure/AirQuality/`, `data/air-quality/`, `client/src/features/events/AirQualityCard.tsx`, `dashboard/src/components/AirQualityCard.tsx` |
 | ReturnGap | pozostaje atrapa: `participantsWithoutReturn = 0`, alerty puste, a planery zwracaja `returnGap: false` | `backend/src/FlowBB.Application/Pulse/GetEventPulse/GetEventPulseHandler.cs`, `backend/src/FlowBB.Api/Endpoints/Pulse/PulseResponses.cs`, `backend/src/FlowBB.Infrastructure/Routing/` |
 | Dawny stack | pakiety EF Core/Npgsql i stare `Domain/Models` zostaly usuniete (#58, #59) | `backend/src/FlowBB.Infrastructure/FlowBB.Infrastructure.csproj`, brak `backend/src/FlowBB.Domain/Models/` |
 

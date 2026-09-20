@@ -15,7 +15,8 @@ import {
 import { DemoBadge } from '../../components/DemoBadge'
 import { FlowBackButton } from '../../components/FlowBackButton'
 import { Badge, Button, Card } from '../../components/ui'
-import type { EventDetails } from '../../types/contracts'
+import type { AirQualityResponse, EventDetails } from '../../types/contracts'
+import { AirQualityCard } from './AirQualityCard'
 import {
   formatEventDateLong,
   formatEventTimeRange,
@@ -25,6 +26,10 @@ import {
 
 type EventDetailsViewProps = {
   event: EventDetails
+  airQuality?: AirQualityResponse
+  airQualityLoading: boolean
+  airQualityError: string | null
+  onRetryAirQuality: () => void
   onBack: () => void
   onContinue: () => void
 }
@@ -48,7 +53,15 @@ function TransportIcon({ mode }: { mode: TransportMode }) {
   }
 }
 
-export function EventDetailsView({ event, onBack, onContinue }: EventDetailsViewProps) {
+export function EventDetailsView({
+  event,
+  airQuality,
+  airQualityLoading,
+  airQualityError,
+  onRetryAirQuality,
+  onBack,
+  onContinue,
+}: EventDetailsViewProps) {
   return (
     <section aria-labelledby="event-title" className="w-full pb-36">
       <div className="bg-background px-5 pb-8 pt-5">
@@ -119,6 +132,13 @@ export function EventDetailsView({ event, onBack, onContinue }: EventDetailsView
             </p>
           </Card>
         </div>
+
+        <AirQualityCard
+          airQuality={airQuality}
+          isLoading={airQualityLoading}
+          error={airQualityError}
+          onRetry={onRetryAirQuality}
+        />
 
         <div>
           <div className="mb-3 flex items-end justify-between gap-4">

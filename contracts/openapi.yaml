@@ -213,12 +213,10 @@ paths:
       tags: [AirQuality]
       summary: Zwraca jakosc powietrza dla lokalizacji wydarzenia
       description: |
-        Kontrakt planowanej operacji. Implementacja runtime nalezy do issue #97.
         Stacja jest wybierana wzgledem wspolrzednych wydarzenia, nigdy wzgledem
         lokalizacji mieszkanca. Awaria, timeout albo bezuzyteczna odpowiedz GIOS
-        nie powoduja publicznego 5xx: przyszla implementacja zwroci 200 ze
+        nie powoduja publicznego 5xx: implementacja zwraca 200 ze
         `status: Fallback` i `source: Demo`.
-      x-runtime-status: planned
       operationId: getEventAirQuality
       responses:
         "200":
@@ -907,7 +905,9 @@ components:
 
     AirQualitySource:
       type: string
-      description: Gios oznacza dane z GIOS; Demo oznacza snapshot demonstracyjny FlowBB.
+      description: |
+        Gios oznacza dane z GIOS; Demo oznacza snapshot demonstracyjny FlowBB. Dozwolone pary ze `status`:
+        Fresh i Stale tylko z Gios, Fallback tylko z Demo.
       enum: [Gios, Demo]
 
     AirQualityAlert:

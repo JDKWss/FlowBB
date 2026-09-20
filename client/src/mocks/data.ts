@@ -1,4 +1,5 @@
 import type {
+  AirQualityResponse,
   EventDetails,
   EventSummary,
   GroupSummary,
@@ -7,6 +8,23 @@ import type {
 
 export const DEMO_USER_ID = 'dddddddd-dddd-dddd-dddd-dddddddddddd'
 export const PRIMARY_EVENT_ID = '11111111-1111-1111-1111-111111111111'
+
+export const airQuality: AirQualityResponse = {
+  eventId: PRIMARY_EVENT_ID,
+  station: {
+    name: 'Bielsko-Biała, ul. Kossak-Szczuckiej',
+    distanceMeters: 1576,
+  },
+  measuredAt: '2026-09-20T10:00:00+02:00',
+  qualityLevel: 'Good',
+  status: 'Fallback',
+  source: 'Demo',
+  pm10: null,
+  pm25: null,
+  no2: { value: 5.3, unit: 'µg/m³' },
+  o3: { value: 80.8, unit: 'µg/m³' },
+  alert: null,
+}
 
 export const eventDetails: EventDetails[] = [
   {

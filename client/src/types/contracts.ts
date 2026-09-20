@@ -38,6 +38,43 @@ export interface EventDetails extends EventSummary {
   availableTransportModes: TransportMode[]
 }
 
+export type AirQualityLevel =
+  | 'VeryGood'
+  | 'Good'
+  | 'Moderate'
+  | 'Sufficient'
+  | 'Bad'
+  | 'VeryBad'
+  | 'Unknown'
+
+export type AirQualityStatus = 'Fresh' | 'Stale' | 'Fallback'
+export type AirQualitySource = 'Gios' | 'Demo'
+
+export interface AirQualityMeasurement {
+  value: number
+  unit: 'µg/m³'
+}
+
+export interface AirQualityResponse {
+  eventId: string
+  station: {
+    name: string
+    distanceMeters: number
+  }
+  measuredAt: string
+  qualityLevel: AirQualityLevel
+  status: AirQualityStatus
+  source: AirQualitySource
+  pm10: AirQualityMeasurement | null
+  pm25: AirQualityMeasurement | null
+  no2: AirQualityMeasurement | null
+  o3: AirQualityMeasurement | null
+  alert: {
+    severity: 'Info' | 'Warning'
+    message: string
+  } | null
+}
+
 export interface AttendanceUpsertRequest {
   userId: string
   transportMode: TransportMode

@@ -40,6 +40,39 @@ export const eventDetailsSchema = eventSummarySchema.extend({
   ),
 })
 
+const airQualityMeasurementSchema = z.strictObject({
+  value: z.number().finite().nonnegative(),
+  unit: z.literal('µg/m³'),
+})
+
+export const airQualitySchema = z.strictObject({
+  eventId: id,
+  station: z.strictObject({
+    name: z.string().min(1).max(200),
+    distanceMeters: z.number().finite().nonnegative(),
+  }),
+  measuredAt: timestamp,
+  qualityLevel: z.enum([
+    'VeryGood',
+    'Good',
+    'Moderate',
+    'Sufficient',
+    'Bad',
+    'VeryBad',
+    'Unknown',
+  ]),
+  status: z.enum(['Fresh', 'Stale', 'Fallback']),
+  source: z.enum(['Gios', 'Demo']),
+  pm10: airQualityMeasurementSchema.nullable(),
+  pm25: airQualityMeasurementSchema.nullable(),
+  no2: airQualityMeasurementSchema.nullable(),
+  o3: airQualityMeasurementSchema.nullable(),
+  alert: z.strictObject({
+    severity: z.enum(['Info', 'Warning']),
+    message: z.string().min(1).max(300),
+  }).nullable(),
+})
+
 export const modalSplitSchema = z.strictObject({
   publicTransport: count,
   walking: count,
@@ -121,6 +154,7 @@ export type EventCategory = z.infer<typeof eventCategorySchema>
 export type GeoPoint = z.infer<typeof geoPointSchema>
 export type EventSummary = z.infer<typeof eventSummarySchema>
 export type EventDetails = z.infer<typeof eventDetailsSchema>
+export type AirQuality = z.infer<typeof airQualitySchema>
 export type PulseSummary = z.infer<typeof pulseSummarySchema>
 export type EventPulse = z.infer<typeof eventPulseSchema>
 export type ModalSplit = z.infer<typeof modalSplitSchema>

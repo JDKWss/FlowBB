@@ -53,10 +53,10 @@ public sealed class OpenApiParityTests(WebApplicationFactory<Program> factory)
     }
 
     [Fact]
-    public void ContractFirstOperations_AreExplicitlyMarkedAsPlanned()
+    public void Contract_HasNoRemainingPlannedOperations()
     {
         var planned = OpenApiContract.ReadPlannedOperations().Keys;
 
-        planned.Should().BeEquivalentTo(["getEventAirQuality"]);
+        planned.Should().BeEmpty();
     }
 }

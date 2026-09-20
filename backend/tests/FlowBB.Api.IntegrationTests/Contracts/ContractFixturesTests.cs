@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using FlowBB.Api.IntegrationTests.Infrastructure;
+using FlowBB.Application.Abstractions.AirQuality;
 using FlowBB.Application.Abstractions.Routing;
 using FlowBB.Application.AirQuality;
 using FlowBB.Application.Pulse;
@@ -133,7 +134,7 @@ public sealed class ContractFixturesTests
     [Fact]
     public async Task AirQualityFixture_MatchesSupportedCanonicalOpenApiConstraints()
     {
-        var contract = await File.ReadAllTextAsync(ContractPath());
+        var contract = await ReadContractAsync();
         var rules = ReadAirQualityRules(contract);
         using var fixture = JsonDocument.Parse(await File.ReadAllTextAsync(FixturePath("air-quality.json")));
 
@@ -143,13 +144,27 @@ public sealed class ContractFixturesTests
     }
 
     [Fact]
-    public async Task AirQualityContract_DefinesPlannedEndpointAndStableEnums()
+    public async Task AirQualityFixture_MatchesRuntimeResponseShape()
     {
-        var contract = await File.ReadAllTextAsync(ContractPath());
+        await using var host = await AirQualityTestHost.StartAsync(
+            new ContractAirQualityProvider(),
+            now: DateTimeOffset.Parse("2026-09-20T07:30:00+02:00"));
+
+        using var response = await host.Client.GetAsync(
+            $"/api/events/{AirQualityTestHost.EventId}/air-quality");
+
+        await AssertSuccessFixtureAsync("air-quality.json", response);
+    }
+
+    [Fact]
+    public async Task AirQualityContract_DefinesRuntimeEndpointAndStableEnums()
+    {
+        var contract = await ReadContractAsync();
         var rules = ReadAirQualityRules(contract);
 
         contract.Should().Contain("  /api/events/{eventId}/air-quality:");
-        contract.Should().Contain("      x-runtime-status: planned\n      operationId: getEventAirQuality");
+        contract.Should().Contain("      operationId: getEventAirQuality");
+        contract.Should().NotContain("      x-runtime-status: planned\n      operationId: getEventAirQuality");
         rules.QualityLevels.Should().Equal(Enum.GetNames<AirQualityLevel>());
         rules.Statuses.Should().Equal("Fresh", "Stale", "Fallback");
         rules.Sources.Should().Equal("Gios", "Demo");
@@ -162,7 +177,7 @@ public sealed class ContractFixturesTests
     [Fact]
     public async Task AirQualityFixture_WithUnknownEnum_FailsContractValidation()
     {
-        var contract = await File.ReadAllTextAsync(ContractPath());
+        var contract = await ReadContractAsync();
         var rules = ReadAirQualityRules(contract);
         var malformedJson = (await File.ReadAllTextAsync(FixturePath("air-quality.json")))
             .Replace("\"Good\"", "\"Excellent\"", StringComparison.Ordinal);
@@ -171,6 +186,96 @@ public sealed class ContractFixturesTests
         var action = () => ValidateAirQualityFixture(fixture.RootElement, rules);
 
         action.Should().Throw<InvalidDataException>().WithMessage("*qualityLevel*");
+    }
+
+    [Theory]
+    [InlineData("air-quality.json")]
+    [InlineData("air-quality-fallback.json")]
+    public async Task AirQualityFixtures_MatchTheCanonicalContract(string fixtureName)
+    {
+        var rules = ReadAirQualityRules(await ReadContractAsync());
+        using var fixture = JsonDocument.Parse(await File.ReadAllTextAsync(FixturePath(fixtureName)));
+
+        var action = () => ValidateAirQualityFixture(fixture.RootElement, rules);
+
+        action.Should().NotThrow();
+    }
+
+    [Fact]
+    public async Task AirQualityFallbackFixture_IsTheDemoSnapshotFormat()
+    {
+        using var fixture = JsonDocument.Parse(await File.ReadAllTextAsync(FixturePath("air-quality-fallback.json")));
+
+        fixture.RootElement.GetProperty("status").GetString().Should().Be("Fallback");
+        fixture.RootElement.GetProperty("source").GetString().Should().Be("Demo");
+    }
+
+    [Theory]
+    [InlineData("air-quality.json", "\"source\": \"Gios\"", "\"source\": \"Demo\"")]
+    [InlineData("air-quality-fallback.json", "\"source\": \"Demo\"", "\"source\": \"Gios\"")]
+    public async Task AirQualityFixture_WithInconsistentStatusAndSource_FailsContractValidation(
+        string fixtureName, string original, string replacement)
+    {
+        var rules = ReadAirQualityRules(await ReadContractAsync());
+        var json = await File.ReadAllTextAsync(FixturePath(fixtureName));
+        json.Should().Contain(original, "the mutation must change the fixture");
+        using var fixture = JsonDocument.Parse(json.Replace(original, replacement, StringComparison.Ordinal));
+
+        var action = () => ValidateAirQualityFixture(fixture.RootElement, rules);
+
+        action.Should().Throw<InvalidDataException>().WithMessage("*status and source*");
+    }
+
+    [Fact]
+    public async Task AirQualityDemoSnapshot_MatchesContractAndFallbackSemantics()
+    {
+        var contract = await ReadContractAsync();
+        var rules = ReadAirQualityRules(contract);
+        var json = await File.ReadAllTextAsync(AirQualitySnapshotPath());
+        using var snapshot = JsonDocument.Parse(json);
+        var root = snapshot.RootElement;
+
+        ValidateAirQualityFixture(root, rules);
+
+        root.GetProperty("eventId").GetGuid().Should().Be(EventId);
+        root.GetProperty("status").GetString().Should().Be("Fallback");
+        root.GetProperty("source").GetString().Should().Be("Demo");
+        root.GetProperty("qualityLevel").GetString().Should().Be("Good");
+        root.GetProperty("station").GetProperty("name").GetString()
+            .Should().Be("Bielsko-Biała, ul. Kossak-Szczuckiej");
+        root.GetProperty("station").GetProperty("distanceMeters").GetDouble()
+            .Should().Be(Math.Round(CalculateDistanceMeters(49.82245, 19.04431, 49.813464, 19.027318)));
+
+        var measuredAtText = root.GetProperty("measuredAt").GetString();
+        measuredAtText.Should().Be("2026-09-20T10:00:00+02:00");
+        DateTimeOffset.Parse(measuredAtText!, System.Globalization.CultureInfo.InvariantCulture)
+            .Offset.Should().Be(TimeSpan.FromHours(2));
+
+        root.GetProperty("pm10").ValueKind.Should().Be(JsonValueKind.Null);
+        root.GetProperty("pm25").ValueKind.Should().Be(JsonValueKind.Null);
+        foreach (var pollutant in new[] { "no2", "o3" })
+        {
+            root.GetProperty(pollutant).GetProperty("unit").GetString()
+                .Should().Be(AirQualityMeasurement.CanonicalUnit);
+        }
+
+        foreach (var forbidden in new[] { "userId", "email", "originLatitude", "originLongitude", "routeGeometry" })
+        {
+            json.Should().NotContainEquivalentOf(forbidden);
+        }
+    }
+
+    [Fact]
+    public async Task AirQualityDemoSnapshot_LoadingIsDeterministicAndLocalFileOnly()
+    {
+        var firstLoad = await File.ReadAllTextAsync(AirQualitySnapshotPath());
+        var secondLoad = await File.ReadAllTextAsync(AirQualitySnapshotPath());
+
+        firstLoad.Should().Be(secondLoad);
+
+        using var firstDocument = JsonDocument.Parse(firstLoad);
+        using var secondDocument = JsonDocument.Parse(secondLoad);
+        firstDocument.RootElement.GetRawText().Should().Be(secondDocument.RootElement.GetRawText());
     }
 
     [Fact]
@@ -240,6 +345,21 @@ public sealed class ContractFixturesTests
             [new RouteStep(RouteStepType.Walk, "Idz na miejsce wydarzenia.", 58)],
             distanceMeters: 4620.5,
             geometry: geometry);
+    }
+
+    private sealed class ContractAirQualityProvider : IAirQualityProvider
+    {
+        public Task<AirQualityReading?> GetAsync(
+            GeoPoint eventLocation,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<AirQualityReading?>(new AirQualityReading(
+                new AirQualityStation("Bielsko-Biała, ul. Kossak-Szczuckiej", 1450),
+                DateTimeOffset.Parse("2026-09-20T07:00:00+02:00"),
+                AirQualityLevel.Good,
+                new AirQualityMeasurement(18.4),
+                null,
+                new AirQualityMeasurement(12.1),
+                new AirQualityMeasurement(46.8)));
     }
 
     private static IEnumerable<PulsePoint> Points(int count, TransportMode mode) =>
@@ -326,6 +446,7 @@ public sealed class ContractFixturesTests
         ValidateEnum(root, "qualityLevel", rules.QualityLevels);
         ValidateEnum(root, "status", rules.Statuses);
         ValidateEnum(root, "source", rules.Sources);
+        ValidateStatusMatchesSource(root);
 
         var pollutants = new[] { "pm10", "pm25", "no2", "o3" };
         foreach (var pollutant in pollutants)
@@ -379,6 +500,14 @@ public sealed class ContractFixturesTests
         RequireExactProperties(alert, rules.AlertProperties, "alert");
         ValidateEnum(alert, "severity", rules.AlertSeverities);
         Require(!string.IsNullOrWhiteSpace(alert.GetProperty("message").GetString()), "alert.message is required");
+    }
+
+    // Fresh i Stale opisuja dane z GIOS, Fallback wylacznie snapshot demonstracyjny (docs/AIR_QUALITY.md).
+    private static void ValidateStatusMatchesSource(JsonElement root)
+    {
+        var isFallback = root.GetProperty("status").GetString() == "Fallback";
+        var isDemo = root.GetProperty("source").GetString() == "Demo";
+        Require(isFallback == isDemo, "status and source are inconsistent: Fresh and Stale require Gios, Fallback requires Demo");
     }
 
     private static void ValidateEnum(JsonElement parent, string propertyName, IReadOnlyList<string> allowedValues)
@@ -453,8 +582,46 @@ public sealed class ContractFixturesTests
         }
     }
 
+    private static double CalculateDistanceMeters(
+        double fromLatitude,
+        double fromLongitude,
+        double toLatitude,
+        double toLongitude)
+    {
+        const double earthRadiusMeters = 6_371_000;
+        var latitudeDelta = DegreesToRadians(toLatitude - fromLatitude);
+        var longitudeDelta = DegreesToRadians(toLongitude - fromLongitude);
+        var fromLatitudeRadians = DegreesToRadians(fromLatitude);
+        var toLatitudeRadians = DegreesToRadians(toLatitude);
+        var haversine = Math.Pow(Math.Sin(latitudeDelta / 2), 2) +
+                        (Math.Cos(fromLatitudeRadians) * Math.Cos(toLatitudeRadians) *
+                         Math.Pow(Math.Sin(longitudeDelta / 2), 2));
+        return earthRadiusMeters * 2 * Math.Asin(Math.Sqrt(haversine));
+    }
+
+    private static double DegreesToRadians(double degrees) => degrees * Math.PI / 180;
+
     private static string FixturePath(string fixtureName) =>
         Path.Combine(AppContext.BaseDirectory, "Contracts", "Fixtures", fixtureName);
+
+    // Na Windows (core.autocrlf=true) plik ma zakonczenia CRLF, a testy porownuja kontrakt z tekstem zawierajacym "\n".
+    // Normalizacja sprawia, ze wynik nie zalezy od systemu, w ktorym repozytorium zostalo wyciagniete.
+    private static async Task<string> ReadContractAsync() =>
+        (await File.ReadAllTextAsync(ContractPath())).ReplaceLineEndings("\n");
+
+    private static string AirQualitySnapshotPath()
+    {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
+        {
+            var candidate = Path.Combine(directory.FullName, "data", "air-quality", "demo-snapshot.json");
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        throw new FileNotFoundException("data/air-quality/demo-snapshot.json was not found above the test output directory.");
+    }
 
     private static string ContractPath()
     {

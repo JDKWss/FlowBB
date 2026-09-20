@@ -132,6 +132,8 @@ Current dashboard runtime path
 - TanStack Query owns Events and PULSE server state.
 - Zod validates all REST responses and the `PulseUpdated` message.
 - SignalR uses automatic reconnect; REST remains usable while it is offline.
+- Client i Dashboard pobieraja Air Quality wylacznie z endpointu FlowBB;
+  stany `Fresh`, `Stale` i `Fallback` nie blokuja pozostalych widokow.
 - The default runtime has no fixture fallback.
    API and contract rules
    For both applications:

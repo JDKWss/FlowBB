@@ -13,3 +13,11 @@ public interface IAirQualityProvider
         GeoPoint eventLocation,
         CancellationToken cancellationToken = default);
 }
+
+public sealed class AirQualityProviderException : Exception
+{
+    public AirQualityProviderException(string message, Exception? innerException = null)
+        : base(message, innerException)
+    {
+    }
+}
