@@ -50,6 +50,21 @@ public sealed class PulseUpdatedSmokeTests : SmokeTestBase
     }
 
     [SmokeFact]
+    public async Task Declare_PublishesTheReturnGapInPulseUpdated()
+    {
+        var before = await Api.ParticipantsWithoutReturnAsync(SmokeSeed.Run);
+        var received = new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var hub = CreateHub(received);
+        await hub.StartAsync();
+
+        (await Api.DeclareAsync(SmokeSeed.Run, SmokeSeed.FreeUser, "PublicTransport")).Dispose();
+        var message = await WaitAsync(received);
+
+        message.GetProperty("participantsWithoutReturn").GetInt32().Should().Be(before + 1);
+        (await Api.ParticipantsWithoutReturnAsync(SmokeSeed.Run)).Should().Be(before + 1, "the message must agree with GET");
+    }
+
+    [SmokeFact]
     public async Task Withdraw_PublishesPulseUpdatedWithTheRestoredCount()
     {
         var before = await Api.ParticipantsAsync(SmokeSeed.Run);

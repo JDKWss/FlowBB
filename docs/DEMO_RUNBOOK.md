@@ -1,7 +1,8 @@
 # Runbook demo FlowBB
 
 Instrukcja uruchomienia i przeprowadzenia krytycznego scenariusza demo (AGENTS.md, sekcja 2) oraz plan awaryjny.
-**Status: 2026-09-20 (`develop` + #72, ponownie po #58/#59).** Stos uruchamia
+**Status: 2026-09-20 (`develop` po #90 i #91).** Luka powrotowa (ReturnGap) jest liczona przez `DemoReturnGapPolicy`
+i pokryta testami `Smoke/` (sekcja 13). Stos uruchamia
 sie od zera przez Compose, a `infra/smoke-test.ps1` konczy sie wynikiem
 13 PASS / 0 FAIL / 0 SKIP (szczegoly w sekcji 10, przebiegi na Windows i na
 Linuksie). Przeplyw klienta Events -> Attendance -> realna trasa drogowa ->
@@ -16,8 +17,8 @@ Crew jest podlaczony do lokalnych uslug. Klient korzysta z wolnego uzytkownika
 | 1 | Uzytkownik otwiera wydarzenie w `/client` | `GET /api/events`, `GET /api/events/{id}` | dziala (smoke, lokalny Neo4j) |
 | 2 | Klika "Ide" i wybiera srodek transportu | `POST /api/events/{id}/attendance` | dziala; uzytkownik klienta `dddddddd-...` dostaje `isNew: true` na wydarzeniu `1111...` |
 | 3 | API zapisuje deklaracje w Neo4j | relacja `IS_GOING_TO` ze snapshotem | dziala (smoke, testy `FlowBB.Infrastructure.Tests`); na Aurze niepotwierdzone |
-| 4 | Backend przelicza agregaty | logika PULSE w C# | dziala (smoke: PULSE zgodny z Attendance) |
-| 5 | SignalR wysyla `PulseUpdated` | hub `/hubs/pulse` | negocjacja huba w smoke; komunikat sprawdzaja testy `AttendanceSignalRFlowTests` |
+| 4 | Backend przelicza agregaty | logika PULSE w C#, `DemoReturnGapPolicy` | dziala (smoke: PULSE zgodny z Attendance; ReturnGap: wydarzenie po 22:00 daje `participantsWithoutReturn` i alert `ReturnGap`) |
+| 5 | SignalR wysyla `PulseUpdated` | hub `/hubs/pulse` | dziala: klient huba odbiera komunikat razem z `participantsWithoutReturn` w `Smoke/` (`PulseUpdatedSmokeTests`); dodatkowo `AttendanceSignalRFlowTests` |
 | 6 | Dashboard pokazuje licznik bez odswiezania (`82 -> 83`) | `/dashboard`, klient SignalR | dziala; lokalny przebieg przegladarkowy potwierdzil `82 -> 83` oraz Walking `16 -> 17` bez odswiezenia |
 | 7 | Uzytkownik widzi trase z `IRoutePlanner` | `GET /api/events/{id}/route?userId={userId}` | Walking/Bike/Car zwracaja `RoadRouting`, dystans i GeoJSON; PublicTransport oraz kontrolowany fallback zwracaja `Demo` |
 | 8 | Uzytkownik dolacza do mikrogrupy CREW | `GET groups`, `POST/DELETE members` | dziala (smoke: dolaczenie +1, ponowienie bez zmian, opuszczenie 204 x2) |
@@ -58,6 +59,10 @@ przegladarce; proba prezentacji z timerem pozostaje do wykonania.
    `plannerSource: Demo` bez wywolan uslugi drogowej, timeoutow i ostrzezen. Dla `RoadRouting` dodaj drugi profil:
    `--profile local-db --profile real-routing`; przy braku grafow lub niedostepnej uslugi API wraca do `DemoRoutePlanner`
    (log `Road routing unavailable ...`), a bledy logiczne (np. `route_not_found`) nie sa ukrywane.
+   **Kilka kopii repozytorium (worktree) na jednej maszynie:** domyslna nazwa projektu Compose to nazwa katalogu `infra`, wiec
+   kazda kopia dzieli wolumeny (m.in. haslo Neo4j z pierwszego startu), co konczy sie bledem logowania do Neo4j. Dodaj do kazdej
+   komendy `docker compose` wlasna nazwe projektu, np. `-p flowbb-demo` (kontenery to wtedy `flowbb-demo-api-1` itd.), oraz osobny
+   `SEQ_HOST_PORT`.
 6. Sprawdz zdrowie API: `GET http://localhost:8080/health` powinno zwrocic `200 {"status":"Healthy","timestamp":"..."}` (`/health/ready` sprawdza dodatkowo Neo4j). Wewnetrzny `/health` kontenera `routing` ma status `ready` tylko po zaladowaniu wszystkich trzech grafow.
 7. Otworz Scalar z OpenAPI (srodowisko Development): `http://localhost:8080/scalar`.
 8. Uruchom klienta: `cd client && npm ci && VITE_API_URL=http://localhost:8080 npm run dev`.
@@ -86,6 +91,7 @@ pierwszej deklaracji `isNew: true`, zmiany licznika `82 -> 83`, trasy oraz dolac
 | 6 | Pokaz karte trasy (tam i z powrotem) | Dla Walking/Bike/Car: `plannerSource: RoadRouting`, dystans i linia po drogach z backendowego GeoJSON |
 | 7 | Dolacz do mikrogrupy Crew | Licznik czlonkow +1; ponowne dolaczenie nie zmienia licznika |
 | 8 | Wroc na dashboard, pokaz mape | Zagregowany popyt na heksagonach; brak komorek ponizej 10 osob, brak identyfikatorow uzytkownikow |
+| 9 | W dashboardzie wybierz "Nocny Bieg na Blonich" (koniec 23:15) | `participantsWithoutReturn` > 0 (w seedzie 10) i alert `ReturnGap` z poziomem `Warning`; w `/client` trasa `PublicTransport` na tym wydarzeniu ma `returnGap: true` i brak powrotow. **Widok alertu do potwierdzenia wzrokowo w probie z timerem (#57)**; backend sprawdza `Smoke/` |
 
 Na koniec pokazu wykonaj sprzatanie (sekcja 6), zeby kolejne uruchomienie startowalo od tego samego stanu.
 
@@ -120,10 +126,20 @@ Opcje: `-EventId`, `-UserId`, `-CrewEventId`, `-TransportMode`, `-KeepData` (nie
 Domyslnie smoke test Attendance i Crew korzysta z wydarzenia `11111111-...` oraz uzytkownika `aaaaaaaa-...`, ktory nie ma
 poczatkowej deklaracji ani czlonkostwa w grupie. Skrypt tworzy deklaracje i usuwa ja na koncu, o ile sam ja utworzyl,
 wiec mozna go uruchamiac wielokrotnie. Brak grupy do dolaczenia jest FAIL, nie PASS.
-Sam skrypt smoke nadal zawiera historyczny fallback do POST przy trasie (sekcja 8).
+Trase skrypt pobiera wylacznie przez `GET ...?userId=` (historyczny fallback do POST zostal usuniety w #118).
 
-**Czego skrypt nie sprawdza:** samego komunikatu SignalR (tylko negocjacje huba; komunikat pokrywaja testy integracyjne
-`AttendanceSignalRFlowTests`), ani zachowania frontendu. Krok 4 scenariusza sprawdzaj wzrokowo na dashboardzie.
+Dokladniejszy zestaw przypadkow brzegowych (400/404/409, idempotencja, hub SignalR, ReturnGap) to testy `Smoke/` uruchamiane
+przez `dotnet test` na tym samym stosie (opis: `backend/tests/FlowBB.Api.IntegrationTests/Smoke/README.md`):
+
+```powershell
+$env:FLOWBB_SMOKE_BASE_URL = 'http://localhost:8080'
+dotnet test backend/tests/FlowBB.Api.IntegrationTests --filter "FullyQualifiedName~Smoke"
+```
+
+Uzupelniaja skrypt, nie zastepuja go. Nie uruchamiaj ich rownolegle z testami `FlowBB.Infrastructure.Tests` na tej samej bazie.
+
+**Czego skrypt nie sprawdza:** samego komunikatu SignalR (tylko negocjacje huba; komunikat, w tym `participantsWithoutReturn`,
+pokrywa `PulseUpdatedSmokeTests` w `Smoke/`), ani zachowania frontendu. Krok 4 scenariusza sprawdzaj wzrokowo na dashboardzie.
 
 ## 6. Sprzatanie i reset stanu
 
@@ -149,7 +165,10 @@ Backup: nagraj przebieg scenariusza (sekcja 4) i zapisz zrzuty ekranu dashboardu
 
 ## 8. Znane zalozenia i ograniczenia MVP
 
-- `participantsWithoutReturn` zawsze 0, a lista alertow pusta: logika powrotow nie istnieje.
+- Luka powrotowa to **symulacja** (`DemoReturnGapPolicy`, bez danych rozkladowych MZK): uczestnik z `PublicTransport` nie ma
+  dogodnego powrotu, gdy wydarzenie konczy sie o 22:00 lub pozniej w `Europe/Warsaw`; brak `EndAt` oznacza brak luki.
+  Wynik trafia do `participantsWithoutReturn` (PULSE, `summary`, `PulseUpdated`), alertu `ReturnGap` (`Warning`) oraz
+  `returnGap: true` z pustym `returns` w trasie. W seedzie tylko "Nocny Bieg na Blonich" (koniec 23:15) ma luke (10 osob).
 - Siatka heksagonow: rozmiar 900 m, lokalny rzut metryczny wokol Rynku (nie EPSG:2180); komorki `count < 10` nie sa zwracane.
 - `GET /api/pulse/summary` odpytuje wydarzenia po kolei (N+1); przy dziesiatkach wydarzen jest to wystarczajace dla demo.
 - Routing: kanoniczny kontrakt to
@@ -173,8 +192,6 @@ Backup: nagraj przebieg scenariusza (sekcja 4) i zapisz zrzuty ekranu dashboardu
   i czlonkostwa w seedowanych grupach.
 - **Historyczna uwaga:** wczesniejszy branch kliencki eksperymentowal z POST
   i punktem startu w body. Nie jest to aktualny kontrakt `develop`.
-- `infra/smoke-test.ps1` nadal zawiera zgodnosciowy fallback do historycznego
-  POST. Skrypt wymaga osobnego zadania kodowego; ten fallback nie jest kontraktem.
 
 ## 9. Kryteria gotowosci demo
 
@@ -186,8 +203,10 @@ Backup: nagraj przebieg scenariusza (sekcja 4) i zapisz zrzuty ekranu dashboardu
 - [x] SignalR publikuje aktualizacje (dashboard pokazuje `+1` bez odswiezania),
 - [x] Walking/Bike/Car zwracaja `RoadRouting`, a kontrolowany fallback i PublicTransport zwracaja `Demo`,
 - [x] Crew dziala (smoke),
+- [x] ReturnGap: wydarzenie konczace sie po 22:00 daje `participantsWithoutReturn` i alert, a trasa `returnGap: true` (`Smoke/`),
 - [x] PULSE nie ujawnia danych dla `count < 10` (smoke i testy),
-- [ ] Scalar prezentuje aktualne OpenAPI,
+- [x] Scalar prezentuje aktualne OpenAPI (`/scalar/v1` 200; wygenerowany dokument ma te same operacje co kontrakt poza
+  `getReadiness`, ktorego opisuje tylko `contracts/openapi.yaml`; sprawdza to `RuntimeApiDocumentationTests`),
 - [x] `dotnet build` i `dotnet test` przechodza, a `infra/smoke-test.ps1` konczy sie bez FAIL i bez SKIP,
 - [ ] scenariusz demo zostal przecwiczony dwa razy z timerem.
 
@@ -288,3 +307,26 @@ Uwagi:
   wiarygodna (API nie polaczylo sie wtedy z Neo4j), wiec jej nie liczymy. Wiadomo tyle, ze w trybie `Demo` API nie ma zadnego
   wywolania uslugi drogowej (`IRoutePlanner` to `DemoRoutePlanner`, sprawdza to `RoutingModeTests`), a stos nie zawiera kontenera `routing`.
 - Neo4j Aura, przegladarka i proba z timerem: bez zmian, niewykonane.
+
+## 13. Wynik weryfikacji ReturnGap i `Smoke/` (issue #91)
+
+Data: 2026-09-20. Srodowisko: Windows 11, Docker 29.2.1 (Compose 5.0.2), lokalny Neo4j 5.26.30 Community (`--profile local-db`),
+domyslny `ROUTING_MODE=Demo`, czyste wolumeny, obrazy zbudowane od zera. Kroki 2, 5, 6 i 10 z sekcji 3 wykonano przez skopiowanie
+komend z tego dokumentu; jedyne odstepstwa to `-p flowbb-91b` (patrz uwaga o wielu kopiach repozytorium) i `SEQ_HOST_PORT=5350`
+(port 5341 zajety przez lokalny Seq).
+
+| Sprawdzenie | Wynik |
+|---|---|
+| Krok 5: `docker compose ... --profile local-db up --build -d` | OK; kontenery `api`, `neo4j` (healthy) i `seq`; **brak kontenera `routing`**, nic `unhealthy` |
+| Krok 6: `/health`, `/health/ready` | `Healthy`, `Healthy` |
+| Krok 10: `pwsh infra/smoke-test.ps1 -BaseUrl http://localhost:8080` (dwa przebiegi) | 13 PASS, 0 FAIL, 0 SKIP, kod 0 |
+| `Smoke/` (`FLOWBB_SMOKE_BASE_URL`, dwa przebiegi) | 74 PASS, 0 FAIL, 0 SKIP; stan bazy po przebiegach bez zmian (liczniki wydarzen i grup oraz luka powrotowa) |
+| ReturnGap w PULSE | `1111` (koniec 21:30): 0, bez alertow; `3333` (koniec 23:15): 10 osob i alert `ReturnGap/Warning`; `4444`, `5555`: 0; `summary`: 10 |
+| Luka a tryb transportu | uczestnik `PublicTransport` na `3333` dodaje 1 do luki, zmiana na `Bike` ja zdejmuje (test `Smoke/`) |
+| Trasa `PublicTransport` dla `aaaa...` | `1111`: `returnGap: false`, 2 powroty; `3333`: `returnGap: true`, `returns` puste |
+| `PulseUpdated` | klient huba dostaje `participantsWithoutReturn` zgodne z `GET /api/pulse/events/{id}` (test `Smoke/`) |
+| OpenAPI i Scalar | `/scalar/v1` 200; `/openapi/v1.json`: 12 sciezek i 13 operacji (kontrakt ma 14: brakuje `getReadiness`) |
+| Sprawdzenie negatywne straznika `Smoke/` | podmiana uzytkownika demo na uczestnika seedu konczy test bledem z instrukcja, a po restarcie API i przywroceniu seeda 74/74 |
+| `dotnet test backend/FlowBB.sln` na Windows | 95 + 127 + 7 + 287 PASS, **1 FAIL**: `AirQualityContract_DefinesPlannedEndpointAndStableEnums` (nie dotyczy #91): test porownuje `contracts/openapi.yaml` z tekstem z `
+`, a checkout na Windows ma `CRLF` (`core.autocrlf=true`); CI na Linuksie przechodzi. Naprawa: #131 |
+| Neo4j Aura, przegladarka, proba z timerem | bez zmian: niewykonane w tym przebiegu (patrz sekcje 10-12) |

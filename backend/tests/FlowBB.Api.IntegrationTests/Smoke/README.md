@@ -27,19 +27,21 @@ idempotencja, prywatnosc PULSE (`participants >= 10`, brak `userId`) i determini
 |---|---|
 | `EventsSmokeTests` | health, readiness, Events (lista, szczegoly, 400, 404) |
 | `AttendanceSmokeTests` | zapis, idempotencja, zmiana trybu, wypis, 400/404 |
-| `PulseSmokeTests` | KPI, podsumowanie, mapa heksagonow (GeoJSON, prywatnosc), 400/404 |
-| `RoutingSmokeTests` | trasa `plannerSource: Demo` dla 4 trybow, determinizm, 400/404 |
+| `PulseSmokeTests` | KPI, podsumowanie, mapa heksagonow (GeoJSON, prywatnosc), ReturnGap (wydarzenie po 22:00 vs wczesniejsze, suma w `summary`), 400/404 |
+| `RoutingSmokeTests` | trasa dla 4 trybow (`Demo`/`RoadRouting`), determinizm, `returnGap` na wydarzeniu poznym i wczesnym, 400/404 |
 | `CrewSmokeTests` | lista grup, dolaczenie, ponowienie, pelna grupa (409), opuszczenie |
-| `PulseUpdatedSmokeTests` | klient huba dostaje `PulseUpdated` po zapisie i po wypisie |
+| `PulseUpdatedSmokeTests` | klient huba dostaje `PulseUpdated` po zapisie i po wypisie, razem z `participantsWithoutReturn` zgodnym z GET |
 
 ## Dane i sprzatanie
 
 Testy uzywaja danych seedu (`SmokeSeed`): wydarzenie "Nocny Bieg" (`3333...`) i "Koncert na Rynku" (`1111...`), grupy `2222...`
 (wolne miejsca) i `6666...` (pelna) oraz syntetyczny uzytkownik `d1000000-...-082`, ktory nie uczestniczy w wydarzeniu `3333...`
-i nie nalezy do zadnej grupy.
+i nie nalezy do zadnej grupy, oraz uzytkownik klienta `aaaaaaaa-...` (`SmokeSeed.DemoUser`), ktory nie uczestniczy w zadnym
+wydarzeniu (uzywany na wczesnym wydarzeniu `1111...` do testu trasy bez luki powrotowej).
+Wydarzenie `3333...` konczy sie o 23:15, a `1111...` o 21:30, wiec tylko pierwsze ma luke powrotowa (`DemoReturnGapPolicy`).
 
 - Testy nie zaleza od kolejnosci i dzialaja **sekwencyjnie** (wspolna baza, kolekcja `Smoke`).
-- Przed i po kazdym tescie uzytkownik testowy jest wypisywany z wydarzenia i grup (operacje sa idempotentne), wiec kolejne
+- Przed i po kazdym tescie uzytkownicy testowi sa wypisywani z wydarzen i grup (operacje sa idempotentne), wiec kolejne
   uruchomienie zaczyna od stanu seedu.
 - Jesli uzytkownik testowy nalezalby do seedu, sprzatanie usunelaby dane seedu. Test wykrywa to na starcie
   (porownuje liczniki przed i po resecie) i konczy sie bledem z instrukcja; przywroc seed restartem API

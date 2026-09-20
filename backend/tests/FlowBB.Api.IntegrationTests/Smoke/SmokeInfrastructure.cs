@@ -52,6 +52,9 @@ internal static class SmokeSeed
     /// <summary>Syntetyczny uzytkownik, ktory nie uczestniczy w wydarzeniu Run i nie nalezy do zadnej grupy.</summary>
     public static readonly Guid FreeUser = Guid.Parse("d1000000-0000-0000-0000-000000000082");
 
+    /// <summary>Uzytkownik klienta (DEMO_USER_ID): w seedzie nie uczestniczy w zadnym wydarzeniu ani grupie.</summary>
+    public static readonly Guid DemoUser = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+
     public static readonly Guid Unknown = Guid.Parse("ffffffff-ffff-ffff-ffff-ffffffffffff");
 }
 
@@ -105,6 +108,10 @@ public sealed class SmokeClient : IDisposable
     public async Task<int> ParticipantsAsync(Guid eventId) =>
         (await PulseAsync(eventId)).GetProperty("participantsCount").GetInt32();
 
+    /// <summary>Liczba uczestnikow bez dogodnego powrotu (DemoReturnGapPolicy: PublicTransport, koniec o 22:00 lub pozniej).</summary>
+    public async Task<int> ParticipantsWithoutReturnAsync(Guid eventId) =>
+        (await PulseAsync(eventId)).GetProperty("participantsWithoutReturn").GetInt32();
+
     public void Dispose() => _http.Dispose();
 }
 
@@ -122,9 +129,9 @@ public abstract class SmokeTestBase : IAsyncLifetime
         await ResetAsync();
         (await SnapshotAsync()).Should().Be(
             before,
-            "the smoke user must not belong to the seed data (event {0}, crews {1}, {2}); the reset just removed seeded data, "
+            "the smoke users must not belong to the seed data (events {0}/{3}, crews {1}, {2}); the reset just removed seeded data, "
             + "so restart the API to restore the seed and check SmokeSeed",
-            SmokeSeed.Run, SmokeSeed.OpenCrew, SmokeSeed.FullCrew);
+            SmokeSeed.Run, SmokeSeed.OpenCrew, SmokeSeed.FullCrew, SmokeSeed.Concert);
     }
 
     public async Task DisposeAsync()
@@ -142,17 +149,22 @@ public abstract class SmokeTestBase : IAsyncLifetime
     private async Task<string> SnapshotAsync()
     {
         var participants = await Api.ParticipantsAsync(SmokeSeed.Run);
+        var concertParticipants = await Api.ParticipantsAsync(SmokeSeed.Concert);
+        var returnGap = await Api.ParticipantsWithoutReturnAsync(SmokeSeed.Run);
         var groups = await Api.GetJsonAsync($"/api/events/{SmokeSeed.Concert}/groups");
         var members = groups.EnumerateArray().Select(group => group.GetProperty("currentMembers").GetInt32());
-        return $"participants={participants}; crewMembers={string.Join(',', members)}";
+        return $"participants={participants}; concertParticipants={concertParticipants}; returnGap={returnGap}; "
+            + $"crewMembers={string.Join(',', members)}";
     }
 
     private async Task ResetAsync()
     {
         using var attendance = await Api.WithdrawAsync(SmokeSeed.Run, SmokeSeed.FreeUser);
+        using var demoAttendance = await Api.WithdrawAsync(SmokeSeed.Concert, SmokeSeed.DemoUser);
         using var openCrew = await Api.LeaveAsync(SmokeSeed.OpenCrew, SmokeSeed.FreeUser);
         using var fullCrew = await Api.LeaveAsync(SmokeSeed.FullCrew, SmokeSeed.FreeUser);
         attendance.EnsureSuccessStatusCode();
+        demoAttendance.EnsureSuccessStatusCode();
         openCrew.EnsureSuccessStatusCode();
         fullCrew.EnsureSuccessStatusCode();
     }
