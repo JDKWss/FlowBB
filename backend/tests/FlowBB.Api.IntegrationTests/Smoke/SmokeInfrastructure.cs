@@ -17,11 +17,13 @@ internal static class SmokeEnvironment
         : null;
 }
 
+[AttributeUsage(AttributeTargets.Method)]
 public sealed class SmokeFactAttribute : FactAttribute
 {
     public SmokeFactAttribute() => Skip = SmokeEnvironment.SkipReason;
 }
 
+[AttributeUsage(AttributeTargets.Method)]
 public sealed class SmokeTheoryAttribute : TheoryAttribute
 {
     public SmokeTheoryAttribute() => Skip = SmokeEnvironment.SkipReason;
@@ -29,7 +31,7 @@ public sealed class SmokeTheoryAttribute : TheoryAttribute
 
 /// <summary>Testy smoke zmieniaja stan wspolnej bazy, wiec nie moga dzialac rownolegle z soba.</summary>
 [CollectionDefinition(Name, DisableParallelization = true)]
-public sealed class SmokeCollection
+public static class SmokeCollection
 {
     public const string Name = "Smoke";
 }

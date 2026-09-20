@@ -13,9 +13,10 @@ public sealed record RouteStep
         }
 
         ArgumentException.ThrowIfNullOrWhiteSpace(instruction);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(instruction.Length, InstructionMaxLength, nameof(instruction));
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(instruction.Length, InstructionMaxLength);
         ArgumentOutOfRangeException.ThrowIfNegative(durationMinutes);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(line?.Length ?? 0, LineMaxLength, nameof(line));
+        var lineLength = line?.Length ?? 0;
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(lineLength, LineMaxLength);
 
         Type = type;
         Instruction = instruction;

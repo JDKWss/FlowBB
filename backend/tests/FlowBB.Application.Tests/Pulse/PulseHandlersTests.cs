@@ -50,7 +50,7 @@ public class PulseHandlersTests
         var pulse = await handler.HandleAsync(EventId);
 
         pulse.Should().NotBeNull();
-        pulse!.EventId.Should().Be(EventId);
+        pulse.EventId.Should().Be(EventId);
         pulse.EventName.Should().Be("Koncert");
         pulse.GeneratedAt.Should().Be(Now);
         pulse.ParticipantsCount.Should().Be(5);

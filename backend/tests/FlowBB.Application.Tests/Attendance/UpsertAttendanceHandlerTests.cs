@@ -32,7 +32,7 @@ public sealed class UpsertAttendanceHandlerTests
             cancellation.Token);
 
         savedAttendance.Should().NotBeNull();
-        savedAttendance!.EventId.Should().Be(eventId);
+        savedAttendance.EventId.Should().Be(eventId);
         savedAttendance.UserId.Should().Be(userId);
         savedAttendance.TransportMode.Should().Be(TransportMode.PublicTransport);
         savedAttendance.UpdatedAt.Should().Be(Now);
@@ -104,8 +104,8 @@ public sealed class UpsertAttendanceHandlerTests
 
         first.Should().NotBeNull();
         repeated.Should().NotBeNull();
-        first!.IsNew.Should().BeTrue();
-        repeated!.IsNew.Should().BeFalse();
+        first.IsNew.Should().BeTrue();
+        repeated.IsNew.Should().BeFalse();
         repeated.ParticipantsCount.Should().Be(first.ParticipantsCount);
         repeated.ModalSplit.Should().BeEquivalentTo(first.ModalSplit);
         repository.Verify(x => x.UpsertAsync(
@@ -140,8 +140,8 @@ public sealed class UpsertAttendanceHandlerTests
 
         initial.Should().NotBeNull();
         updated.Should().NotBeNull();
-        updated!.IsNew.Should().BeFalse();
-        updated.ParticipantsCount.Should().Be(initial!.ParticipantsCount);
+        updated.IsNew.Should().BeFalse();
+        updated.ParticipantsCount.Should().Be(initial.ParticipantsCount);
         updated.ModalSplit.Walking.Should().Be(18);
         updated.ModalSplit.PublicTransport.Should().Be(49);
     }
