@@ -13,6 +13,10 @@ COPY backend/src/ backend/src/
 COPY database/ database/
 # Deterministyczny fallback Air Quality jest osadzany z wersjonowanego snapshotu.
 COPY data/air-quality/ data/air-quality/
+# Planer transportu publicznego osadza wersjonowany rozklad MZK jako zasoby assembly.
+COPY data/gtfs/mzk/parsed/departures.json data/gtfs/mzk/parsed/departures.json
+COPY data/gtfs/mzk/parsed/calendar_days.json data/gtfs/mzk/parsed/calendar_days.json
+COPY data/gtfs/mzk/parsed/stops.json data/gtfs/mzk/parsed/stops.json
 RUN dotnet publish backend/src/FlowBB.Api/FlowBB.Api.csproj \
     --configuration Release \
     --output /app/publish \

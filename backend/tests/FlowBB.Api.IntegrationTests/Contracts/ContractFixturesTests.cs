@@ -118,6 +118,19 @@ public sealed class ContractFixturesTests
     }
 
     [Fact]
+    public async Task TransitRouteFixture_MatchesRuntimeShape()
+    {
+        var origin = new AttendanceOrigin(new GeoPoint(49.798, 19.08), TransportMode.PublicTransport);
+        await using var host = await RoutingTestHost.StartAsync(
+            RoutingTestHost.CreateEvent(), origin, new FixedTransitPlanner());
+
+        using var response = await host.Client.GetAsync(
+            $"/api/events/{RoutingTestHost.EventId}/route?userId={RoutingTestHost.AttendingUserId}");
+
+        await AssertSuccessFixtureAsync("route-transit.json", response);
+    }
+
+    [Fact]
     public async Task CreateEventFixtures_RequestIsAcceptedAndResponseMatchesRuntimeShape()
     {
         await using var host = await EventsTestHost.StartAsync(FakeEventRepository.WithDemoEvents());
@@ -345,6 +358,30 @@ public sealed class ContractFixturesTests
             [new RouteStep(RouteStepType.Walk, "Idz na miejsce wydarzenia.", 58)],
             distanceMeters: 4620.5,
             geometry: geometry);
+    }
+
+    /// <summary>Zwraca stala trase z rozkladu MZK: kroki z linia, przystanki wsiadania i wysiadania, powrot z przystankami.</summary>
+    private sealed class FixedTransitPlanner : IRoutePlanner
+    {
+        public Task<RoutePlan> PlanAsync(RouteRequest request, CancellationToken cancellationToken = default)
+        {
+            var offset = TimeSpan.FromHours(2);
+            var outbound = Journey(new DateTimeOffset(2026, 9, 25, 18, 15, 0, offset), "Karpacka Osiedle Karpackie", "Hotel Prezydent");
+            var back = Journey(new DateTimeOffset(2026, 9, 25, 21, 40, 0, offset), "Plac Zwirki i Wigury", "Browarna");
+            return Task.FromResult(new RoutePlan(PlannerSource.MzkTimetable, outbound, [back], returnGap: false));
+        }
+
+        private static JourneyOption Journey(DateTimeOffset departure, string board, string alight) => new(
+            23,
+            departure,
+            departure.AddMinutes(23),
+            [
+                new RouteStep(RouteStepType.Walk, $"Idz 11 min do przystanku {board}.", 11),
+                new RouteStep(RouteStepType.Wait, "Poczekaj 2 min na linie 7 (rozklad MZK).", 2, "7"),
+                new RouteStep(RouteStepType.Transit, $"Linia 7, rozklad MZK: {board} -> {alight}.", 7, "7"),
+                new RouteStep(RouteStepType.Walk, "Idz 3 min do celu.", 3)
+            ],
+            stops: [new RouteStop(board, new GeoPoint(49.8127, 19.0338)), new RouteStop(alight, new GeoPoint(49.8213, 19.0447))]);
     }
 
     private sealed class ContractAirQualityProvider : IAirQualityProvider

@@ -38,9 +38,11 @@ export const useAirQuality = (eventId: string | null, enabled: boolean) =>
     retry: 1,
   })
 
-export const useRoute = (eventId: string | null, enabled: boolean) =>
+// Tryb w kluczu: trasa zalezy od wybranego srodka transportu, wiec zmiana trybu nie moze pokazac trasy z cache dla
+// innego trybu. Uniewaznianie po zapisie deklaracji dziala nadal, bo klucz zaczyna sie od queryKeys.route(eventId).
+export const useRoute = (eventId: string | null, enabled: boolean, transportMode: TransportMode) =>
   useQuery({
-    queryKey: queryKeys.route(eventId ?? 'none'),
+    queryKey: [...queryKeys.route(eventId ?? 'none'), transportMode] as const,
     queryFn: () => clientService.getRoute(eventId!, DEMO_USER_ID),
     enabled: Boolean(eventId) && enabled,
   })

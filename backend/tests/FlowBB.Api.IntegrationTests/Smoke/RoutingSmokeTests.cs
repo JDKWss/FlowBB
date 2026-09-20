@@ -32,23 +32,33 @@ public sealed class RoutingSmokeTests : SmokeTestBase
         (await second.Content.ReadAsStringAsync()).Should().Be(firstBody, "the planner is deterministic for the same data");
     }
 
-    // PublicTransport zawsze idzie przez planer demo. Pozostale tryby uzywaja planera drogowego, gdy usluga routingu ma
-    // przygotowane grafy (profil real-routing), a w przeciwnym razie kontrolowanego fallbacku demo.
+    // PublicTransport idzie przez planer z rozkladu MZK, a gdy rozklad nie umie zaplanowac trasy (brak przystanku w zasiegu,
+    // data poza kalendarzem, brak polaczenia bez przesiadki) - kontrolowany fallback demo. Wydarzenie Run (Bloni nie
+    // obsluguje wieczorem zadna z pieciu pobranych linii) degraduje sie do Demo. Pozostale tryby uzywaja planera
+    // drogowego, gdy usluga routingu ma przygotowane grafy (profil real-routing), a w przeciwnym razie fallbacku demo.
     private static void AssertPlannerSource(string? source, string mode)
     {
         if (mode == "PublicTransport")
         {
-            source.Should().Be("Demo");
+            source.Should().BeOneOf("Demo", "MzkTimetable");
             return;
         }
 
         source.Should().BeOneOf("Demo", "RoadRouting");
     }
 
-    // Wydarzenie Run konczy sie o 23:15 (Europe/Warsaw), wiec DemoReturnGapPolicy uznaje, ze uczestnik PublicTransport nie ma
-    // dogodnego powrotu: returnGap true i pusta lista returns. Pozostale tryby zachowuja powroty z planera.
+    // Wydarzenie Run konczy sie o 23:15 (Europe/Warsaw). Planer demo (DemoReturnGapPolicy) uznaje wtedy, ze uczestnik
+    // PublicTransport nie ma dogodnego powrotu: returnGap true i pusta lista returns. Planer z rozkladu wyznacza luke z
+    // prawdziwych godzin i moze zostawic pozna opcje, wiec ta asercja dotyczy tylko planu demo. Pozostale tryby
+    // zachowuja powroty z planera.
     private static void AssertReturnGap(JsonElement plan, string mode)
     {
+        var fromTimetable = plan.GetProperty("plannerSource").GetString() == "MzkTimetable";
+        if (mode == "PublicTransport" && fromTimetable)
+        {
+            return;
+        }
+
         var expectGap = mode == "PublicTransport";
         plan.GetProperty("returnGap").GetBoolean().Should().Be(expectGap);
         if (expectGap)

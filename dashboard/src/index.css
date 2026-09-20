@@ -428,6 +428,7 @@ button.event-marker { padding: 0; }
 .air-quality-card footer { display: grid; gap: 3px; margin-top: 13px; color: var(--subtle); font-size: .65rem; line-height: 1.4; }
 .air-quality-card footer span { display: flex; align-items: flex-start; gap: 6px; }
 .air-quality-card footer svg { flex: none; margin-top: 1px; }
+.alerts-source { margin-top: 13px; color: var(--subtle); font-size: .65rem; line-height: 1.4; }
 .air-quality-state { display: flex; align-items: flex-start; gap: 10px; color: var(--muted); font-size: .78rem; }
 .air-quality-state svg { flex: none; color: var(--primary); }
 .air-quality-state strong { color: #fff; }
