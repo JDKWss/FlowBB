@@ -200,6 +200,7 @@ Skrypt smoke uruchomiono przez `pwsh` 7.6.6.
 | `infra/smoke-test.ps1` (dwa przebiegi z rzedu) | 13 PASS, 0 FAIL, 0 SKIP, kod 0 |
 | `dotnet test backend/tests/FlowBB.Api.IntegrationTests --filter Smoke` z `FLOWBB_SMOKE_BASE_URL` | 59 PASS, 0 FAIL, 0 SKIP (w tym `PulseUpdatedSmokeTests`: klient huba odbiera `PulseUpdated`) |
 | `dotnet test backend/FlowBB.sln` z `FLOWBB_NEO4J_TEST_*` | Domain 93, Application 88, Infrastructure 53 (wszystkie wykonane na prawdziwym Neo4j, 0 pominietych), Api.IntegrationTests 236 PASS + 38 pominietych (smoke, ktore uruchomiono osobno linia wyzej); 0 FAIL |
+| Testy Infrastructure (prawdziwy Neo4j) i smoke uruchomione **rownolegle** na tej samej instancji | **niestabilne**: `GET /api/pulse/summary` zwraca 500 w 4 z 6 przebiegow. Testy `Neo4jEventRepositoryTests` celowo wstawiaja wydarzenia z nieznana kategoria i bez miejsca, a lista wydarzen rzuca `InvalidOperationException` na uszkodzonym wydarzeniu (`NEO4J_ADAPTER_RECONCILIATION.md`, 3.D). Uruchomione **po kolei** (Infrastructure 53/53, potem `Api.IntegrationTests` 295/295 ze smoke) przechodza; nie uruchamiaj ich rownolegle na jednej bazie |
 | Reczny POST Attendance `aaaa...` na `1111...`, potem restart API (`docker restart infra-api-1`) | `isNew: true`, `82 -> 83`; po restarcie API `healthy`, licznik znowu `82` (seed przywraca stan) |
 | `dotnet build backend/FlowBB.sln` | OK, 0 ostrzezen i 0 bledow |
 | `dotnet format backend/FlowBB.sln --verify-no-changes` | OK |
