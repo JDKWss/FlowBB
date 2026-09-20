@@ -11,7 +11,7 @@ UNWIND [
   {UserId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', Email: 'ania.demo@flowbb.local', Name: 'Ania Nowak', DefaultOriginLatitude: 49.8225, DefaultOriginLongitude: 19.0444},
   {UserId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', Email: 'bartek.demo@flowbb.local', Name: 'Bartek Kowalski', DefaultOriginLatitude: 49.8155, DefaultOriginLongitude: 19.0340},
   {UserId: 'cccccccc-cccc-cccc-cccc-cccccccccccc', Email: 'celina.demo@flowbb.local', Name: 'Celina Wiśniewska', DefaultOriginLatitude: 49.8330, DefaultOriginLongitude: 19.0520},
-  {UserId: 'dddddddd-dddd-dddd-dddd-dddddddddddd', Email: 'dawid.demo@flowbb.local', Name: 'Dawid Pietrzyk', DefaultOriginLatitude: 49.8050, DefaultOriginLongitude: 19.0340}
+  {UserId: 'dddddddd-dddd-dddd-dddd-dddddddddddd', Email: 'dawid.demo@flowbb.local', Name: 'Dawid Pietrzyk', DefaultOriginLatitude: 49.81272, DefaultOriginLongitude: 19.03384}
 ] AS row
 MERGE (u:User {UserId: row.UserId})
 SET u.Email = row.Email,

@@ -9,6 +9,7 @@ services:
       NEO4J_DATABASE: ${NEO4J_DATABASE:?Set NEO4J_DATABASE in .env}
       NEO4J_USERNAME: ${NEO4J_USERNAME:?Set NEO4J_USERNAME in .env}
       NEO4J_PASSWORD: ${NEO4J_PASSWORD:?Set NEO4J_PASSWORD in .env}
+      NEO4J_SEED_ON_STARTUP: ${NEO4J_SEED_ON_STARTUP:-false}
       Cors__AllowedOrigins__0: ${Cors__AllowedOrigins__0:?Set the client origin in .env}
       Cors__AllowedOrigins__1: ${Cors__AllowedOrigins__1:?Set the dashboard origin in .env}
       Routing__ServiceUrl: ${ROUTING_SERVICE_URL:-http://routing:8000}

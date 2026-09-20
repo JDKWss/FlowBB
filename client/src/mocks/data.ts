@@ -5,7 +5,7 @@ import type {
   RouteResponse,
 } from '../types/contracts'
 
-export const DEMO_USER_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+export const DEMO_USER_ID = 'dddddddd-dddd-dddd-dddd-dddddddddddd'
 export const PRIMARY_EVENT_ID = '11111111-1111-1111-1111-111111111111'
 
 export const eventDetails: EventDetails[] = [

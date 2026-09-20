@@ -3,8 +3,9 @@
 // Category i Source sa kanonicznymi stringami zgodnymi z enumami backendu.
 // Model nie zawiera pola DemoData. Syntetycznosc wynika z kontrolowanych identyfikatorow i domeny .invalid.
 
-// 1. UZYTKOWNICY (82)
-// Pierwszy identyfikator odpowiada DEMO_USER_ID z klienta. Pozostale sa deterministyczne.
+// 1. UZYTKOWNICY (83: 82 uczestnikow seedu + dedykowany uzytkownik demo)
+// Istniejacy aaaaaaaa... pozostaje dla kompatybilnosci. Klient uzywa dddddddd..., ktory poczatkowo
+// nie ma deklaracji dla koncertu ani czlonkostwa w jego Crew.
 
 UNWIND range(1, 82) AS i
 WITH i,
@@ -26,11 +27,19 @@ SET u.Name = 'Uzytkownik ' + right('000' + toString(i), 3),
     u.DefaultOriginLongitude = origin[1] + ((i - 1) % 5) * 0.00008
 RETURN count(u) AS UsersCreatedOrUpdated;
 
-// Przywraca dokladny punkt startowy glownego uzytkownika z golden-event.json.
+// Przywraca dokladny punkt startowy istniejacego uzytkownika fixture.
 MATCH (u:User {UserId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'})
 SET u.DefaultOriginLatitude = 49.81272,
     u.DefaultOriginLongitude = 19.03384
 RETURN count(u) AS PrimaryUserUpdated;
+
+MERGE (u:User {UserId: 'dddddddd-dddd-dddd-dddd-dddddddddddd'})
+SET u.Name = 'Dawid Demo',
+    u.Email = 'dawid.demo@flowbb.invalid',
+    u.PasswordHash = 'SYNTHETIC_ACCOUNT_NOT_FOR_LOGIN',
+    u.DefaultOriginLatitude = 49.81272,
+    u.DefaultOriginLongitude = 19.03384
+RETURN count(u) AS DedicatedDemoUserUpdated;
 
 // 2. MIEJSCA (4)
 
@@ -237,10 +246,10 @@ RETURN count(*) AS OrganizationMemberships;
 // Zapytania ponizej sa kontrolne i nie sa wykonywane automatycznie przez backend.
 
 // 16. KONTROLA LICZBY WEZLOW SEEDU
-// Oczekiwane: User=82, Event=4, Venue=4, BusinessOwner=1, Tag=4, Crew=2.
+// Oczekiwane: User=83, Event=4, Venue=4, BusinessOwner=1, Tag=4, Crew=2.
 
 MATCH (n)
-WHERE (n:User AND (n.UserId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' OR n.UserId STARTS WITH 'd1000000-'))
+WHERE (n:User AND (n.UserId IN ['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'dddddddd-dddd-dddd-dddd-dddddddddddd'] OR n.UserId STARTS WITH 'd1000000-'))
    OR (n:Event AND n.EventId IN [
         '11111111-1111-1111-1111-111111111111',
         '33333333-3333-3333-3333-333333333333',
@@ -287,7 +296,7 @@ RETURN e.EventId AS InvalidEventId, venueCount;
 // Oczekiwane: InvalidCoordinates=0.
 
 MATCH (n)
-WHERE (n:User AND (n.UserId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' OR n.UserId STARTS WITH 'd1000000-') AND
+WHERE (n:User AND (n.UserId IN ['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'dddddddd-dddd-dddd-dddd-dddddddddddd'] OR n.UserId STARTS WITH 'd1000000-') AND
       (n.DefaultOriginLatitude < -90 OR n.DefaultOriginLatitude > 90 OR
        n.DefaultOriginLongitude < -180 OR n.DefaultOriginLongitude > 180))
    OR (n:Venue AND n.VenueId STARTS WITH 'seed-venue-' AND
