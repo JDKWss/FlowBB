@@ -45,7 +45,7 @@ komunikat `PulseUpdated` sprawdzono klientem SignalR z Node, bez dashboardu).
 4. Opcjonalnie przygotuj realne grafy Walking/Bike/Car (ten reczny krok wymaga
    sieci i Overpass): `docker compose -f infra/docker-compose.yml --profile routing-tools run --rm routing-prepare`.
 5. Uruchom stos: `docker compose -f infra/docker-compose.yml up --build` (dodaj `--profile local-db` dla lokalnego Neo4j).
-6. Sprawdz zdrowie API: `GET http://localhost:8080/health` powinno zwrocic `200 {"status":"ok"}`. Wewnetrzny `/health` kontenera `routing` ma status `ready` tylko po zaladowaniu wszystkich trzech grafow.
+6. Sprawdz zdrowie API: `GET http://localhost:8080/health` powinno zwrocic `200 {"status":"Healthy","timestamp":"..."}` (`/health/ready` sprawdza dodatkowo Neo4j). Wewnetrzny `/health` kontenera `routing` ma status `ready` tylko po zaladowaniu wszystkich trzech grafow.
 7. Otworz Scalar z OpenAPI (srodowisko Development): `http://localhost:8080/scalar`.
 8. Uruchom smoke test (sekcja 5).
 

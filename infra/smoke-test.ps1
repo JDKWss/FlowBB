@@ -100,8 +100,9 @@ if (-not $health.Reachable) {
 }
 Test-Step 'API /health' {
     Assert-That ($health.Status -eq 200) "oczekiwano 200, jest $($health.Status)"
-    Assert-That ($health.Json.status -eq 'ok') 'oczekiwano status=ok'
-    'status=ok'
+    Assert-That ($health.Json.status -eq 'Healthy') 'oczekiwano status=Healthy'
+    Assert-That ($null -ne $health.Json.timestamp) 'oczekiwano pola timestamp'
+    'status=Healthy'
 }
 
 # 2. Wydarzenia (Events)
