@@ -7,6 +7,10 @@ const appUrl = process.env.APP_URL ?? 'http://127.0.0.1:5173'
 const chromeDebugUrl = process.env.CHROME_DEBUG_URL ?? 'http://127.0.0.1:9222'
 const useRemoteMapStyle = process.env.USE_REMOTE_MAP_STYLE === 'true'
 const routeMode = process.env.ROUTE_MODE ?? 'Walking'
+const routeNavigationCycles = Number(process.env.ROUTE_NAVIGATION_CYCLES ?? '1')
+if (!Number.isInteger(routeNavigationCycles) || routeNavigationCycles < 1) {
+  throw new Error(`ROUTE_NAVIGATION_CYCLES must be a positive integer: ${routeNavigationCycles}`)
+}
 const routeModeButtons = {
   Walking: 'Select Walk',
   Bike: 'Select Bike',
@@ -110,6 +114,39 @@ try {
   assert.equal(await evaluate(`Boolean(document.querySelector('[data-testid="route-fullscreen-toggle"]'))`), true)
   await until(`Boolean(document.querySelector('[data-testid="route-start-marker"]'))`)
   await until(`Boolean(document.querySelector('[data-testid="route-destination-marker"]'))`)
+  for (let cycle = 1; cycle <= routeNavigationCycles; cycle++) {
+    await until(`Boolean(document.querySelector('[data-testid="route-map-unavailable"]')) || !document.querySelector('[data-testid="route-map-loading"]')`)
+    assert.equal(
+      await evaluate(`Boolean(document.querySelector('[data-testid="route-map-unavailable"]'))`),
+      false,
+      `Route map unavailable on cycle ${cycle}`,
+    )
+    const dimensions = await evaluate(`(() => {
+      const container = document.querySelector('[data-testid="route-map"]')
+      const canvas = container?.querySelector('.maplibregl-canvas')
+      const containerRect = container?.getBoundingClientRect()
+      const canvasRect = canvas?.getBoundingClientRect()
+      return {
+        containerWidth: containerRect?.width ?? 0,
+        containerHeight: containerRect?.height ?? 0,
+        canvasWidth: canvasRect?.width ?? 0,
+        canvasHeight: canvasRect?.height ?? 0,
+      }
+    })()`)
+    assert.ok(
+      dimensions.containerWidth > 0 && dimensions.containerHeight > 0,
+      `Route map container collapsed on cycle ${cycle}: ${JSON.stringify(dimensions)}`,
+    )
+    assert.ok(
+      dimensions.canvasWidth > 0 && dimensions.canvasHeight > 0,
+      `Route map canvas collapsed on cycle ${cycle}: ${JSON.stringify(dimensions)}`,
+    )
+    if (cycle < routeNavigationCycles) {
+      await click('Back to transport selection')
+      await click('See my route')
+      await visibleText('DEMO ROUTE')
+    }
+  }
   await command('Runtime.evaluate', {
     expression: `document.querySelector('[data-testid="route-fullscreen-toggle"]').click()`,
     userGesture: true,

@@ -130,6 +130,7 @@ function MapUnavailable() {
 function InteractiveMap({ route, event }: { route: DemoRouteFixture; event: EventDetails }) {
   const mapRef = useRef<MapRef>(null)
   const mapContainerRef = useRef<HTMLDivElement>(null)
+  const loadedRef = useRef(false)
   const [loaded, setLoaded] = useState(false)
   const [mapError, setMapError] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -144,11 +145,11 @@ function InteractiveMap({ route, event }: { route: DemoRouteFixture; event: Even
     [route.geometry],
   )
 
-  const fitRoute = useCallback(() => {
+  const fitRoute = useCallback((map: MapRef) => {
     const longitudes = route.geometry.coordinates.map(([longitude]) => longitude)
     const latitudes = route.geometry.coordinates.map(([, latitude]) => latitude)
 
-    mapRef.current?.fitBounds(
+    map.fitBounds(
       [
         [Math.min(...longitudes), Math.min(...latitudes)],
         [Math.max(...longitudes), Math.max(...latitudes)],
@@ -161,15 +162,27 @@ function InteractiveMap({ route, event }: { route: DemoRouteFixture; event: Even
     )
   }, [route.geometry.coordinates])
 
-  useEffect(() => {
-    if (!loaded) return
+  const synchronizeViewport = useCallback(() => {
+    const container = mapContainerRef.current
+    const map = mapRef.current
+    if (!container || !map) return
 
-    const frame = window.requestAnimationFrame(() => {
-      mapRef.current?.resize()
-      fitRoute()
-    })
-    return () => window.cancelAnimationFrame(frame)
-  }, [fitRoute, isFullscreen, loaded])
+    const { width, height } = container.getBoundingClientRect()
+    if (width <= 0 || height <= 0) return
+
+    map.resize()
+    if (loadedRef.current) fitRoute(map)
+  }, [fitRoute])
+
+  useEffect(() => {
+    const container = mapContainerRef.current
+    if (!container) return
+
+    const observer = new ResizeObserver(synchronizeViewport)
+    observer.observe(container)
+    synchronizeViewport()
+    return () => observer.disconnect()
+  }, [synchronizeViewport])
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -179,13 +192,6 @@ function InteractiveMap({ route, event }: { route: DemoRouteFixture; event: Even
     document.addEventListener('fullscreenchange', handleFullscreenChange)
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
   }, [])
-
-  useEffect(() => {
-    if (loaded) return
-
-    const failureTimeout = window.setTimeout(() => setMapError(true), 8_000)
-    return () => window.clearTimeout(failureTimeout)
-  }, [loaded])
 
   const toggleFullscreen = async () => {
     const mapContainer = mapContainerRef.current
@@ -227,7 +233,15 @@ function InteractiveMap({ route, event }: { route: DemoRouteFixture; event: Even
           pitch: 0,
         }}
         mapStyle={OPEN_FREE_MAP_STYLE}
-        onLoad={() => setLoaded(true)}
+        onLoad={() => {
+          loadedRef.current = true
+          setLoaded(true)
+          synchronizeViewport()
+        }}
+        onError={(error) => {
+          const style = error.target.getStyle()
+          if (!loadedRef.current && !style?.layers?.length) setMapError(true)
+        }}
         dragRotate={false}
         touchPitch={false}
         maxPitch={0}
