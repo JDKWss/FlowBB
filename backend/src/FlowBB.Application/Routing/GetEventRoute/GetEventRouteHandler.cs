@@ -1,5 +1,6 @@
 using FlowBB.Application.Abstractions.Persistence;
 using FlowBB.Application.Abstractions.Routing;
+using FlowBB.Application.Pulse;
 using FlowBB.Domain.Common;
 using FlowBB.Domain.Routing;
 
@@ -49,6 +50,12 @@ public sealed class GetEventRouteHandler(
         var request = new RouteRequest(
             eventId, found.StartAt, found.EndAt, found.Location, attendance.Origin, attendance.Mode);
         var plan = await planner.PlanAsync(request, cancellationToken);
-        return new GetEventRouteResult(GetEventRouteStatus.Ok, plan);
+        return new GetEventRouteResult(GetEventRouteStatus.Ok, ApplyReturnGap(plan, found.EndAt, attendance.Mode));
     }
+
+    // Luka powrotowa jest regula demo (DemoReturnGapPolicy), niezalezna od planera: bez powrotow i z returnGap.
+    private static RoutePlan ApplyReturnGap(RoutePlan plan, DateTimeOffset? endAt, TransportMode mode) =>
+        DemoReturnGapPolicy.HasReturnGap(endAt, mode)
+            ? new RoutePlan(plan.Source, plan.Outbound, [], returnGap: true)
+            : plan;
 }

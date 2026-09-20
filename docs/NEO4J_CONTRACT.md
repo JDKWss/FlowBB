@@ -126,6 +126,8 @@ Unikalnosc relacji `IS_GOING_TO` zapewnia `MERGE` (blokuje oba wezly). Potwierdz
 
 Adapter `IPulseDataReader` odczytuje z Neo4j wyłącznie współrzędne i `TransportMode` snapshotów, bez identyfikatorów użytkowników. Backend C# wylicza z nich liczniki, modal split i komórki heksagonalne. Publiczne API nie zwraca surowych punktów i ukrywa komórki z `count < 10`.
 
+Odczyt wydarzenia (`GetEventAsync`, `GetEventsAsync`) zwraca dodatkowo `Id`, `Name` i opcjonalne `EndAt` (pole `EndAt` węzła `Event`, `null` gdy go brak). `EndAt` jest czytane z zachowaniem offsetu (`datetime` z Neo4j -> `DateTimeOffset`) i jest jedynym wejściem reguły luki powrotowej: regułę liczy backend C# (`DemoReturnGapPolicy`, patrz [MODULE_PULSE.md](code/MODULE_PULSE.md)), Cypher nie zawiera żadnej logiki ReturnGap. Seed demo ma wydarzenie kończące się po 22:00 (`Nocny Bieg`, 23:15) oraz wcześniejsze (`Koncert na Rynku`, 21:30; warsztaty 12:30; piknik 18:00). Test `Neo4jDemoSeedTests` na prawdziwej instancji sprawdza, że seed wykonany dwa razy daje ten sam stan.
+
 PULSE nie przechowuje niezależnych liczników. Po zatwierdzeniu transakcji Attendance API publikuje przez SignalR zdarzenie `PulseUpdated` zawierające wyłącznie agregaty.
 
 ## Zmiany do wykonania (podsumowanie)

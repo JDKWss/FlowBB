@@ -34,10 +34,11 @@ public sealed class AttendanceSignalRFlowTests
             _connection = connection;
         }
 
-        public static async Task<Flow> StartAsync(int existingAttendees = 0)
+        public static async Task<Flow> StartAsync(int existingAttendees = 0, DateTimeOffset? eventEnd = null)
         {
             var repository = new FakeAttendanceRepository().AddEvent(EventId);
-            var host = await AttendanceFlowTestHost.StartAsync(repository);
+            var pulseReader = new FakePulseDataReader().AddEvent(EventId, "Wydarzenie", [], eventEnd);
+            var host = await AttendanceFlowTestHost.StartAsync(repository, pulseReader);
             var connection = host.CreateConnection();
             var flow = new Flow(host, repository, connection);
 
@@ -97,6 +98,37 @@ public sealed class AttendanceSignalRFlowTests
         message.GetProperty("participantsCount").GetInt32().Should().Be(83);
         message.GetProperty("modalSplit").GetProperty("walking").GetInt32().Should().Be(82);
         message.GetProperty("modalSplit").GetProperty("publicTransport").GetInt32().Should().Be(1);
+    }
+
+    [Fact]
+    public async Task PublicTransportOnLateEvent_PublishesParticipantsWithoutReturn()
+    {
+        var lateEnd = new DateTimeOffset(2026, 9, 25, 21, 0, 0, TimeSpan.Zero); // 23:00 w Warszawie
+        await using var flow = await Flow.StartAsync(existingAttendees: 2, eventEnd: lateEnd);
+        var user = UserGuid(1000);
+        flow.Repository.AddUser(user);
+
+        await flow.PostAsync(user, "PublicTransport");
+        var afterPost = await flow.NextMessageAsync();
+        await flow.DeleteAsync(user);
+        var afterDelete = await flow.NextMessageAsync();
+
+        afterPost.GetProperty("participantsWithoutReturn").GetInt32().Should().Be(1);
+        afterDelete.GetProperty("participantsWithoutReturn").GetInt32().Should().Be(0);
+    }
+
+    [Fact]
+    public async Task PublicTransportOnEarlyEvent_PublishesNoReturnGap()
+    {
+        var earlyEnd = new DateTimeOffset(2026, 9, 25, 19, 30, 0, TimeSpan.Zero); // 21:30 w Warszawie
+        await using var flow = await Flow.StartAsync(eventEnd: earlyEnd);
+        var user = UserGuid(1000);
+        flow.Repository.AddUser(user);
+
+        await flow.PostAsync(user, "PublicTransport");
+        var message = await flow.NextMessageAsync();
+
+        message.GetProperty("participantsWithoutReturn").GetInt32().Should().Be(0);
     }
 
     [Fact]

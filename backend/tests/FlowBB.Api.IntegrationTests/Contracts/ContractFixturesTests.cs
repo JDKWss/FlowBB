@@ -1,10 +1,13 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using FlowBB.Api.IntegrationTests.Infrastructure;
+using FlowBB.Application.Abstractions.Routing;
 using FlowBB.Application.Pulse;
 using FlowBB.Application.Routing;
 using FlowBB.Domain.Common;
+using FlowBB.Domain.Routing;
 using FluentAssertions;
 
 namespace FlowBB.Api.IntegrationTests.Contracts;
@@ -89,6 +92,33 @@ public sealed class ContractFixturesTests
     }
 
     [Fact]
+    public async Task RoadRouteFixture_MatchesRuntimeShape()
+    {
+        var origin = new AttendanceOrigin(new GeoPoint(49.798, 19.08), TransportMode.Walking);
+        await using var host = await RoutingTestHost.StartAsync(
+            RoutingTestHost.CreateEvent(), origin, new FixedRoadPlanner());
+
+        using var response = await host.Client.GetAsync(
+            $"/api/events/{RoutingTestHost.EventId}/route?userId={RoutingTestHost.AttendingUserId}");
+
+        await AssertSuccessFixtureAsync("route-road.json", response);
+    }
+
+    [Fact]
+    public async Task CreateEventFixtures_RequestIsAcceptedAndResponseMatchesRuntimeShape()
+    {
+        await using var host = await EventsTestHost.StartAsync(FakeEventRepository.WithDemoEvents());
+        using var request = new StringContent(
+            await File.ReadAllTextAsync(FixturePath("create-event-request.json")), Encoding.UTF8, "application/json");
+
+        using var response = await host.Client.PostAsync("/api/events", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        response.Headers.Location.Should().NotBeNull();
+        await AssertSuccessFixtureAsync("event-created.json", response);
+    }
+
+    [Fact]
     public async Task ProblemFixtures_MatchRuntimeShapes()
     {
         await using var eventsHost = await EventsTestHost.StartAsync(FakeEventRepository.WithDemoEvents());
@@ -129,6 +159,32 @@ public sealed class ContractFixturesTests
 
         features.Should().NotBeEmpty().And.OnlyContain(feature =>
             feature.GetProperty("properties").GetProperty("participants").GetInt32() >= 10);
+    }
+
+    /// <summary>Zwraca stala trase drogowa z geometria, tak jak zrobilby to planer korzystajacy z uslugi routingu.</summary>
+    private sealed class FixedRoadPlanner : IRoutePlanner
+    {
+        private static readonly RouteGeometry There = new(
+            [new RouteCoordinate(19.08, 49.798), new RouteCoordinate(19.062, 49.81), new RouteCoordinate(19.0443, 49.8224)]);
+
+        private static readonly RouteGeometry Back = new(
+            [new RouteCoordinate(19.0443, 49.8224), new RouteCoordinate(19.062, 49.81), new RouteCoordinate(19.08, 49.798)]);
+
+        public Task<RoutePlan> PlanAsync(RouteRequest request, CancellationToken cancellationToken = default)
+        {
+            var departure = new DateTimeOffset(2026, 9, 25, 16, 2, 0, TimeSpan.Zero);
+            var outbound = Journey(departure, There);
+            var returns = Journey(departure.AddHours(3).AddMinutes(38), Back);
+            return Task.FromResult(new RoutePlan(PlannerSource.RoadRouting, outbound, [returns], returnGap: false));
+        }
+
+        private static JourneyOption Journey(DateTimeOffset departure, RouteGeometry geometry) => new(
+            58,
+            departure,
+            departure.AddMinutes(58),
+            [new RouteStep(RouteStepType.Walk, "Idz na miejsce wydarzenia.", 58)],
+            distanceMeters: 4620.5,
+            geometry: geometry);
     }
 
     private static IEnumerable<PulsePoint> Points(int count, TransportMode mode) =>

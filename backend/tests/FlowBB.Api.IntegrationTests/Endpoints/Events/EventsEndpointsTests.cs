@@ -64,6 +64,23 @@ public class EventsEndpointsTests
     }
 
     [Theory]
+    [InlineData("text/plain")]
+    [InlineData("application/x-www-form-urlencoded")]
+    [InlineData(null)]
+    public async Task CreateEvent_WithNonJsonContentType_ReturnsBadRequestProblemAndCreatesNothing(string? contentType)
+    {
+        var repository = new FakeEventRepository();
+        await using var host = await EventsTestHost.StartAsync(repository);
+        using var content = new StringContent(System.Text.Json.JsonSerializer.Serialize(ValidCreateRequest));
+        content.Headers.ContentType = contentType is null ? null : new(contentType);
+
+        using var response = await host.Client.PostAsync("/api/events", content);
+
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.BadRequest);
+        repository.LastCreatedVenueId.Should().BeNull("a rejected request must not create an event");
+    }
+
+    [Theory]
     [InlineData(-90.1, 19.0455)]
     [InlineData(90.1, 19.0455)]
     [InlineData(49.8215, -180.1)]
