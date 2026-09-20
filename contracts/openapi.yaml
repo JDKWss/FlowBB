@@ -15,7 +15,7 @@ info:
     seedowanych uzytkownikow demonstracyjnych.
 
 servers:
-  - url: http://localhost:5000
+  - url: http://localhost:5098
     description: Lokalne API uruchomione przez `dotnet run`
   - url: http://localhost:8080
     description: API uruchomione przez Docker Compose (port hosta 8080)
