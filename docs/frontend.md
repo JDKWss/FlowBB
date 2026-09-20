@@ -113,10 +113,10 @@ FlowBB has two independent React + Vite + TypeScript applications:
 - deck.gl — overlay for demand/hexagon layers
   MapLibre is optional and must not become a blocker for P0.
   MapLibre only renders map/GeoJSON data and OpenFreeMap provides the basemap;
-  neither calculates routes. The client calls only the public ASP.NET FlowBB
-  API and must never call the proposed private FastAPI routing service
-  directly. That service boundary and the still-unaccepted public geometry
-  contract are documented in [ROUTING_SERVICE.md](ROUTING_SERVICE.md).
+neither calculates routes. The client calls only the public ASP.NET FlowBB
+API and must never call the private FastAPI routing service directly. Public
+route geometry is provider-neutral GeoJSON returned by ASP.NET; the service
+boundary is documented in [ROUTING_SERVICE.md](ROUTING_SERVICE.md).
   Current dashboard dependency rule
   Before adding or using a dependency:
 

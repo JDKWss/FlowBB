@@ -75,7 +75,7 @@ Przeczytaj AGENTS.md i contracts/. Potwierdz granice roli @nazwa-roli. Nie edytu
 
 Pierwsza wspolna bramka: przegladarka `/client` -> API -> Neo4j -> SignalR -> dashboard.
 
-Baza runtime to Neo4j ([ADR 001](docs/adr/001-runtime-persistence.md)); PostgreSQL/PostGIS w `data/gtfs/mzk/` to odseparowany PoC. Kolejnosc prac i bramki: [docs/MVP_WORK_PLAN.md](docs/MVP_WORK_PLAN.md). Propozycja realnego routingu drogowego jako prywatnej uslugi Python/FastAPI wywolywanej przez ASP.NET jest opisana osobno w [docs/ROUTING_SERVICE.md](docs/ROUTING_SERVICE.md) i ma status niezaakceptowany ([ADR 002](docs/adr/002-road-routing-engine.md)).
+Baza runtime to Neo4j ([ADR 001](docs/adr/001-runtime-persistence.md)); PostgreSQL/PostGIS w `data/gtfs/mzk/` to odseparowany PoC. Kolejnosc prac i bramki: [docs/MVP_WORK_PLAN.md](docs/MVP_WORK_PLAN.md). Realny routing drogowy dziala jako prywatna usluga Python/FastAPI wywolywana przez ASP.NET i jest opisany w [docs/ROUTING_SERVICE.md](docs/ROUTING_SERVICE.md); decyzja produkcyjna nadal ma status `Proposed` ([ADR 002](docs/adr/002-road-routing-engine.md)).
 
 ## 6. Bezpieczna praca rownolegla
 

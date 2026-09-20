@@ -23,9 +23,9 @@ Rola integracyjna nalezy do Core Backend Ownera: integracja backendu, `Program.c
 |---|---|---|---|
 | Events | Domain, Application (`Events/*`), Api (`Endpoints/Events`), Infrastructure/Neo4j (odczyt) | domena, `IEventLookup`, endpointy i adapter Neo4j sa zaimplementowane | tak |
 | Attendance | Application, Api, SignalR (`Hubs`) | encja, handlery, endpointy, testy i adapter `IAttendanceRepository` dla Neo4j sa zaimplementowane | tak |
-| Crew | Domain (`Crews`), Application (`Crews/*`), Api | istnieje model grafu `Crew` i operacje ogolnego repozytorium; brak modulu Application/API | nie |
+| Crew | Domain (`Crews`), Application (`Crews/*`), Api, Infrastructure/Neo4j | handlery, endpointy i adapter Neo4j sa zaimplementowane | tak |
 | PULSE | Application (`Pulse/*`), Api, `Hubs` | handlery agregacji, endpointy, testy i adapter `IPulseDataReader` dla Neo4j sa zaimplementowane | tak |
-| Routing | Domain (`Routing`), Application (`Abstractions/Routing`, `Routing`), Infrastructure (`Routing`), Api (`Endpoints/Routing`); prywatna usluga Python/FastAPI | `IRoutePlanner`, `DemoRoutePlanner`, handler i endpoint sa podlaczone; FastAPI, generator grafow, Compose i wewnetrzny klient HTTP sa zaimplementowane jako spike. Publiczne wlaczenie realnego planera blokuje brak prawdziwego `PlannerSource`, dystansu i geometrii w zaakceptowanym kontrakcie | tak, nadal `DemoRoutePlanner` |
+| Routing | Domain (`Routing`), Application (`Abstractions/Routing`, `Routing`), Infrastructure (`Routing`), Api (`Endpoints/Routing`); prywatna usluga Python/FastAPI | kompozyt kieruje Walking/Bike/Car do FastAPI, PublicTransport do `DemoRoutePlanner`; publiczna odpowiedz zawiera opcjonalny dystans i GeoJSON | tak, `CompositeRoutePlanner` |
 | SignalR | Api (`Hubs`) | hub i notifier istnieja; `/hubs/pulse` jest mapowany | tak |
 
 Uruchamiany host mapuje `/health`, Events, Attendance, PULSE, Routing,
@@ -88,7 +88,6 @@ Tej zmiany nie robi sie w ramach dokumentacji. Kazda pozycja wymaga osobnego zad
 | 3 | Stary model `FlowBB.Domain.Models.Event` pozostaje do posprzatania po MVP | Porzadki | Data/Neo4j + Backend Events |
 | 4 | `PLAN_EVENTS_LOAD.md` zachowuje historyczny plan PostGIS/EF Core; aktualny importer wydarzen do Neo4j nie istnieje | MVP | Backend Events + Data/Neo4j |
 | 5 | Dane MZK nie maja pelnych trips, kolejnosci przystankow, powiazania kursow i wszystkich wspolrzednych; nie sa grafem routingu | Po MVP | Core Backend Owner |
-| 6 | Crew nie ma jeszcze adaptera Application ani rejestracji endpointow w uruchamianym API | MVP | Core Backend Owner + Data/Neo4j |
 
 ### Rozwiazane od utworzenia planu
 
@@ -97,7 +96,10 @@ Tej zmiany nie robi sie w ramach dokumentacji. Kazda pozycja wymaga osobnego zad
 - `User` uzywa `DefaultOriginLatitude/Longitude`, a `IS_GOING_TO` przechowuje
   pelny snapshot wymagany przez Attendance, PULSE i Routing.
 - Adaptery Events, Attendance i PULSE dla Neo4j sa zarejestrowane w API.
-- Seed zawiera 82 syntetycznych uzytkownikow w gestych obszarach i daje
+- Crew ma handlery, endpointy i adapter Neo4j z idempotentnym join/leave.
+- Realny routing drogowy jest podlaczony do publicznego endpointu przez prywatny FastAPI; kontrolowany fallback zachowuje `PlannerSource.Demo`.
+- Seed zawiera 82 poczatkowych uczestnikow koncertu oraz osobnego uzytkownika
+  demo bez deklaracji; gesty obszary daja
   widoczne komorki PULSE przy progu `count >= 10`.
 - `VenueId` pozostaje zaakceptowanym tekstowym slugiem.
 - Adapter ogolnego grafu konwertuje identyfikatory wezlow `Guid` do/z tekstu Neo4j.

@@ -1,9 +1,8 @@
 # Runbook demo FlowBB
 
 Instrukcja uruchomienia i przeprowadzenia krytycznego scenariusza demo (AGENTS.md, sekcja 2) oraz plan awaryjny.
-**Status: 2026-09-20 (`develop`).** Nie wszystkie kroki da sie jeszcze wykonac.
-Kod modulu moze istniec i miec testy, ale dopoki nie jest zarejestrowany oraz
-zmapowany w `Program.cs`, nie jest dostepny w uruchomionym API.
+**Status: 2026-09-20 (`develop`).** Przeplyw klienta Events -> Attendance ->
+realna trasa drogowa -> Crew jest podlaczony do lokalnego stosu.
 
 ## 1. Status krokow scenariusza
 
@@ -15,21 +14,20 @@ zmapowany w `Program.cs`, nie jest dostepny w uruchomionym API.
 | 4 | Backend przelicza agregaty | logika PULSE w C# | handlery i `IPulseDataReader` sa zarejestrowane |
 | 5 | SignalR wysyla `PulseUpdated` | hub `/hubs/pulse` | hub i publikacja po zatwierdzeniu Attendance sa podlaczone |
 | 6 | Dashboard pokazuje licznik bez odswiezania (`82 -> 83`) | `/dashboard`, klient SignalR | backend jest gotowy; pelny przebieg z dashboardem wymaga weryfikacji wzrokowej |
-| 7 | Uzytkownik widzi trase z `IRoutePlanner` | `GET /api/events/{id}/route?userId={userId}` | endpoint i `DemoRoutePlanner` dzialaja ze snapshotem Neo4j |
-| 8 | Uzytkownik dolacza do mikrogrupy CREW | `GET groups`, `POST/DELETE members` | kontrakt i ogolny model grafu istnieja; brak modulu Application/API |
+| 7 | Uzytkownik widzi trase z `IRoutePlanner` | `GET /api/events/{id}/route?userId={userId}` | Walking/Bike/Car korzystaja z prywatnego FastAPI i zwracaja dystans + GeoJSON; PublicTransport pozostaje Demo |
+| 8 | Uzytkownik dolacza do mikrogrupy CREW | `GET groups`, `POST/DELETE members` | endpointy i adapter Neo4j sa podlaczone |
 | 9 | Dashboard pokazuje popyt na mapie heksagonalnej | `GET /api/pulse/hexagons` | endpoint i agregacja dzialaja na danych seedu demonstracyjnego (sprawdzone na lokalnym Neo4j 5.26 Community); na Aurze niepotwierdzone |
 
 Na lokalnym Neo4j 5.26 Community (Docker) zweryfikowano Events, idempotentny
-i rownolegly zapis Attendance, PULSE, heksagony oraz Routing (uruchomione API
-z seedem demonstracyjnym i testy `FlowBB.Infrastructure.Tests`). **Niezweryfikowane:**
-Neo4j Aura, endpointy Crew przez HTTP i pelny przebieg SignalR z frontendem (sam
-komunikat `PulseUpdated` sprawdzono klientem SignalR z Node, bez dashboardu).
+i rownolegly zapis Attendance, PULSE, heksagony, Routing oraz Crew. Przeplyw
+klienta do MapLibre i Crew przeszedl w prawdziwej przegladarce; Neo4j Aura oraz
+pelny przebieg SignalR z dashboardem pozostaja poza ta weryfikacja.
 
 ## 2. Wymagania
 
 - Docker (Compose v2) albo .NET SDK 10 do uruchomienia API lokalnie.
 - PowerShell 7 (`pwsh`) do skryptu smoke testu.
-- Dla opcjonalnego realnego routingu drogowego: przygotowany wolumen
+- Dla realnego routingu drogowego: przygotowany wolumen
   `routing-data` (jednorazowa komenda w kroku 4 ponizej).
 - Neo4j: instancja Aura (patrz `backend/README.md`) albo lokalny kontener (profil `local-db`).
 - Przegladarka desktopowa dla `/dashboard`, przegladarka w mobilnym viewporcie dla `/client`.
@@ -38,16 +36,17 @@ komunikat `PulseUpdated` sprawdzono klientem SignalR z Node, bez dashboardu).
 ## 3. Uruchomienie od czystego srodowiska
 
 1. Sklonuj repozytorium i przejdz na `develop`: `git clone https://github.com/JDKWss/FlowBB.git` i `git switch develop`.
-2. Skopiuj `.env.example` do `.env` i uzupelnij `NEO4J_URI`, `NEO4J_DATABASE`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`.
+2. Skopiuj `.env.example` do `.env`. Dla profilu `local-db` ustaw `NEO4J_URI=neo4j://neo4j:7687` i bezpieczne lokalne haslo.
 3. Ustaw `NEO4J_SEED_ON_STARTUP=true`, aby backend przed startem automatycznie
    wykonal constraints i `database/flowbb-demo-seed.cypher`. Lokalne profile
    `dotnet run` maja te opcje wlaczona. Seed jest idempotentny.
-4. Opcjonalnie przygotuj realne grafy Walking/Bike/Car (ten reczny krok wymaga
+4. Przygotuj realne grafy Walking/Bike/Car (ten jednorazowy krok wymaga
    sieci i Overpass): `docker compose -f infra/docker-compose.yml --profile routing-tools run --rm routing-prepare`.
-5. Uruchom stos: `docker compose -f infra/docker-compose.yml up --build` (dodaj `--profile local-db` dla lokalnego Neo4j).
+5. Uruchom lokalny stos: `docker compose -f infra/docker-compose.yml --profile local-db up --build`.
 6. Sprawdz zdrowie API: `GET http://localhost:8080/health` powinno zwrocic `200 {"status":"ok"}`. Wewnetrzny `/health` kontenera `routing` ma status `ready` tylko po zaladowaniu wszystkich trzech grafow.
 7. Otworz Scalar z OpenAPI (srodowisko Development): `http://localhost:8080/scalar`.
-8. Uruchom smoke test (sekcja 5).
+8. Uruchom klienta: `cd client && npm ci && VITE_API_URL=http://localhost:8080 npm run dev`.
+9. Uruchom smoke test (sekcja 5).
 
 API mozna tez uruchomic recznie: `dotnet run --project backend/src/FlowBB.Api --urls http://localhost:8080`.
 Glowny host udostepnia `/health`, `/hubs/pulse` oraz endpointy Events,
@@ -67,7 +66,7 @@ ktorych aktualny glowny host jeszcze nie obsluguje.
 | 3 | Kliknij "Ide", wybierz srodek transportu | Odpowiedz 200; `isNew: true` |
 | 4 | Patrz na dashboard | Licznik zmienia sie o 1 (np. `82 -> 83`) bez odswiezania strony, a modal split odzwierciedla wybrany tryb |
 | 5 | Kliknij "Ide" jeszcze raz (ten sam tryb) | Licznik **bez zmian** (idempotencja); zmiana trybu zmienia tylko modal split |
-| 6 | Pokaz karte trasy (tam i z powrotem) | Trasa `plannerSource: Demo`, ta sama przy kazdym odswiezeniu |
+| 6 | Pokaz karte trasy (tam i z powrotem) | Dla Walking/Bike/Car: `plannerSource: RoadRouting`, dystans i linia po drogach z backendowego GeoJSON |
 | 7 | Dolacz do mikrogrupy Crew | Licznik czlonkow +1; ponowne dolaczenie nie zmienia licznika |
 | 8 | Wroc na dashboard, pokaz mape | Zagregowany popyt na heksagonach; brak komorek ponizej 10 osob, brak identyfikatorow uzytkownikow |
 
@@ -110,7 +109,7 @@ fallback opisany w sekcji 8.
 |---|---|---|
 | Neo4j niedostepne | `/health` 200, ale Attendance/PULSE zwracaja 500 | Przelacz na lokalny kontener (`--profile local-db`) i zaladuj seed ponownie; ostatecznie pokaz nagranie z backupu |
 | Brak internetu | Aura lub kafle mapy nieosiagalne | Lokalny kontener Neo4j; `DemoRoutePlanner` dziala offline. Proponowana prywatna usluga FastAPI ma korzystac z wczesniej przygotowanego lokalnego grafu, ale OpenFreeMap wymaga sieci, dopoki kafle/style nie sa osobno cache'owane |
-| Usluga routingu niedostepna lub graf niezaladowany | Health uslugi nie jest ready albo ASP.NET przekracza timeout | W trybie demo uzyj jawnie skonfigurowanego `DemoRoutePlanner`; nie ukrywaj w ten sposob blednego trybu, nieprawidlowych danych ani rzeczywistego `route_not_found` |
+| Usluga routingu niedostepna lub graf niezaladowany | Health uslugi nie jest ready albo ASP.NET przekracza timeout | Przy `ROUTING_DEMO_FALLBACK_ENABLED=true` kompozyt automatycznie zwraca jawne `plannerSource: Demo`; nie obejmuje to blednego trybu, nieprawidlowych danych, uszkodzonej odpowiedzi ani `route_not_found` |
 | SignalR nie laczy sie | Licznik nie zmienia sie na zywo | Odswiez dashboard (odpowiedz REST zawiera aktualny licznik); sprawdz CORS i adres API w `.env` |
 | Telefon nie widzi API | `/client` bez danych | Uzyj mobilnego viewportu w przegladarce na laptopie; awaryjnie tunel `cloudflared` do API |
 | Mapa pusta | Brak komorek na `/api/pulse/hexagons` | Za malo osob w jednej komorce (prog 10): dosiej dane demo lub zmniejsz rozmiar siatki (obecnie 900 m) - to decyzja Core Ownera |
@@ -126,16 +125,14 @@ Backup: nagraj przebieg scenariusza (sekcja 4) i zapisz zrzuty ekranu dashboardu
 - Routing: kanoniczny kontrakt to
   `GET /api/events/{eventId}/route?userId={userId}`. Punkt startu i tryb maja
   pochodzic ze snapshotu Attendance, a nie z body zadania. `IRoutePlanner` i
-  deterministyczny `DemoRoutePlanner` sa zaimplementowane i podlaczone.
+  kompozyt plannerow sa zaimplementowane i podlaczone.
   Dane MZK sa niekompletne i nie stanowia grafu routingu. Proponowany realny
   routing Walking/Bike/Car zostal zaimplementowany jako prywatna usluga
   Python/FastAPI z lokalnymi grafami OSM oraz wewnetrzny klient ASP.NET;
-  przegladarka nigdy nie wywoluje FastAPI bezposrednio. Realny planer nie jest
-  jeszcze aktywnym `IRoutePlanner`, poniewaz zaakceptowany kontrakt nie ma
-  prawdziwego zrodla, dystansu ani geometrii. Szczegoly opisuje
+  przegladarka nigdy nie wywoluje FastAPI bezposrednio. Publiczny kontrakt ma
+  `RoadRouting`, opcjonalny dystans i GeoJSON LineString. PublicTransport nie
+  wchodzi do uslugi drogowej i pozostaje deterministycznym Demo. Szczegoly:
   `docs/ROUTING_SERVICE.md`.
-  Geometria i dystans pozostaja wyraznie niezaakceptowana zmiana publicznego
-  kontraktu. PublicTransport nie jest obslugiwany przez te usluge drogowa.
 - PostgreSQL/PostGIS w `data/gtfs/mzk/` to odseparowany PoC, nie baza aplikacji (patrz `docs/adr/001-runtime-persistence.md`).
 - Relacja `IS_GOING_TO` przechowuje `TransportMode`, `OriginLatitude`,
   `OriginLongitude` i `UpdatedAt`. Modal split i mapa PULSE sa wyliczane w C#
@@ -153,8 +150,8 @@ Backup: nagraj przebieg scenariusza (sekcja 4) i zapisz zrzuty ekranu dashboardu
 - [ ] Events dziala,
 - [ ] Attendance dziala idempotentnie,
 - [ ] SignalR publikuje aktualizacje (dashboard pokazuje `+1` bez odswiezania),
-- [ ] DemoRoutePlanner zwraca deterministyczna trase,
-- [ ] Crew dziala (jesli nalezy do zatwierdzonego MVP),
+- [ ] Walking/Bike/Car zwracaja `RoadRouting`, a kontrolowany fallback zwraca `Demo`,
+- [ ] Crew dziala przez realne endpointy i Neo4j,
 - [ ] PULSE nie ujawnia danych dla `count < 10`,
 - [ ] Scalar prezentuje aktualne OpenAPI,
 - [ ] `dotnet build` i `dotnet test` przechodza, a `infra/smoke-test.ps1` konczy sie bez FAIL i bez SKIP,
