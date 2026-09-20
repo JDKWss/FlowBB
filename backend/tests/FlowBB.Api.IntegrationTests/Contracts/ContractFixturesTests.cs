@@ -133,7 +133,7 @@ public sealed class ContractFixturesTests
     [Fact]
     public async Task AirQualityFixture_MatchesSupportedCanonicalOpenApiConstraints()
     {
-        var contract = await File.ReadAllTextAsync(ContractPath());
+        var contract = await ReadContractAsync();
         var rules = ReadAirQualityRules(contract);
         using var fixture = JsonDocument.Parse(await File.ReadAllTextAsync(FixturePath("air-quality.json")));
 
@@ -145,7 +145,7 @@ public sealed class ContractFixturesTests
     [Fact]
     public async Task AirQualityContract_DefinesPlannedEndpointAndStableEnums()
     {
-        var contract = await File.ReadAllTextAsync(ContractPath());
+        var contract = await ReadContractAsync();
         var rules = ReadAirQualityRules(contract);
 
         contract.Should().Contain("  /api/events/{eventId}/air-quality:");
@@ -162,7 +162,7 @@ public sealed class ContractFixturesTests
     [Fact]
     public async Task AirQualityFixture_WithUnknownEnum_FailsContractValidation()
     {
-        var contract = await File.ReadAllTextAsync(ContractPath());
+        var contract = await ReadContractAsync();
         var rules = ReadAirQualityRules(contract);
         var malformedJson = (await File.ReadAllTextAsync(FixturePath("air-quality.json")))
             .Replace("\"Good\"", "\"Excellent\"", StringComparison.Ordinal);
@@ -455,6 +455,11 @@ public sealed class ContractFixturesTests
 
     private static string FixturePath(string fixtureName) =>
         Path.Combine(AppContext.BaseDirectory, "Contracts", "Fixtures", fixtureName);
+
+    // Na Windows (core.autocrlf=true) plik ma zakonczenia CRLF, a testy porownuja kontrakt z tekstem zawierajacym "\n".
+    // Normalizacja sprawia, ze wynik nie zalezy od systemu, w ktorym repozytorium zostalo wyciagniete.
+    private static async Task<string> ReadContractAsync() =>
+        (await File.ReadAllTextAsync(ContractPath())).ReplaceLineEndings("\n");
 
     private static string ContractPath()
     {
