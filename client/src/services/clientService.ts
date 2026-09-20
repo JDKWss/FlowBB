@@ -1,4 +1,5 @@
 import { airQuality, eventDetails, events, groups, routes } from '../mocks/data'
+import { apiBaseUrl } from '../config/api'
 import { airQualitySchema, attendanceRequestSchema, attendanceSchema, eventSummarySchema, eventDetailsSchema, groupSchema, routeSchema } from '../types/validation'
 import type {
   AirQualityResponse,
@@ -25,8 +26,6 @@ export interface ClientService {
   joinGroup(groupId: string, request: GroupMembershipRequest): Promise<GroupSummary>
   leaveGroup(groupId: string, userId: string): Promise<void>
 }
-
-const apiBaseUrl = (import.meta.env.VITE_API_URL ?? 'http://localhost:8080').replace(/\/+$/, '')
 
 type Parser<T> = { parse(value: unknown): T }
 
