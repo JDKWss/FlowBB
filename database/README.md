@@ -46,3 +46,16 @@ Aura nie daje dostepu do powloki kontenera, wiec sa dwie drogi:
 ## Migracja z poprzedniego seedu
 
 Seed przenosi dane ze starego modelu: ustawia `HomeLatitude`/`HomeLongitude` i usuwa `DefaultOriginLatitude`/`DefaultOriginLongitude` oraz `DemoData`. Ponowne uruchomienie na bazie po starszym seedzie nie wymaga czyszczenia danych. Snapshot `IS_GOING_TO` (`TransportMode`, `OriginLatitude`, `OriginLongitude`, `UpdatedAt`) i `MEMBER_OF.JoinedAt` sa uzupelniane na istniejacych relacjach.
+
+## Testy adapterow na prawdziwym Neo4j
+
+Testy w `backend/tests/FlowBB.Infrastructure.Tests` lacza sie z prawdziwa instancja, ustawiana zmiennymi `FLOWBB_TEST_NEO4J_URI`, `FLOWBB_TEST_NEO4J_PASSWORD` (oraz opcjonalnie `..._USERNAME` i `..._DATABASE`, domyslnie `neo4j`). Sa to celowo inne zmienne niz `NEO4J_*`, zeby testy nie trafily przypadkiem w baze aplikacji: **wskazuj tylko jednorazowa instancje**, bo testy zapisuja i usuwaja dane. Fixture stosuje prawdziwy `schema.cypher`, a dane testowe usuwa po przebiegu.
+
+```bash
+docker run -d --name flowbb-neo4j-test -p 127.0.0.1:17687:7687 \
+  -e NEO4J_AUTH=neo4j/<haslo> neo4j:5.26.30-community
+export FLOWBB_TEST_NEO4J_URI=neo4j://127.0.0.1:17687 FLOWBB_TEST_NEO4J_PASSWORD=<haslo>
+dotnet test backend/FlowBB.sln
+```
+
+Bez tych zmiennych testy adapterow sa **pomijane (Skipped)**, a nie zaliczane. Zielony `dotnet test` bez bazy nie dowodzi, ze adapter dziala: sprawdz w wyniku, ze testy `FlowBB.Infrastructure.Tests` nie sa pominiete.
