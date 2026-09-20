@@ -18,7 +18,7 @@ Crew jest podlaczony do lokalnych uslug. Klient korzysta z wolnego uzytkownika
 | 3 | API zapisuje deklaracje w Neo4j | relacja `IS_GOING_TO` ze snapshotem | dziala (smoke, testy `FlowBB.Infrastructure.Tests`); na Aurze niepotwierdzone |
 | 4 | Backend przelicza agregaty | logika PULSE w C# | dziala (smoke: PULSE zgodny z Attendance) |
 | 5 | SignalR wysyla `PulseUpdated` | hub `/hubs/pulse` | negocjacja huba w smoke; komunikat sprawdzaja testy `AttendanceSignalRFlowTests` |
-| 6 | Dashboard pokazuje licznik bez odswiezania (`82 -> 83`) | `/dashboard`, klient SignalR | backend i seed gotowe; przebieg z dashboardem wymaga weryfikacji wzrokowej |
+| 6 | Dashboard pokazuje licznik bez odswiezania (`82 -> 83`) | `/dashboard`, klient SignalR | dziala; lokalny przebieg przegladarkowy potwierdzil `82 -> 83` oraz Walking `16 -> 17` bez odswiezenia |
 | 7 | Uzytkownik widzi trase z `IRoutePlanner` | `GET /api/events/{id}/route?userId={userId}` | Walking/Bike/Car zwracaja `RoadRouting`, dystans i GeoJSON; PublicTransport oraz kontrolowany fallback zwracaja `Demo` |
 | 8 | Uzytkownik dolacza do mikrogrupy CREW | `GET groups`, `POST/DELETE members` | dziala (smoke: dolaczenie +1, ponowienie bez zmian, opuszczenie 204 x2) |
 | 9 | Dashboard pokazuje popyt na mapie heksagonalnej | `GET /api/pulse/hexagons` | dziala (smoke: 4 komorki, wszystkie >= 10 osob, bez `userId`); na Aurze niepotwierdzone |
@@ -26,8 +26,8 @@ Crew jest podlaczony do lokalnych uslug. Klient korzysta z wolnego uzytkownika
 Na lokalnym Neo4j 5.26 Community (Docker) zweryfikowano Events, idempotentny
 i rownolegly zapis Attendance, PULSE, heksagony, Routing oraz Crew. Przeplyw
 klienta do MapLibre i Crew przeszedl w prawdziwej przegladarce; Neo4j Aura,
-pelny przebieg SignalR z dashboardem i proba z timerem pozostaja poza ta
-weryfikacja.
+pelny przebieg SignalR z dashboardem zostal potwierdzony lokalnie w
+przegladarce; proba prezentacji z timerem pozostaje do wykonania.
 
 ## 2. Wymagania
 
@@ -57,7 +57,8 @@ weryfikacja.
 6. Sprawdz zdrowie API: `GET http://localhost:8080/health` powinno zwrocic `200 {"status":"Healthy","timestamp":"..."}` (`/health/ready` sprawdza dodatkowo Neo4j). Wewnetrzny `/health` kontenera `routing` ma status `ready` tylko po zaladowaniu wszystkich trzech grafow.
 7. Otworz Scalar z OpenAPI (srodowisko Development): `http://localhost:8080/scalar`.
 8. Uruchom klienta: `cd client && npm ci && VITE_API_URL=http://localhost:8080 npm run dev`.
-9. Uruchom smoke test (sekcja 5).
+9. Uruchom dashboard: `cd dashboard && npm ci && VITE_API_URL=http://localhost:8080 npm run dev -- --port 5174`.
+10. Uruchom smoke test (sekcja 5).
 
 API mozna tez uruchomic recznie: `dotnet run --project backend/src/FlowBB.Api --urls http://localhost:8080`.
 Glowny host udostepnia `/health`, `/health/ready`, `/hubs/pulse` oraz endpointy Events, Attendance, Crew, PULSE i Routing.
@@ -83,6 +84,20 @@ pierwszej deklaracji `isNew: true`, zmiany licznika `82 -> 83`, trasy oraz dolac
 | 8 | Wroc na dashboard, pokaz mape | Zagregowany popyt na heksagonach; brak komorek ponizej 10 osob, brak identyfikatorow uzytkownikow |
 
 Na koniec pokazu wykonaj sprzatanie (sekcja 6), zeby kolejne uruchomienie startowalo od tego samego stanu.
+
+### Przeplyw organizatora
+
+1. W dashboardzie wybierz `Add event`.
+2. Wypelnij nazwe, opis, miejsce, kategorie i czas.
+3. Kliknij punkt na mapie Bielska-Bialej (dla deterministycznego demo:
+   okolice `49.8215, 19.0455`) i sprawdz znacznik oraz wspolrzedne.
+4. `Create event` wykonuje `POST /api/events`; oczekiwane jest `201 Created`,
+   `source: External` i `participantsCount: 0`.
+5. Przejdz do PULSE albo odswiez `/client`: wydarzenie pochodzi z
+   `GET /api/events`, bez dopisywania fixture'a.
+
+Backend generuje osobne identyfikatory Event i Venue. Neo4j zapisuje oba wezly
+oraz `(Event)-[:HOSTED_AT]->(Venue)` w jednej transakcji.
 
 ## 5. Automatyczny smoke test
 
@@ -164,7 +179,7 @@ Backup: nagraj przebieg scenariusza (sekcja 4) i zapisz zrzuty ekranu dashboardu
 - [x] seed jest idempotentny (restart API, smoke dwukrotnie),
 - [x] Events dziala,
 - [x] Attendance dziala idempotentnie,
-- [ ] SignalR publikuje aktualizacje (dashboard pokazuje `+1` bez odswiezania),
+- [x] SignalR publikuje aktualizacje (dashboard pokazuje `+1` bez odswiezania),
 - [x] Walking/Bike/Car zwracaja `RoadRouting`, a kontrolowany fallback i PublicTransport zwracaja `Demo`,
 - [x] Crew dziala (smoke),
 - [x] PULSE nie ujawnia danych dla `count < 10` (smoke i testy),
@@ -218,3 +233,27 @@ Skrypt smoke uruchomiono przez `pwsh` 7.6.6.
 | Scenariusz demo z timerem, dwa razy | **niewykonane** (wymaga czlowieka, `/client` i `/dashboard` w przegladarce) |
 | `+1` na dashboardzie w przegladarce | **niewykonane wzrokowo**; backend, seed i dostarczenie `PulseUpdated` sprawdzone testami |
 | Kontener `routing` | w tym przebiegu **nie uruchomiony** (zbudowany obraz usunieto, bo dysk byl pelny); zachowanie `unhealthy` bez `routing-prepare` opisuje przebieg z Windows |
+
+## 11. Lokalna weryfikacja dashboardu i tworzenia wydarzenia
+
+Data: 2026-09-20. Srodowisko: Linux, lokalny Neo4j i API w Compose,
+dashboard Vite oraz klient Vite.
+
+- Dashboard wyslal `POST /api/events` i otrzymal `201`.
+- Utworzono `FlowBB Demo Event` (`026d66f4-10e0-495f-9159-0f3274f6b315`)
+  w punkcie `49.819671085394305, 19.044383747064757`.
+- Odpowiedz miala `source: External` i `participantsCount: 0`.
+- Bezposrednie zapytanie Neo4j potwierdzilo Event, dedykowany Venue,
+  jedna relacje `HOSTED_AT` i brak zapisanego licznika uczestnikow.
+- `/client` pokazal nowe wydarzenie; pierwszy POST Attendance dla niego zwrocil
+  `isNew: true`, a Walking zwrocil realna trase `RoadRouting`.
+- Dla `Koncert na Rynku` dashboard pokazal `82`, odebral `PulseUpdated`, a
+  nastepnie bez odswiezania pokazal `83`; Walking zmienil sie `16 -> 17`.
+  Po komunikacie dashboard uzgodnil Event PULSE, summary, Events i hexagony
+  przez REST.
+- Zatrzymanie API pokazalo `Reconnecting`; po uruchomieniu automatyczny
+  reconnect przywrocil `Live`, bez awarii widoku.
+- Odpowiedzi PULSE nie zawieraly `userId`, punktow startowych ani tras.
+  Najmniejsza zwrocona komorka miala 20 uczestnikow.
+- Dashboard i klient porownano obok siebie: wspolna czarna baza, neutralne
+  karty, biala typografia, mietowy akcent, zaokraglenia i styl OpenFreeMap.

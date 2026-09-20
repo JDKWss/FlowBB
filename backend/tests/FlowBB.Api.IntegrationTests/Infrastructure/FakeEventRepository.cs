@@ -5,8 +5,8 @@ using FlowBB.Domain.Events;
 
 namespace FlowBB.Api.IntegrationTests.Infrastructure;
 
-/// <summary>Fake portu odczytu Events dla testow integracyjnych API (bez prawdziwego Neo4j).</summary>
-public sealed class FakeEventRepository : IEventRepository
+/// <summary>Fake portow Events dla testow integracyjnych API (bez prawdziwego Neo4j).</summary>
+public sealed class FakeEventRepository : IEventRepository, IEventWriter
 {
     public static readonly Guid ConcertId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     public static readonly Guid BoardGamesId = Guid.Parse("22222222-2222-2222-2222-222222222222");
@@ -21,6 +21,10 @@ public sealed class FakeEventRepository : IEventRepository
     public DateTimeOffset? LastFrom { get; private set; }
 
     public DateTimeOffset? LastTo { get; private set; }
+
+    public Event? LastCreatedEvent { get; private set; }
+
+    public string? LastCreatedVenueId { get; private set; }
 
     /// <summary>Dwa wydarzenia demo: z <c>EndAt</c> (czas w UTC, latem +02:00 w Warszawie) i bez.</summary>
     public static FakeEventRepository WithDemoEvents() => new(
@@ -66,4 +70,12 @@ public sealed class FakeEventRepository : IEventRepository
 
     public Task<EventWithParticipants?> FindAsync(Guid eventId, CancellationToken cancellationToken = default) =>
         Task.FromResult(_events.FirstOrDefault(item => item.Event.Id == eventId));
+
+    public Task CreateAsync(Event @event, string venueId, CancellationToken cancellationToken = default)
+    {
+        LastCreatedEvent = @event;
+        LastCreatedVenueId = venueId;
+        _events.Add(new EventWithParticipants(@event, 0));
+        return Task.CompletedTask;
+    }
 }

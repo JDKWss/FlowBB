@@ -110,16 +110,16 @@ public sealed class RoutePlannerCompositionTests
         double distance,
         int duration,
         double[][] coordinates) => new(HttpStatusCode.OK)
-    {
-        Content = new StringContent(JsonSerializer.Serialize(new
         {
-            mode = mode.ToString(),
-            distanceMeters = distance,
-            durationSeconds = duration,
-            geometry = new { type = "LineString", coordinates },
-            steps = Array.Empty<object>()
-        }), Encoding.UTF8, "application/json")
-    };
+            Content = new StringContent(JsonSerializer.Serialize(new
+            {
+                mode = mode.ToString(),
+                distanceMeters = distance,
+                durationSeconds = duration,
+                geometry = new { type = "LineString", coordinates },
+                steps = Array.Empty<object>()
+            }), Encoding.UTF8, "application/json")
+        };
 
     private static double[] Coordinate(string json, string property)
     {

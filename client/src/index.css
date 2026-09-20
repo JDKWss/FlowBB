@@ -71,6 +71,11 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 * { box-sizing: border-box; }
+#root *, #root *::before, #root *::after {
+  border-style: none !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+}
 body { margin: 0; min-width: 320px; }
 button, input, select { font: inherit; }
 button:not(:disabled), summary { cursor: pointer; }
