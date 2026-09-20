@@ -1,4 +1,5 @@
 using FlowBB.Application.Abstractions.Persistence;
+using FlowBB.Application.Pulse;
 using FlowBB.Domain.Attendance;
 
 namespace FlowBB.Application.Attendance.UpsertAttendance;
@@ -6,16 +7,20 @@ namespace FlowBB.Application.Attendance.UpsertAttendance;
 public sealed class UpsertAttendanceHandler
 {
     private readonly IAttendanceRepository _repository;
+    private readonly IPulseDataReader _pulseReader;
     private readonly TimeProvider _timeProvider;
 
     public UpsertAttendanceHandler(
         IAttendanceRepository repository,
+        IPulseDataReader pulseReader,
         TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(repository);
+        ArgumentNullException.ThrowIfNull(pulseReader);
         ArgumentNullException.ThrowIfNull(timeProvider);
 
         _repository = repository;
+        _pulseReader = pulseReader;
         _timeProvider = timeProvider;
     }
 
@@ -38,6 +43,10 @@ public sealed class UpsertAttendanceHandler
             return null;
         }
 
+        // EndAt wydarzenia nie zalezy od deklaracji, wiec odczyt poza transakcja zapisu nie psuje spojnosci liczb.
+        var info = await _pulseReader.GetEventAsync(attendance.EventId, cancellationToken);
+        var withoutReturn = DemoReturnGapPolicy.CountParticipantsWithoutReturn(info?.EndAt, persisted.ModalSplit);
+
         return new UpsertAttendanceResult(
             attendance.EventId,
             attendance.UserId,
@@ -45,6 +54,7 @@ public sealed class UpsertAttendanceHandler
             persisted.ParticipantsCount,
             persisted.IsNew,
             attendance.UpdatedAt,
-            persisted.ModalSplit);
+            persisted.ModalSplit,
+            withoutReturn);
     }
 }

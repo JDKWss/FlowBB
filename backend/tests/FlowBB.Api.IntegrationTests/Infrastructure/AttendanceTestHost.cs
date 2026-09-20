@@ -24,7 +24,10 @@ public sealed class AttendanceTestHost : IAsyncDisposable
         Client = app.GetTestClient();
     }
 
-    public static async Task<AttendanceTestHost> StartAsync(IAttendanceRepository repository, IPulseNotifier notifier)
+    public static async Task<AttendanceTestHost> StartAsync(
+        IAttendanceRepository repository,
+        IPulseNotifier notifier,
+        IPulseDataReader? pulseReader = null)
     {
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseTestServer();
@@ -33,6 +36,7 @@ public sealed class AttendanceTestHost : IAsyncDisposable
         builder.Services.AddAttendanceModule();
         builder.Services.AddSingleton(repository);
         builder.Services.AddSingleton(notifier);
+        builder.Services.AddSingleton(pulseReader ?? new FakePulseDataReader());
 
         var app = builder.Build();
         app.MapAttendanceEndpoints();

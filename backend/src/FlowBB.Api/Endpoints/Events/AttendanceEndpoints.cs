@@ -2,7 +2,6 @@ using FlowBB.Api.Endpoints;
 using FlowBB.Application.Abstractions.Realtime;
 using FlowBB.Application.Attendance.DeleteAttendance;
 using FlowBB.Application.Attendance.UpsertAttendance;
-using FlowBB.Application.Pulse.GetEventPulse;
 using FlowBB.Domain.Common;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -57,7 +56,7 @@ public static class AttendanceEndpoints
                 result.EventId,
                 result.ParticipantsCount,
                 result.ModalSplit,
-                GetEventPulseHandler.ParticipantsWithoutReturnInMvp,
+                result.ParticipantsWithoutReturn,
                 result.UpdatedAt),
             cancellationToken);
 
@@ -86,7 +85,7 @@ public static class AttendanceEndpoints
                     result.EventId,
                     result.ParticipantsCount,
                     result.ModalSplit,
-                    GetEventPulseHandler.ParticipantsWithoutReturnInMvp,
+                    result.ParticipantsWithoutReturn,
                     result.ChangedAt),
                 cancellationToken);
         }

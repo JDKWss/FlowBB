@@ -43,8 +43,43 @@ public sealed class UpsertAttendanceHandlerTests
             83,
             true,
             Now,
-            modalSplit));
+            modalSplit,
+            ParticipantsWithoutReturn: 0));
         repository.VerifyAll();
+    }
+
+    [Theory]
+    [InlineData(2026, 9, 25, 20, 0, 49)] // 22:00 w Warszawie (UTC+2) -> pozny koniec, licza sie osoby z PublicTransport
+    [InlineData(2026, 9, 25, 19, 59, 0)] // 21:59 w Warszawie -> brak luki
+    public async Task HandleAsync_ComputesParticipantsWithoutReturnFromEventEnd(
+        int year, int month, int day, int hour, int minute, int expected)
+    {
+        var eventId = Guid.NewGuid();
+        var endAt = new DateTimeOffset(year, month, day, hour, minute, 0, TimeSpan.Zero);
+        var repository = new Mock<IAttendanceRepository>();
+        repository
+            .Setup(x => x.UpsertAsync(It.IsAny<AttendanceIntent>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AttendanceUpsertPersistenceResult(true, 83, CreateModalSplit(publicTransport: 49, walking: 18)));
+        var handler = CreateHandler(repository.Object, PulseReaderWithEnd(eventId, endAt));
+
+        var result = await handler.HandleAsync(new UpsertAttendanceCommand(eventId, Guid.NewGuid(), TransportMode.Walking));
+
+        result!.ParticipantsWithoutReturn.Should().Be(expected);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenEventHasNoEndOrInfo_ReportsNoReturnGap()
+    {
+        var repository = new Mock<IAttendanceRepository>();
+        repository
+            .Setup(x => x.UpsertAsync(It.IsAny<AttendanceIntent>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AttendanceUpsertPersistenceResult(true, 83, CreateModalSplit(publicTransport: 49, walking: 18)));
+        var handler = CreateHandler(repository.Object);
+
+        var result = await handler.HandleAsync(
+            new UpsertAttendanceCommand(Guid.NewGuid(), Guid.NewGuid(), TransportMode.PublicTransport));
+
+        result!.ParticipantsWithoutReturn.Should().Be(0);
     }
 
     [Fact]
@@ -145,8 +180,19 @@ public sealed class UpsertAttendanceHandlerTests
         repository.VerifyAll();
     }
 
-    private static UpsertAttendanceHandler CreateHandler(IAttendanceRepository repository) =>
-        new(repository, new FixedTimeProvider(Now));
+    private static UpsertAttendanceHandler CreateHandler(
+        IAttendanceRepository repository,
+        IPulseDataReader? pulseReader = null) =>
+        new(repository, pulseReader ?? Mock.Of<IPulseDataReader>(), new FixedTimeProvider(Now));
+
+    private static IPulseDataReader PulseReaderWithEnd(Guid eventId, DateTimeOffset endAt)
+    {
+        var reader = new Mock<IPulseDataReader>();
+        reader
+            .Setup(x => x.GetEventAsync(eventId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PulseEventInfo(eventId, "Wydarzenie", endAt));
+        return reader.Object;
+    }
 
     private static ModalSplit CreateModalSplit(
         int publicTransport,

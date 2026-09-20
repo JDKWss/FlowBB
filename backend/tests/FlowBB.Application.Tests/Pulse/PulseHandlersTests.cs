@@ -55,6 +55,70 @@ public class PulseHandlersTests
         pulse.ParticipantsWithoutReturn.Should().Be(0);
     }
 
+    // 21:00 UTC = 23:00 w Warszawie (CEST) -> pozny koniec; 19:30 UTC = 21:30 -> wczesny koniec.
+    private static readonly DateTimeOffset LateEnd = new(2026, 9, 25, 21, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset EarlyEnd = new(2026, 9, 25, 19, 30, 0, TimeSpan.Zero);
+
+    private static Mock<IPulseDataReader> ReaderWithEnd(
+        Guid id, string name, List<PulsePoint> points, DateTimeOffset? endAt)
+    {
+        var reader = new Mock<IPulseDataReader>();
+        var info = new PulseEventInfo(id, name, endAt);
+        reader.Setup(r => r.GetEventsAsync(It.IsAny<CancellationToken>())).ReturnsAsync([info]);
+        reader.Setup(r => r.GetEventAsync(id, It.IsAny<CancellationToken>())).ReturnsAsync(info);
+        reader.Setup(r => r.GetPointsAsync(id, It.IsAny<CancellationToken>())).ReturnsAsync(points);
+        return reader;
+    }
+
+    [Fact]
+    public async Task EventPulse_ForLateEvent_CountsPublicTransportAndAddsReturnGapAlert()
+    {
+        var points = Points(3, TransportMode.PublicTransport).Concat(Points(4, TransportMode.Walking)).ToList();
+        var handler = new GetEventPulseHandler(
+            ReaderWithEnd(EventId, "Nocny Bieg", points, LateEnd).Object, new FixedTimeProvider(Now));
+
+        var pulse = await handler.HandleAsync(EventId);
+
+        pulse!.ParticipantsWithoutReturn.Should().Be(3);
+        var alert = pulse.Alerts.Should().ContainSingle().Subject;
+        alert.Code.Should().Be(PulseAlertCode.ReturnGap);
+        alert.Severity.Should().Be(PulseAlertSeverity.Warning);
+        alert.Message.Should().Be("3 osoby nie maja dogodnego powrotu po 22:00.");
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task EventPulse_ForEarlyEventOrMissingEnd_HasNoGapAndNoAlert(bool hasEnd)
+    {
+        var points = Points(5, TransportMode.PublicTransport);
+        var handler = new GetEventPulseHandler(
+            ReaderWithEnd(EventId, "Koncert", points, hasEnd ? EarlyEnd : null).Object, new FixedTimeProvider(Now));
+
+        var pulse = await handler.HandleAsync(EventId);
+
+        pulse!.ParticipantsWithoutReturn.Should().Be(0);
+        pulse.Alerts.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Summary_SumsParticipantsWithoutReturnOfLateEventsOnly()
+    {
+        var reader = new Mock<IPulseDataReader>();
+        var late = new PulseEventInfo(EventId, "Pozne", LateEnd);
+        var early = new PulseEventInfo(OtherEventId, "Wczesne", EarlyEnd);
+        reader.Setup(r => r.GetEventsAsync(It.IsAny<CancellationToken>())).ReturnsAsync([late, early]);
+        reader.Setup(r => r.GetPointsAsync(EventId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Points(4, TransportMode.PublicTransport).Concat(Points(3, TransportMode.Bike)).ToList());
+        reader.Setup(r => r.GetPointsAsync(OtherEventId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Points(6, TransportMode.PublicTransport));
+        var handler = new GetPulseSummaryHandler(reader.Object, new FixedTimeProvider(Now));
+
+        var summary = await handler.HandleAsync();
+
+        summary.ParticipantsWithoutReturn.Should().Be(4);
+    }
+
     [Fact]
     public async Task EventPulse_ForUnknownEvent_ReturnsNull()
     {

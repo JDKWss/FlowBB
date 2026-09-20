@@ -10,4 +10,5 @@ public sealed record UpsertAttendanceResult(
     int ParticipantsCount,
     bool IsNew,
     DateTimeOffset UpdatedAt,
-    ModalSplit ModalSplit);
+    ModalSplit ModalSplit,
+    int ParticipantsWithoutReturn);
