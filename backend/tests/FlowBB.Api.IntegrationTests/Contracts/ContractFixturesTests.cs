@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using FlowBB.Api.IntegrationTests.Infrastructure;
 using FlowBB.Application.Abstractions.Routing;
+using FlowBB.Application.AirQuality;
 using FlowBB.Application.Pulse;
 using FlowBB.Application.Routing;
 using FlowBB.Domain.Common;
@@ -20,6 +21,17 @@ public sealed class ContractFixturesTests
     private static readonly Guid EventId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid OtherEventId = Guid.Parse("22222222-2222-2222-2222-222222222222");
     private static readonly Guid UserId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+
+    private sealed record AirQualityRules(
+        IReadOnlyList<string> ResponseProperties,
+        IReadOnlyList<string> StationProperties,
+        IReadOnlyList<string> MeasurementProperties,
+        IReadOnlyList<string> AlertProperties,
+        IReadOnlyList<string> QualityLevels,
+        IReadOnlyList<string> Statuses,
+        IReadOnlyList<string> Sources,
+        IReadOnlyList<string> AlertSeverities,
+        string Unit);
 
     [Fact]
     public async Task EventFixtures_MatchRuntimeShapes()
@@ -116,6 +128,49 @@ public sealed class ContractFixturesTests
         response.StatusCode.Should().Be(HttpStatusCode.Created);
         response.Headers.Location.Should().NotBeNull();
         await AssertSuccessFixtureAsync("event-created.json", response);
+    }
+
+    [Fact]
+    public async Task AirQualityFixture_MatchesSupportedCanonicalOpenApiConstraints()
+    {
+        var contract = await File.ReadAllTextAsync(ContractPath());
+        var rules = ReadAirQualityRules(contract);
+        using var fixture = JsonDocument.Parse(await File.ReadAllTextAsync(FixturePath("air-quality.json")));
+
+        ValidateAirQualityFixture(fixture.RootElement, rules);
+
+        fixture.RootElement.GetProperty("pm25").ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    [Fact]
+    public async Task AirQualityContract_DefinesPlannedEndpointAndStableEnums()
+    {
+        var contract = await File.ReadAllTextAsync(ContractPath());
+        var rules = ReadAirQualityRules(contract);
+
+        contract.Should().Contain("  /api/events/{eventId}/air-quality:");
+        contract.Should().Contain("      x-runtime-status: planned\n      operationId: getEventAirQuality");
+        rules.QualityLevels.Should().Equal(Enum.GetNames<AirQualityLevel>());
+        rules.Statuses.Should().Equal("Fresh", "Stale", "Fallback");
+        rules.Sources.Should().Equal("Gios", "Demo");
+        foreach (var nullableProperty in new[] { "pm10", "pm25", "no2", "o3", "alert" })
+        {
+            contract.Should().Contain($"        {nullableProperty}:\n          nullable: true");
+        }
+    }
+
+    [Fact]
+    public async Task AirQualityFixture_WithUnknownEnum_FailsContractValidation()
+    {
+        var contract = await File.ReadAllTextAsync(ContractPath());
+        var rules = ReadAirQualityRules(contract);
+        var malformedJson = (await File.ReadAllTextAsync(FixturePath("air-quality.json")))
+            .Replace("\"Good\"", "\"Excellent\"", StringComparison.Ordinal);
+        using var fixture = JsonDocument.Parse(malformedJson);
+
+        var action = () => ValidateAirQualityFixture(fixture.RootElement, rules);
+
+        action.Should().Throw<InvalidDataException>().WithMessage("*qualityLevel*");
     }
 
     [Fact]
@@ -241,6 +296,177 @@ public sealed class ContractFixturesTests
         return $"array[{string.Join("|", itemShapes)}]";
     }
 
+    // The solution has no general OpenAPI instance-validation package. This focused offline validator reads
+    // required fields, enum values and the unit from the canonical schema, then enforces every #94 constraint.
+    private static AirQualityRules ReadAirQualityRules(string contract)
+    {
+        var response = GetClosedSchemaBlock(contract, "AirQualityResponse");
+        var station = GetClosedSchemaBlock(contract, "AirQualityStation");
+        var measurement = GetClosedSchemaBlock(contract, "AirQualityMeasurement");
+        var alert = GetClosedSchemaBlock(contract, "AirQualityAlert");
+
+        return new AirQualityRules(
+            ReadList(response, "required"),
+            ReadList(station, "required"),
+            ReadList(measurement, "required"),
+            ReadList(alert, "required"),
+            ReadList(GetSchemaBlock(contract, "AirQualityLevel"), "enum"),
+            ReadList(GetSchemaBlock(contract, "AirQualityStatus"), "enum"),
+            ReadList(GetSchemaBlock(contract, "AirQualitySource"), "enum"),
+            ReadList(alert, "enum"),
+            ReadList(measurement, "enum").Single());
+    }
+
+    private static void ValidateAirQualityFixture(JsonElement root, AirQualityRules rules)
+    {
+        RequireExactProperties(root, rules.ResponseProperties, "AirQualityResponse");
+        Require(Guid.TryParse(root.GetProperty("eventId").GetString(), out var eventId) && eventId != Guid.Empty, "eventId must be a non-empty UUID");
+        ValidateStation(root.GetProperty("station"), rules);
+        ValidateTimestamp(root.GetProperty("measuredAt"));
+        ValidateEnum(root, "qualityLevel", rules.QualityLevels);
+        ValidateEnum(root, "status", rules.Statuses);
+        ValidateEnum(root, "source", rules.Sources);
+
+        var pollutants = new[] { "pm10", "pm25", "no2", "o3" };
+        foreach (var pollutant in pollutants)
+        {
+            ValidateMeasurement(root.GetProperty(pollutant), pollutant, rules);
+        }
+
+        Require(pollutants.Any(name => root.GetProperty(name).ValueKind != JsonValueKind.Null), "at least one pollutant is required");
+        ValidateAlert(root.GetProperty("alert"), rules);
+    }
+
+    private static void ValidateStation(JsonElement station, AirQualityRules rules)
+    {
+        RequireExactProperties(station, rules.StationProperties, "station");
+        Require(!string.IsNullOrWhiteSpace(station.GetProperty("name").GetString()), "station.name is required");
+        RequireNonNegativeNumber(station.GetProperty("distanceMeters"), "station.distanceMeters");
+    }
+
+    private static void ValidateTimestamp(JsonElement measuredAt)
+    {
+        var value = measuredAt.GetString();
+        var hasExplicitOffset = value is { Length: >= 6 } && value[^6] is '+' or '-' && value[^3] == ':';
+        Require(
+            hasExplicitOffset && DateTimeOffset.TryParse(
+                value,
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None,
+                out _),
+            "measuredAt must be ISO 8601 with an explicit offset");
+    }
+
+    private static void ValidateMeasurement(JsonElement measurement, string propertyName, AirQualityRules rules)
+    {
+        if (measurement.ValueKind == JsonValueKind.Null)
+        {
+            return;
+        }
+
+        RequireExactProperties(measurement, rules.MeasurementProperties, propertyName);
+        RequireNonNegativeNumber(measurement.GetProperty("value"), $"{propertyName}.value");
+        Require(measurement.GetProperty("unit").GetString() == rules.Unit, $"{propertyName}.unit must be {rules.Unit}");
+    }
+
+    private static void ValidateAlert(JsonElement alert, AirQualityRules rules)
+    {
+        if (alert.ValueKind == JsonValueKind.Null)
+        {
+            return;
+        }
+
+        RequireExactProperties(alert, rules.AlertProperties, "alert");
+        ValidateEnum(alert, "severity", rules.AlertSeverities);
+        Require(!string.IsNullOrWhiteSpace(alert.GetProperty("message").GetString()), "alert.message is required");
+    }
+
+    private static void ValidateEnum(JsonElement parent, string propertyName, IReadOnlyList<string> allowedValues)
+    {
+        var value = parent.GetProperty(propertyName).GetString();
+        Require(value is not null && allowedValues.Contains(value, StringComparer.Ordinal), $"{propertyName} has an unsupported enum value");
+    }
+
+    private static void RequireNonNegativeNumber(JsonElement element, string propertyName)
+    {
+        Require(element.TryGetDouble(out var value) && double.IsFinite(value) && value >= 0, $"{propertyName} must be finite and non-negative");
+    }
+
+    private static void RequireExactProperties(JsonElement element, IReadOnlyList<string> expected, string schemaName)
+    {
+        Require(element.ValueKind == JsonValueKind.Object, $"{schemaName} must be an object");
+        var actual = element.EnumerateObject().Select(property => property.Name).ToHashSet(StringComparer.Ordinal);
+        Require(actual.SetEquals(expected), $"{schemaName} must contain exactly the required OpenAPI properties");
+    }
+
+    private static string GetClosedSchemaBlock(string contract, string schemaName)
+    {
+        var block = GetSchemaBlock(contract, schemaName);
+        Require(block.Contains("additionalProperties: false", StringComparison.Ordinal), $"{schemaName} must reject additional properties");
+        return block;
+    }
+
+    private static string GetSchemaBlock(string contract, string schemaName)
+    {
+        var lines = contract.Split('\n');
+        var header = $"    {schemaName}:";
+        var start = Array.FindIndex(lines, line => line.TrimEnd('\r') == header);
+        Require(start >= 0, $"OpenAPI schema {schemaName} was not found");
+
+        var end = Array.FindIndex(lines, start + 1, IsSchemaHeader);
+        end = end < 0 ? lines.Length : end;
+        return string.Join('\n', lines[start..end]);
+    }
+
+    private static bool IsSchemaHeader(string line) =>
+        line.Length > 4 &&
+        line.StartsWith("    ", StringComparison.Ordinal) &&
+        line[4] != ' ' &&
+        line.TrimEnd('\r').EndsWith(':');
+
+    private static IReadOnlyList<string> ReadList(string schemaBlock, string keyword)
+    {
+        var lines = schemaBlock.Split('\n');
+        var index = Array.FindIndex(lines, line => line.TrimStart().StartsWith($"{keyword}:", StringComparison.Ordinal));
+        Require(index >= 0, $"{keyword} was not found in an OpenAPI schema");
+        var declaration = lines[index].Trim();
+
+        if (declaration.Contains('['))
+        {
+            return declaration[(declaration.IndexOf('[') + 1)..declaration.LastIndexOf(']')]
+                .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                .Select(value => value.Trim('"'))
+                .ToArray();
+        }
+
+        return lines[(index + 1)..]
+            .TakeWhile(line => line.TrimStart().StartsWith("- ", StringComparison.Ordinal))
+            .Select(line => line.Trim()[2..].Trim('"'))
+            .ToArray();
+    }
+
+    private static void Require(bool condition, string message)
+    {
+        if (!condition)
+        {
+            throw new InvalidDataException(message);
+        }
+    }
+
     private static string FixturePath(string fixtureName) =>
         Path.Combine(AppContext.BaseDirectory, "Contracts", "Fixtures", fixtureName);
+
+    private static string ContractPath()
+    {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
+        {
+            var candidate = Path.Combine(directory.FullName, "contracts", "openapi.yaml");
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        throw new FileNotFoundException("contracts/openapi.yaml was not found above the test output directory.");
+    }
 }
