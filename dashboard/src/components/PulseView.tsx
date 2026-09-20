@@ -212,6 +212,10 @@ export function PulseView({
                 </div>
               </div>
             )}
+            <footer className="alerts-source">
+              City-level return alert uses a fixed 22:00 rule, not the MZK timetable. A resident&apos;s route card in the
+              client plans the return from the published timetable, so the two can differ.
+            </footer>
           </article>
 
           <AirQualityCard

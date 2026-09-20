@@ -20,7 +20,7 @@ Crew jest podlaczony do lokalnych uslug. Klient korzysta z wolnego uzytkownika
 | 4 | Backend przelicza agregaty | logika PULSE w C#, `DemoReturnGapPolicy` | dziala (smoke: PULSE zgodny z Attendance; ReturnGap: wydarzenie po 22:00 daje `participantsWithoutReturn` i alert `ReturnGap`) |
 | 5 | SignalR wysyla `PulseUpdated` | hub `/hubs/pulse` | dziala: klient huba odbiera komunikat razem z `participantsWithoutReturn` w `Smoke/` (`PulseUpdatedSmokeTests`); dodatkowo `AttendanceSignalRFlowTests` |
 | 6 | Dashboard pokazuje licznik bez odswiezania (`82 -> 83`) | `/dashboard`, klient SignalR | dziala; lokalny przebieg przegladarkowy potwierdzil `82 -> 83` oraz Walking `16 -> 17` bez odswiezenia |
-| 7 | Uzytkownik widzi trase z `IRoutePlanner` | `GET /api/events/{id}/route?userId={userId}` | Walking/Bike/Car zwracaja `RoadRouting`, dystans i GeoJSON; PublicTransport oraz kontrolowany fallback zwracaja `Demo` |
+| 7 | Uzytkownik widzi trase z `IRoutePlanner` | `GET /api/events/{id}/route?userId={userId}` | Walking/Bike/Car zwracaja `RoadRouting`, dystans i GeoJSON; PublicTransport zwraca `MzkTimetable` (godziny z rozkladu MZK, przystanki w `stops`), a gdy rozklad nie umie zaplanowac trasy - `Demo` |
 | 8 | Uzytkownik dolacza do mikrogrupy CREW | `GET groups`, `POST/DELETE members` | dziala (smoke: dolaczenie +1, ponowienie bez zmian, opuszczenie 204 x2) |
 | 9 | Dashboard pokazuje popyt na mapie heksagonalnej | `GET /api/pulse/hexagons` | dziala (smoke: 4 komorki, wszystkie >= 10 osob, bez `userId`); na Aurze niepotwierdzone |
 
@@ -165,7 +165,7 @@ Backup: nagraj przebieg scenariusza (sekcja 4) i zapisz zrzuty ekranu dashboardu
 
 ## 8. Znane zalozenia i ograniczenia MVP
 
-- Luka powrotowa to **symulacja** (`DemoReturnGapPolicy`, bez danych rozkladowych MZK): uczestnik z `PublicTransport` nie ma
+- Luka powrotowa w **agregacie PULSE** to **symulacja** (`DemoReturnGapPolicy`, bez danych rozkladowych MZK; karta trasy w `/client` liczy luke z rozkladu, wiec oba wyniki moga sie roznic): uczestnik z `PublicTransport` nie ma
   dogodnego powrotu, gdy wydarzenie konczy sie o 22:00 lub pozniej w `Europe/Warsaw`; brak `EndAt` oznacza brak luki.
   Wynik trafia do `participantsWithoutReturn` (PULSE, `summary`, `PulseUpdated`), alertu `ReturnGap` (`Warning`) oraz
   `returnGap: true` z pustym `returns` w trasie. W seedzie tylko "Nocny Bieg na Blonich" (koniec 23:15) ma luke (10 osob).
@@ -292,7 +292,7 @@ Data: 2026-09-20. Srodowisko: Ubuntu 26.04, Docker 29.8.0 (Compose 5.5.1), lokal
 | `docker compose config` | OK, uslugi: `api`, `seq`, `neo4j` (z `local-db`) | OK, dodatkowo `routing` |
 | Kontenery po starcie | `api`, `neo4j` healthy, `seq`; **brak kontenera `routing`, nic `unhealthy`** | `api`, `neo4j`, `routing` healthy (po `routing-prepare`, 5 min 4 s) |
 | `/route` Walking, Bike, Car | `plannerSource: Demo` | `RoadRouting` (dystans i geometria), np. Walking 1625,6 m |
-| `/route` PublicTransport | `Demo` | `Demo` (PublicTransport nie idzie przez usluge drogowa) |
+| `/route` PublicTransport | `MzkTimetable` albo `Demo` (fallback) | to samo (PublicTransport nie idzie przez usluge drogowa) |
 | `infra/smoke-test.ps1` (dwa przebiegi) | 13 PASS, 0 FAIL, 0 SKIP | 13 PASS, 0 FAIL, 0 SKIP |
 | `Smoke/` (`FLOWBB_SMOKE_BASE_URL`) | 68 PASS, 0 FAIL | 68 PASS, 0 FAIL |
 | Ostrzezenia i bledy w logu API | 0 (brak `Road routing unavailable` i timeoutow) | 0 |

@@ -4,6 +4,7 @@ using System.Text.Json;
 using FlowBB.Domain.Common;
 using FlowBB.Domain.Routing;
 using FlowBB.Infrastructure.Routing;
+using FlowBB.Infrastructure.Routing.Mzk;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -41,15 +42,37 @@ public sealed class RoutePlannerCompositionTests
     }
 
     [Fact]
-    public async Task Composite_PublicTransport_UsesDemoWithoutCallingRoadService()
+    public async Task Composite_PublicTransport_UsesTheTimetableWithoutCallingRoadService()
     {
         var handler = new RecordingHandler(new Queue<HttpResponseMessage>());
         var composite = Composite(handler, fallback: true);
 
         var result = await composite.PlanAsync(Request(TransportMode.PublicTransport));
 
-        result.Source.Should().Be(PlannerSource.Demo);
+        result.Source.Should().Be(PlannerSource.MzkTimetable);
         result.Outbound.Geometry.Should().BeNull();
+        result.Outbound.Stops.Should().HaveCount(2);
+        handler.RequestBodies.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Composite_PublicTransport_FallsBackToDemoWhenTheTimetableCannotPlan()
+    {
+        var handler = new RecordingHandler(new Queue<HttpResponseMessage>());
+        var composite = Composite(handler, fallback: true);
+        var farAway = new GeoPoint(50.0647, 19.9450);
+        var request = new RouteRequest(
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            DateTimeOffset.Parse("2026-09-25T19:00:00+02:00"),
+            DateTimeOffset.Parse("2026-09-25T21:30:00+02:00"),
+            Destination,
+            farAway,
+            TransportMode.PublicTransport);
+
+        var result = await composite.PlanAsync(request);
+
+        result.Source.Should().Be(PlannerSource.Demo);
+        result.Outbound.Stops.Should().BeNull();
         handler.RequestBodies.Should().BeEmpty();
     }
 
@@ -86,9 +109,16 @@ public sealed class RoutePlannerCompositionTests
 
     private static CompositeRoutePlanner Composite(RecordingHandler handler, bool fallback) => new(
         new DemoRoutePlanner(),
+        TimetablePlanner(),
         RoadPlanner(handler),
         new RoutingServiceOptions(new Uri("http://routing:8000"), TimeSpan.FromSeconds(3), fallback),
         NullLogger<CompositeRoutePlanner>.Instance);
+
+    // Prawdziwy rozklad z zasobow osadzonych w assembly: te testy sprawdzaja wybor planera, nie godziny.
+    private static TimetableFallbackRoutePlanner TimetablePlanner() => new(
+        new MzkTimetableRoutePlanner(new MzkTimetableProvider(NullLogger<MzkTimetableProvider>.Instance)),
+        new DemoRoutePlanner(),
+        NullLogger<TimetableFallbackRoutePlanner>.Instance);
 
     private static RoutingServiceRoutePlanner RoadPlanner(RecordingHandler handler)
     {

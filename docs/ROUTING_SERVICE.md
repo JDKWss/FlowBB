@@ -269,9 +269,10 @@ changing only a speed constant. Preserve edge geometries and lengths; add and
 validate mode-appropriate travel-time weights. For local PBF ingestion, verify
 that pyrosm/OSMnx filtering retains required OSM access and direction tags.
 
-`PublicTransport` never enters this road-routing service. It stays on the
-current `DemoRoutePlanner` path until a separately accepted timetable planner
-(for example OTP with complete GTFS) is available.
+`PublicTransport` never enters this road-routing service. It is planned in-process by
+`MzkTimetableRoutePlanner` from the published MZK timetable (`plannerSource: MzkTimetable`), with a
+controlled fallback to `DemoRoutePlanner` when the timetable cannot plan the trip. OTP with complete GTFS
+remains a P1 option. See `docs/code/MODULE_ROUTING.md`.
 
 ## 8. OSM data and artifact lifecycle
 

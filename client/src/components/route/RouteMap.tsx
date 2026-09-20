@@ -1,12 +1,9 @@
 import {
-  Component,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type ErrorInfo,
-  type ReactNode,
 } from 'react'
 import {
   Bike,
@@ -17,7 +14,6 @@ import {
   Maximize2,
   Minimize2,
   Navigation,
-  TriangleAlert,
   type LucideIcon,
 } from 'lucide-react'
 import Map, {
@@ -28,9 +24,9 @@ import Map, {
   type LayerProps,
   type MapRef,
 } from 'react-map-gl/maplibre'
-import 'maplibre-gl/dist/maplibre-gl.css'
 import type { EventDetails, JourneyOption, RouteGeometry, TransportMode } from '../../types/contracts'
-import { Alert, AlertDescription, AlertTitle, Badge, Skeleton } from '../ui'
+import { Badge, Skeleton } from '../ui'
+import { MapErrorBoundary, MapUnavailable, OPEN_FREE_MAP_STYLE } from './mapShell'
 
 type MapRouteMode = Extract<TransportMode, 'Walking' | 'Bike' | 'Car'>
 
@@ -42,8 +38,6 @@ type RenderedRoadRoute = {
   origin: { longitude: number; latitude: number }
   destination: { longitude: number; latitude: number }
 }
-
-const OPEN_FREE_MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty'
 
 const routeCasingLayer: LayerProps = {
   id: 'flowbb-route-casing',
@@ -91,46 +85,6 @@ const modeDetails: Record<
     description: 'Your driving route',
     icon: CarFront,
   },
-}
-
-type MapFallbackProps = {
-  children: ReactNode
-  fallback: ReactNode
-}
-
-type MapFallbackState = {
-  failed: boolean
-}
-
-class MapErrorBoundary extends Component<MapFallbackProps, MapFallbackState> {
-  state: MapFallbackState = { failed: false }
-
-  static getDerivedStateFromError(): MapFallbackState {
-    return { failed: true }
-  }
-
-  componentDidCatch(_error: Error, _info: ErrorInfo) {
-    // Route details remain usable when WebGL is unavailable.
-  }
-
-  render() {
-    return this.state.failed ? this.props.fallback : this.props.children
-  }
-}
-
-function MapUnavailable() {
-  return (
-    <Alert
-      data-testid="route-map-unavailable"
-      className="h-[240px] content-center bg-neutral-900 text-neutral-200"
-    >
-      <TriangleAlert aria-hidden="true" />
-      <AlertTitle>Map unavailable</AlertTitle>
-      <AlertDescription>
-        Route details are still available below. You can continue to Crew.
-      </AlertDescription>
-    </Alert>
-  )
 }
 
 function InteractiveMap({ route, event }: { route: RenderedRoadRoute; event: EventDetails }) {

@@ -120,7 +120,7 @@ try {
   assert.equal(attendance.transportMode, 'Walking')
 
   await clickText('See my route')
-  await visibleText('ROADROUTING')
+  await visibleText('Road routing')
   await until(`Boolean(document.querySelector('[data-testid="route-map"]'))`)
   await until(`!document.querySelector('[data-testid="route-map-loading"]')`)
 
@@ -128,6 +128,7 @@ try {
   assert.ok(routeRequest, 'Browser did not GET the route from ASP.NET.')
   const route = await responseJson(routeRequest)
   assert.equal(route.plannerSource, 'RoadRouting')
+  assert.ok(!route.outbound.stops, 'A road route must not carry bus stops.')
   assert.ok(route.outbound.distanceMeters > 0)
   assert.equal(route.outbound.geometry.type, 'LineString')
   assert.ok(route.outbound.geometry.coordinates.length > 2)

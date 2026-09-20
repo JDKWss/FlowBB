@@ -9,13 +9,17 @@ public sealed record RouteStepResponse(string Type, string Instruction, int Dura
 
 public sealed record RouteGeometryResponse(string Type, IReadOnlyList<IReadOnlyList<double>> Coordinates);
 
+// Wspolrzedne publicznej infrastruktury przystankowej. Punkt startu uzytkownika nie jest przystankiem i tu nie trafia.
+public sealed record RouteStopResponse(string Name, double Latitude, double Longitude);
+
 public sealed record JourneyOptionResponse(
     int DurationMinutes,
     double? DistanceMeters,
     DateTimeOffset DepartureAt,
     DateTimeOffset ArrivalAt,
     RouteGeometryResponse? Geometry,
-    IReadOnlyList<RouteStepResponse> Steps);
+    IReadOnlyList<RouteStepResponse> Steps,
+    IReadOnlyList<RouteStopResponse>? Stops);
 
 public sealed record RouteResponse(
     Guid EventId,
@@ -52,7 +56,9 @@ public static class RouteResponseMapping
                         .Select(coordinate => (IReadOnlyList<double>)[coordinate.Longitude, coordinate.Latitude])
                         .ToList()),
             option.Steps.Select(step => new RouteStepResponse(
-                step.Type.ToString(), step.Instruction, step.DurationMinutes, step.Line)).ToList());
+                step.Type.ToString(), step.Instruction, step.DurationMinutes, step.Line)).ToList(),
+            option.Stops?.Select(stop => new RouteStopResponse(
+                stop.Name, stop.Location.Latitude, stop.Location.Longitude)).ToList());
 
     private static DateTimeOffset InWarsaw(DateTimeOffset value) => TimeZoneInfo.ConvertTime(value, DemoTimeZone);
 }

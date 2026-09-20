@@ -7,13 +7,16 @@ import {
   Clock3,
   Footprints,
   MapPin,
+  Navigation,
   Route,
-  Sparkles,
   Timer,
   TriangleAlert,
+  type LucideIcon,
 } from 'lucide-react'
+import { DemoBadge } from '../../components/DemoBadge'
 import { FlowBackButton } from '../../components/FlowBackButton'
 import { RouteMap } from '../../components/route/RouteMap'
+import { TransitStopsMap } from '../../components/route/TransitStopsMap'
 import {
   Alert,
   AlertDescription,
@@ -26,6 +29,7 @@ import {
 import type {
   EventDetails,
   JourneyOption,
+  PlannerSource,
   RouteResponse,
   RouteStep,
   TransportMode,
@@ -60,6 +64,111 @@ const dateFormatter = new Intl.DateTimeFormat('en-GB', {
 
 function formatTime(value: string) {
   return timeFormatter.format(new Date(value))
+}
+
+// Etykieta zrodla planera. Record zamiast switch: nowa wartosc PlannerSource nie skompiluje sie bez etykiety,
+// wiec surowa nazwa enuma nigdy nie wycieknie do UI. Sparkles zostaje wylacznie znacznikiem danych demo (DemoBadge).
+// Etykiety sa zapisane w docelowej wielkosci liter, bo globalny reset CSS w #root wylacza text-transform.
+type PlannerBadgeDetails =
+  | { kind: 'demo' }
+  | { kind: 'planner'; label: string; description: string; icon: LucideIcon; className: string }
+
+const plannerBadges: Record<PlannerSource, PlannerBadgeDetails> = {
+  MzkTimetable: {
+    kind: 'planner',
+    label: 'MZK timetable',
+    description: 'Planned from the published MZK timetable',
+    icon: BusFront,
+    className: 'bg-primary/15 text-primary',
+  },
+  RoadRouting: {
+    kind: 'planner',
+    label: 'Road routing',
+    description: 'Planned on the road network',
+    icon: Navigation,
+    className: 'bg-white/[0.06] text-neutral-300',
+  },
+  OpenTripPlanner: {
+    kind: 'planner',
+    label: 'OpenTripPlanner',
+    description: 'Planned by OpenTripPlanner',
+    icon: Route,
+    className: 'bg-white/[0.06] text-neutral-300',
+  },
+  Demo: { kind: 'demo' },
+}
+
+function PlannerSourceBadge({ source }: { source: PlannerSource }) {
+  const details = plannerBadges[source]
+  if (details.kind === 'demo') return <DemoBadge compact />
+
+  const PlannerIcon = details.icon
+  return (
+    <Badge
+      variant="secondary"
+      title={details.description}
+      className={`h-auto shrink-0 gap-1.5 px-2.5 py-1 text-[10px] font-bold tracking-wider ${details.className}`}
+    >
+      <PlannerIcon aria-hidden="true" size={11} />
+      {details.label}
+    </Badge>
+  )
+}
+
+function formatWait(minutes: number) {
+  if (minutes < 60) return `${minutes} min`
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`
+}
+
+// Czekanie to tylko roznica dwoch godzin, ktore ekran i tak pokazuje. Regule "czy jest luka" decyduje backend
+// przez route.returnGap; klient jej nie odtwarza, wiec nie ma tu zadnego progu.
+function waitMinutesBetween(endAt: string | null | undefined, departureAt: string | null | undefined) {
+  if (!endAt || !departureAt) return null
+  const end = new Date(endAt).getTime()
+  const departure = new Date(departureAt).getTime()
+  if (!Number.isFinite(end) || !Number.isFinite(departure)) return null
+  return Math.max(0, Math.round((departure - end) / 60_000))
+}
+
+// fromTimetable rozroznia dwa zrodla luki: planer z rozkladu MZK (prawdziwe godziny) i regula demo (22:00, symulacja).
+// Twierdzenie "rozklad nie ma odjazdu" jest prawdziwe tylko w pierwszym przypadku.
+function ReturnGapAlert({ endAt, firstReturnAt, fromTimetable }: {
+  endAt?: string | null
+  firstReturnAt?: string | null
+  fromTimetable: boolean
+}) {
+  const waitMinutes = waitMinutesBetween(endAt, firstReturnAt)
+  const noDeparture = fromTimetable
+    ? (endAt ? `The MZK timetable has no departure after ${formatTime(endAt)}. ` : 'The MZK timetable has no departure after this event. ')
+    : 'There may be no convenient way home after this event. '
+
+  return (
+    <Alert className="mb-3 bg-amber-300/10 text-amber-100">
+      <TriangleAlert className="text-amber-300" aria-hidden="true" size={19} />
+      <AlertTitle>
+        {firstReturnAt ? 'Long wait for your return' : 'No return connection after this event'}
+      </AlertTitle>
+      <AlertDescription className="text-amber-100/70">
+        {firstReturnAt ? (
+          <>
+            <span className="block font-semibold text-amber-100">
+              {endAt ? `Event ends ${formatTime(endAt)} · ` : ''}
+              First return {formatTime(firstReturnAt)}
+              {waitMinutes !== null ? ` · ${formatWait(waitMinutes)} wait` : ''}
+            </span>
+            <span className="mt-1 block">Check the options below, or arrange another way home.</span>
+          </>
+        ) : (
+          <>
+            {noDeparture}
+            Arrange another way home before you go.
+          </>
+        )}
+      </AlertDescription>
+    </Alert>
+  )
 }
 
 function StepIcon({ type }: Pick<RouteStep, 'type'>) {
@@ -100,9 +209,17 @@ function JourneyTimeline({ journey }: { journey: JourneyOption }) {
             <p className="text-sm font-semibold leading-5 text-slate-100">
               {step.instruction}
             </p>
-            <p className="mt-1 text-xs text-slate-500">
-              {step.durationMinutes} min
-              {step.line ? ` · Line ${step.line}` : ''}
+            <p className="mt-1 flex items-center gap-2 text-xs text-slate-500">
+              <span>{step.durationMinutes} min</span>
+              {step.line && (
+                <Badge
+                  variant="secondary"
+                  data-testid="route-step-line"
+                  className="h-auto bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary"
+                >
+                  Line {step.line}
+                </Badge>
+              )}
             </p>
           </div>
         </li>
@@ -142,6 +259,11 @@ export function RouteView({
   onBack,
   onContinue,
 }: RouteViewProps) {
+  // Powroty w kolejnosci odjazdu, niezaleznie od kolejnosci w odpowiedzi.
+  const sortedReturns = [...route.returns].sort(
+    (a, b) => new Date(a.departureAt).getTime() - new Date(b.departureAt).getTime(),
+  )
+
   return (
     <section className="min-h-full w-full bg-background px-5 pb-6 pt-4 text-white">
       <header className="mb-7 flex items-center justify-between gap-3">
@@ -149,11 +271,16 @@ export function RouteView({
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm text-slate-400">{event.name}</p>
         </div>
-        <Badge variant="secondary" className="h-auto bg-white/[0.06] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-neutral-300">
-          <Sparkles aria-hidden="true" size={11} />
-          {route.plannerSource}
-        </Badge>
+        <PlannerSourceBadge source={route.plannerSource} />
       </header>
+
+      {selectedMode === 'PublicTransport' && route.outbound.stops && route.outbound.stops.length >= 2 && (
+        <TransitStopsMap
+          key={`${event.id}-transit`}
+          event={event}
+          stops={route.outbound.stops}
+        />
+      )}
 
       {supportsRouteMap(selectedMode) && route.outbound.geometry && route.outbound.distanceMeters != null && (
         <RouteMap
@@ -206,19 +333,16 @@ export function RouteView({
         </div>
 
         {route.returnGap && (
-          <Alert className="mb-3 bg-amber-300/10 text-amber-100">
-            <TriangleAlert className="text-amber-300" aria-hidden="true" size={19} />
-            <AlertTitle>Limited return connection</AlertTitle>
-            <AlertDescription className="text-amber-100/70">
-                There may not be a convenient connection after this event. Check
-                the options before you go.
-            </AlertDescription>
-          </Alert>
+          <ReturnGapAlert
+            endAt={event.endAt}
+            firstReturnAt={sortedReturns[0]?.departureAt}
+            fromTimetable={route.plannerSource === 'MzkTimetable'}
+          />
         )}
 
         {route.returns.length > 0 ? (
           <div className="space-y-3">
-            {route.returns.map((journey, index) => (
+            {sortedReturns.map((journey, index) => (
               <details
                 open={index === 0}
                 key={`${journey.departureAt}-${index}`}
@@ -251,9 +375,11 @@ export function RouteView({
             ))}
           </div>
         ) : (
-          <div className="rounded-2xl border border-dashed border-white/15 p-5 text-center text-sm text-slate-400">
-            No return journeys are available yet.
-          </div>
+          !route.returnGap && (
+            <div className="rounded-2xl border border-dashed border-white/15 p-5 text-center text-sm text-slate-400">
+              No return journeys are available yet.
+            </div>
+          )
         )}
       </div>
 

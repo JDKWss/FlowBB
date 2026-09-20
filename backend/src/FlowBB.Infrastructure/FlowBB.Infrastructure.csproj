@@ -15,6 +15,12 @@
   <ItemGroup>
     <EmbeddedResource Include="..\..\..\database\flowbb-demo-seed.cypher"
                       LogicalName="FlowBB.Database.flowbb-demo-seed.cypher" />
+    <EmbeddedResource Include="..\..\..\data\gtfs\mzk\parsed\departures.json"
+                      LogicalName="FlowBB.Mzk.departures.json" />
+    <EmbeddedResource Include="..\..\..\data\gtfs\mzk\parsed\calendar_days.json"
+                      LogicalName="FlowBB.Mzk.calendar_days.json" />
+    <EmbeddedResource Include="..\..\..\data\gtfs\mzk\parsed\stops.json"
+                      LogicalName="FlowBB.Mzk.stops.json" />
     <EmbeddedResource Include="..\..\..\database\schema.cypher"
                       LogicalName="FlowBB.Database.schema.cypher" />
     <EmbeddedResource Include="..\..\..\data\air-quality\demo-snapshot.json"

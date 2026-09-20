@@ -194,7 +194,7 @@ try {
   await click('Plan my trip\nChoose how you\'ll get there')
   await click("I'm going")
   await click('See my route')
-  await visibleText('Limited return connection')
+  await visibleText('No return connection after this event')
   assert.equal(await evaluate(`Boolean(document.querySelector('[data-testid="route-map-section"]'))`), false)
   assert.deepEqual(errors, [])
   console.log('PASS: schemas, browser back/forward, attendance idempotency, route, return gap, join/leave/full crew, responsive widths, no runtime errors.')

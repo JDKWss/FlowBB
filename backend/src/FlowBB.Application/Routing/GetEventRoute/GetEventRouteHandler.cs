@@ -53,9 +53,10 @@ public sealed class GetEventRouteHandler(
         return new GetEventRouteResult(GetEventRouteStatus.Ok, ApplyReturnGap(plan, found.EndAt, attendance.Mode));
     }
 
-    // Luka powrotowa jest regula demo (DemoReturnGapPolicy), niezalezna od planera: bez powrotow i z returnGap.
+    // Regula demo (DemoReturnGapPolicy, 22:00) obowiazuje planery bez rozkladu. Planer oparty na rozkladzie MZK sam
+    // wyznacza ReturnGap z prawdziwych godzin, a jego wyniku - razem z pozna opcja powrotu - nie wolno nadpisywac.
     private static RoutePlan ApplyReturnGap(RoutePlan plan, DateTimeOffset? endAt, TransportMode mode) =>
-        DemoReturnGapPolicy.HasReturnGap(endAt, mode)
+        plan.Source != PlannerSource.MzkTimetable && DemoReturnGapPolicy.HasReturnGap(endAt, mode)
             ? new RoutePlan(plan.Source, plan.Outbound, [], returnGap: true)
             : plan;
 }

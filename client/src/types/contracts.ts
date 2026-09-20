@@ -109,7 +109,7 @@ export interface GroupSummary {
   joinedByCurrentUser: boolean
 }
 
-export type PlannerSource = 'Demo' | 'RoadRouting' | 'OpenTripPlanner'
+export type PlannerSource = 'Demo' | 'RoadRouting' | 'OpenTripPlanner' | 'MzkTimetable'
 export type RouteStepType = 'Walk' | 'Transit' | 'Bike' | 'Car' | 'Wait'
 
 export interface RouteStep {
@@ -119,6 +119,16 @@ export interface RouteStep {
   line?: string | null
 }
 
+/**
+ * Przystanek komunikacji miejskiej. Wspolrzedne pochodza z publicznej infrastruktury przystankowej,
+ * a nie z punktu startu uzytkownika, ktory nigdy nie opuszcza backendu.
+ */
+export interface RouteStop {
+  name: string
+  latitude: number
+  longitude: number
+}
+
 export interface JourneyOption {
   durationMinutes: number
   distanceMeters?: number | null
@@ -126,6 +136,8 @@ export interface JourneyOption {
   arrivalAt: string
   geometry?: RouteGeometry | null
   steps: RouteStep[]
+  /** Pierwszy element to przystanek wsiadania, ostatni wysiadania. Null poza komunikacja miejska. */
+  stops?: RouteStop[] | null
 }
 
 export interface RouteGeometry {
