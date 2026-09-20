@@ -19,9 +19,13 @@
 [CmdletBinding()]
 param(
     [string]$BaseUrl = 'http://localhost:8080',
-    [Guid]$EventId = '11111111-1111-1111-1111-111111111111',
-    # Uzytkownik z seedu, ktory NIE deklaruje jeszcze udzialu w tym wydarzeniu, zeby sprzatanie nie usuwalo danych seedu.
-    [Guid]$UserId = 'dddddddd-dddd-dddd-dddd-dddddddddddd',
+    # Wydarzenie i uzytkownik dla kroku Attendance. Seed demo (database/flowbb-demo-seed.cypher) zapisuje wszystkich
+    # uzytkownikow na "Koncert na Rynku" (1111...), wiec smoke uzywa "Nocnego Biegu" (3333..., 46 uczestnikow) i
+    # uzytkownika nr 82, ktory na nim nie jest. Dzieki temu test tworzy i usuwa wlasna deklaracje bez zmiany danych seedu.
+    [Guid]$EventId = '33333333-3333-3333-3333-333333333333',
+    [Guid]$UserId = 'd1000000-0000-0000-0000-000000000082',
+    # Wydarzenie z mikrogrupami (w seedzie tylko 1111...); uzytkownik nr 82 nie nalezy do zadnej grupy.
+    [Guid]$CrewEventId = '11111111-1111-1111-1111-111111111111',
     [ValidateSet('Walking', 'PublicTransport', 'Bike', 'Car', 'Unknown')]
     [string]$TransportMode = 'PublicTransport',
     [double]$OriginLatitude = 49.82245,
@@ -216,11 +220,11 @@ Test-Step 'Trasa z DemoRoutePlanner (deterministyczna)' {
 
 # 10. Crew: lista, dolaczenie (idempotentne), opuszczenie
 Test-Step 'Crew: lista, dolaczenie, ponowienie i opuszczenie' {
-    $groups = Invoke-Api GET "/api/events/$EventId/groups?userId=$UserId"
+    $groups = Invoke-Api GET "/api/events/$CrewEventId/groups?userId=$UserId"
     if (-not $groups.Mounted) { return $null }
     Assert-That ($groups.Status -eq 200) "oczekiwano 200, jest $($groups.Status)"
     $joinable = @($groups.Json | Where-Object { -not $_.joinedByCurrentUser -and $_.currentMembers -lt $_.maxMembers }) | Select-Object -First 1
-    if ($null -eq $joinable) { Write-Host '  uwaga: brak grupy do dolaczenia' -ForegroundColor Yellow; return 'brak grupy do dolaczenia (pominieto)' }
+    Assert-That ($null -ne $joinable) "brak grupy z wolnym miejscem dla uzytkownika $UserId w wydarzeniu $CrewEventId (seed?)"
 
     $membersPath = "/api/groups/$($joinable.id)/members"
     $join = Invoke-Api POST $membersPath @{ userId = "$UserId" }
