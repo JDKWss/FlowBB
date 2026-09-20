@@ -1,4 +1,5 @@
 import { airQuality, eventDetails, events, groups, routes } from '../mocks/data'
+import { getDemoRoute, hasDemoRoute } from '../mocks/routeMap'
 import { apiBaseUrl } from '../config/api'
 import { airQualitySchema, attendanceRequestSchema, attendanceSchema, eventSummarySchema, eventDetailsSchema, groupSchema, routeSchema } from '../types/validation'
 import type {
@@ -226,6 +227,12 @@ class MockClientService implements ClientService {
       const instruction = mode === 'Walking' ? 'Walk along the demonstration route.' : mode === 'Bike' ? 'Cycle along the demonstration route.' : 'Drive along the demonstration route.'
       // Tryby drogowe w mocku to symulacja: zrodlo jest demo, a przystanki autobusowe nie dotycza tej trasy.
       result.plannerSource = 'Demo'
+      const event = this.mutableDetails.find(item => item.id === eventId)
+      if (event && hasDemoRoute(eventId)) {
+        const demoRoute = getDemoRoute(mode, event)
+        result.outbound.geometry = demoRoute.geometry
+        result.outbound.distanceMeters = Math.round(demoRoute.distanceKm * 1_000)
+      }
       for (const journey of [result.outbound, ...result.returns]) {
         journey.steps = [{ type, instruction, durationMinutes: journey.durationMinutes }]
         journey.stops = null

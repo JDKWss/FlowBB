@@ -105,7 +105,7 @@ try {
   await visibleText('Koncert na Rynku')
   await click('Open event: Koncert na Rynku')
   await visibleText('How can you get there?')
-  await clickText('Plan my trip')
+  await clickText('Continue')
   await visibleText('How will you get there?')
   await click('Select Walk')
   await clickText("I'm going")

@@ -103,13 +103,13 @@ try {
   await evaluate(`history.forward()`)
   await visibleText('How can you get there?')
   assert.equal(await evaluate(`history.state?.screen`), 'details')
-  await click('Plan my trip\nChoose how you\'ll get there')
+  await click('Continue')
   await click(routeModeButtons[routeMode])
   await click("I'm going")
   await visibleText('83 people')
   await click('See my route')
-  await visibleText('DEMO ROUTE')
-  await visibleText(routeMode)
+  await visibleText('Demo')
+  await until(`document.querySelector('[data-testid="route-map"]')?.getAttribute('aria-label')?.startsWith(${JSON.stringify(`${routeMode} route map`)}) ?? false`)
   assert.equal(await evaluate(`Boolean(document.querySelector('[data-testid="route-map"]'))`), true)
   assert.equal(await evaluate(`Boolean(document.querySelector('[data-testid="route-fullscreen-toggle"]'))`), true)
   await until(`Boolean(document.querySelector('[data-testid="route-start-marker"]'))`)
@@ -144,7 +144,7 @@ try {
     if (cycle < routeNavigationCycles) {
       await click('Back to transport selection')
       await click('See my route')
-      await visibleText('DEMO ROUTE')
+      await visibleText('Demo')
     }
   }
   await command('Runtime.evaluate', {
@@ -152,7 +152,7 @@ try {
     userGesture: true,
   })
   await until(`document.fullscreenElement?.getAttribute('data-testid') === 'route-map'`)
-  await visibleText(routeMode)
+  await until(`document.querySelector('[data-testid="route-map"]')?.getAttribute('aria-label')?.startsWith(${JSON.stringify(`${routeMode} route map`)}) ?? false`)
   assert.equal(await evaluate(`document.querySelector('[data-testid="route-fullscreen-toggle"]')?.getAttribute('aria-label')`), 'Exit full screen')
   await command('Runtime.evaluate', {
     expression: 'document.exitFullscreen()',
@@ -168,8 +168,8 @@ try {
     `/tmp/flowbb-route-${routeMode.toLowerCase()}-verified.png`,
     Buffer.from(routeScreenshot.data, 'base64'),
   )
-  await visibleText('18:12')
-  await visibleText('21:44')
+  await visibleText('18:15')
+  await visibleText('21:40')
   await click('Find your crew')
   await visibleText('4/6')
   await click('Join Nowi w Bielsku')
@@ -185,13 +185,13 @@ try {
   await click('Back to your route')
   await click('Back to transport selection')
   await click('Back to event details')
-  await click('Plan my trip\nChoose how you\'ll get there')
+  await click('Continue')
   await click("I'm going")
   await visibleText('83 people')
   await click('Back to event details')
   await click('Back to events')
   await click('Open event: Nocny Bieg na Błoniach')
-  await click('Plan my trip\nChoose how you\'ll get there')
+  await click('Continue')
   await click("I'm going")
   await click('See my route')
   await visibleText('No return connection after this event')
