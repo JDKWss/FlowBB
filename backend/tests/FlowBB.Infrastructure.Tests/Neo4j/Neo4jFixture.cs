@@ -108,6 +108,31 @@ public sealed class Neo4jFixture : IAsyncLifetime
         return id;
     }
 
+    public async Task<Guid> CreateCrewAsync(Guid eventId, int maxMembers = 6, string name = "Test Crew")
+    {
+        var id = Guid.NewGuid();
+        await ExecuteAsync(
+            """
+            MATCH (e:Event {EventId: $eventId})
+            CREATE (c:Crew {CrewId: $id, Name: $name, Description: 'Opis grupy', MaxMembers: $maxMembers,
+                            Tags: ['muzyka', 'centrum'], MeetingPointName: 'Fontanna',
+                            MeetingPointLatitude: 49.82245, MeetingPointLongitude: 19.04431, TestRunId: $runId})
+            CREATE (c)-[:FOR_EVENT]->(e)
+            """,
+            new { id = id.ToString("D"), eventId = eventId.ToString("D"), name, maxMembers, runId });
+        return id;
+    }
+
+    public Task AddMemberAsync(Guid userId, Guid crewId, DateTimeOffset joinedAt)
+    {
+        return ExecuteAsync(
+            """
+            MATCH (u:User {UserId: $userId}), (c:Crew {CrewId: $crewId})
+            CREATE (u)-[:MEMBER_OF {JoinedAt: $joinedAt}]->(c)
+            """,
+            new { userId = userId.ToString("D"), crewId = crewId.ToString("D"), joinedAt });
+    }
+
     public Task DeclareGoingAsync(Guid userId, Guid eventId)
     {
         return ExecuteAsync(
