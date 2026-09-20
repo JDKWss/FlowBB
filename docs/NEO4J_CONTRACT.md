@@ -25,8 +25,8 @@ Wlasciciele: **Data/Neo4j** (schemat, constraints, seed, Cypher, adaptery), **Co
 |---|---|---|---|---|
 | `UserId` | string (Guid) | tak | jest | unikalne |
 | `Name` | string | tak | jest | |
-| `HomeLatitude` | float | tak | jest w schemacie, seedzie `flowbb-queries.cypher` i adapterach | wewnetrzny domyslny punkt rozpoczecia podrozy, `[-90, 90]`. Nazwa docelowa (ADR 001, AGENTS.md sekcja 8). Adaptery czytaja tez zamiennik `DefaultOriginLatitude` (patrz [NEO4J_ADAPTER_RECONCILIATION.md](NEO4J_ADAPTER_RECONCILIATION.md)) |
-| `HomeLongitude` | float | tak | jak wyzej | wewnetrzny domyslny punkt rozpoczecia podrozy, `[-180, 180]`. Zamiennik: `DefaultOriginLongitude` |
+| `DefaultOriginLatitude` | float | tak | jest w seedach, kodzie i adapterze Attendance | wewnetrzny domyslny punkt rozpoczecia podrozy, `[-90, 90]`. `AGENTS.md` sekcja 8 i ADR 001 nadal mowia `HomeLatitude`: do poprawy w tych dokumentach przez Core Backend |
+| `DefaultOriginLongitude` | float | tak | jak wyzej | wewnetrzny domyslny punkt rozpoczecia podrozy, `[-180, 180]` |
 | `Email`, `PasswordHash` | string | nie | sa | pozostalosc po wczesniejszym modelu. Logowanie jest poza zakresem MVP; pola nie moga byc uzywane do uwierzytelniania ani zwracane przez API. |
 
 Dokladny punkt startowy jest danymi wewnetrznymi i nie moze byc zwracany przez publiczne API.
@@ -89,8 +89,8 @@ nie zmienia to odpowiedzialnosci relacji za dane wejsciowe.
 | Pole relacji | Typ | Wymagane | Stan w repo | Uwagi |
 |---|---|---|---|---|
 | `TransportMode` | string | tak | jest w obu seedach i w adapterze Attendance | dokladna nazwa enuma: `Walking`, `PublicTransport`, `Bike`, `Car`, `Unknown` |
-| `OriginLatitude` | float | tak | jak wyzej | snapshot `User.HomeLatitude` (lub zamiennika `DefaultOriginLatitude`), `[-90, 90]` |
-| `OriginLongitude` | float | tak | jak wyzej | snapshot `User.HomeLongitude` (lub zamiennika `DefaultOriginLongitude`), `[-180, 180]` |
+| `OriginLatitude` | float | tak | jak wyzej | snapshot `User.DefaultOriginLatitude`, `[-90, 90]` |
+| `OriginLongitude` | float | tak | jak wyzej | snapshot `User.DefaultOriginLongitude`, `[-180, 180]` |
 | `UpdatedAt` | datetime z offsetem | tak | jak wyzej | czas ostatniego zapisu deklaracji, UTC |
 
 Reguly:
@@ -136,5 +136,5 @@ PULSE nie przechowuje niezależnych liczników. Po zatwierdzeniu transakcji Atte
 | 2 | Idempotentny importer realnych wydarzen | Data/Neo4j + Backend Events |
 | 3 | Interfejsy repozytoriow z Domain do `Application/Abstractions`: decyzja po MVP albo przy pierwszej implementacji repozytorium, nie blokuje MVP | Core Backend Owner + Data/Neo4j |
 | 4 | Usuniecie pakietow EF Core/Npgsql z Infrastructure: osobny maly task porzadkowy po potwierdzeniu, ze kod runtime ich nie uzywa | Data/Neo4j (zgoda Core Backend Owner) |
-| 5 | Ujednolicenie nazw wspolrzednych uzytkownika (`Home*` docelowo, `DefaultOrigin*` w seedzie demonstracyjnym, `Domain/Models/User.cs` i starym adapterze grafu). Do tego czasu adaptery czytaja obie nazwy; plan: [NEO4J_ADAPTER_RECONCILIATION.md](NEO4J_ADAPTER_RECONCILIATION.md) | Data/Neo4j + Core Backend Owner |
+| 5 | Poprawic `AGENTS.md` sekcja 8 i ADR 001: mowia `HomeLatitude/HomeLongitude`, a kod, seedy i adaptery uzywaja `DefaultOriginLatitude/DefaultOriginLongitude` (decyzja: zgodnosc z `develop`). Szczegoly: [NEO4J_ADAPTER_RECONCILIATION.md](NEO4J_ADAPTER_RECONCILIATION.md) | Core Backend Owner |
 | 6 | Adaptery Neo4j (Events, Attendance, PULSE, Crew): zrobione, testy na prawdziwej instancji w `FlowBB.Infrastructure.Tests` | Data/Neo4j |
