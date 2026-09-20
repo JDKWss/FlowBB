@@ -17,6 +17,12 @@
                       LogicalName="FlowBB.Database.flowbb-demo-seed.cypher" />
     <EmbeddedResource Include="..\..\..\database\migrations\*.cypher"
                       LogicalName="FlowBB.Database.Migrations.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\..\data\gtfs\mzk\parsed\departures.json"
+                      LogicalName="FlowBB.Mzk.departures.json" />
+    <EmbeddedResource Include="..\..\..\data\gtfs\mzk\parsed\calendar_days.json"
+                      LogicalName="FlowBB.Mzk.calendar_days.json" />
+    <EmbeddedResource Include="..\..\..\data\gtfs\mzk\parsed\stops.json"
+                      LogicalName="FlowBB.Mzk.stops.json" />
     <EmbeddedResource Include="..\..\..\data\air-quality\demo-snapshot.json"
                       LogicalName="FlowBB.Data.AirQuality.demo-snapshot.json" />
   </ItemGroup>

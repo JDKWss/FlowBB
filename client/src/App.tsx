@@ -183,7 +183,7 @@ export default function App() {
   const eventsQuery = useEvents()
   const eventQuery = useEvent(eventId)
   const airQualityQuery = useAirQuality(eventId, screen === 'details')
-  const routeQuery = useRoute(eventId, screen === 'route' || screen === 'crew')
+  const routeQuery = useRoute(eventId, screen === 'route' || screen === 'crew', selectedMode)
   const groupsQuery = useGroups(eventId, screen === 'crew')
   const attendanceMutation = useSaveAttendance()
   const groupMutation = useToggleGroup(eventId ?? 'none')

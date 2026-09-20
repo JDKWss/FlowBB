@@ -48,11 +48,13 @@ public sealed class RoutingModeTests
     }
 
     [Fact]
-    public void DemoMode_UsesDemoPlannerDirectly()
+    public void DemoMode_UsesTheTimetablePlannerWithDemoFallback()
     {
         using var provider = Provider(RoutingMode.Demo);
 
-        provider.GetRequiredService<IRoutePlanner>().Should().BeOfType<DemoRoutePlanner>();
+        // Domyslny tryb nie uzywa CompositeRoutePlanner, wiec to jest jedyne miejsce, w ktorym planer z rozkladu
+        // MZK trafia do aplikacji. Surowy DemoRoutePlanner oznaczalby, ze rozklad jest martwym kodem.
+        provider.GetRequiredService<IRoutePlanner>().Should().BeOfType<TimetableFallbackRoutePlanner>();
     }
 
     [Fact]

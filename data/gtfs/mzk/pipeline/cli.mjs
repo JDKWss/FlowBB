@@ -4,6 +4,7 @@ import { writeCalendar } from './calendar.mjs';
 import { extractManifest } from './extract.mjs';
 import { fetchLines, readManifest } from './fetch.mjs';
 import { loadDb, runChecks } from './load-db.mjs';
+import { writeStops } from './stops.mjs';
 import { ensureDir, writeJsonLines } from './util.mjs';
 
 const HELP = `Uzycie: node pipeline/cli.mjs <komenda...> [--lines 7,N1,N2]
@@ -11,10 +12,11 @@ const HELP = `Uzycie: node pipeline/cli.mjs <komenda...> [--lines 7,N1,N2]
 Komendy (wykonywane po kolei):
   fetch     pobiera PDF-y wybranych linii do raw/ i zapisuje parsed/manifest.json
   extract   czyta PDF-y i zapisuje parsed/departures.json
+  stops     dopasowuje nazwy przystankow do OSM (Overpass) -> parsed/stops.json
   calendar  generuje parsed/calendar_days.json z calendar_config.json
   load-db   laduje dane do PostgreSQL (wymaga PGHOST/PGUSER/PGDATABASE)
   checks    uruchamia sql/checks.sql (konczy sie bledem przy zlych liczbach)
-  all       fetch, extract, calendar, load-db, checks
+  all       fetch, extract, stops, calendar, load-db, checks
 
 Domyslne linie: ${DEFAULT_LINES.join(', ')}`;
 
@@ -41,11 +43,12 @@ const { commands, lines } = parseArgs(process.argv.slice(2));
 const steps = {
   fetch: () => fetchLines(lines),
   extract,
+  stops: writeStops,
   calendar: writeCalendar,
   'load-db': loadDb,
   checks: runChecks,
 };
-steps.all = () => ['fetch', 'extract', 'calendar', 'load-db', 'checks'].forEach((s) => steps[s]());
+steps.all = () => ['fetch', 'extract', 'stops', 'calendar', 'load-db', 'checks'].forEach((s) => steps[s]());
 
 if (commands.length === 0 || process.argv.includes('--help')) {
   console.log(HELP);

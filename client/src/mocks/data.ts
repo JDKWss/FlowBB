@@ -98,27 +98,40 @@ export const events: EventSummary[] = eventDetails.map(
     event,
 )
 
-const sharedOutbound = {
-  durationMinutes: 37,
-  departureAt: '2026-09-19T18:12:00+02:00',
-  arrivalAt: '2026-09-19T18:49:00+02:00',
+// Trasa Koncertu na Rynku to dokladny wynik planera z rozkladu MZK (sobota 2026-09-19, linia 7), a wspolrzedne
+// przystankow pochodza z data/gtfs/mzk/parsed/stops.json. Dojscie pieszo jest szacunkiem, godziny autobusu
+// pochodza z rozkladu. Nocny Bieg zostaje na planerze demo: z pieciu pobranych linii Bloni nie obsluguje wieczorem zadna.
+const concertOutbound = {
+  durationMinutes: 23,
+  departureAt: '2026-09-19T18:15:00+02:00',
+  arrivalAt: '2026-09-19T18:38:00+02:00',
   steps: [
     {
       type: 'Walk' as const,
-      instruction: 'Idz 6 minut do przystanku.',
-      durationMinutes: 6,
+      instruction: 'Idz 11 min do przystanku Karpacka Osiedle Karpackie (szacunek, linia prosta).',
+      durationMinutes: 11,
+    },
+    {
+      type: 'Wait' as const,
+      instruction: 'Poczekaj 2 min na linie 7 (rozklad MZK).',
+      durationMinutes: 2,
+      line: '7',
     },
     {
       type: 'Transit' as const,
-      instruction: 'Wsiadz do autobusu linii 7.',
-      durationMinutes: 19,
+      instruction: 'Linia 7, rozklad MZK: 18:28 Karpacka Osiedle Karpackie -> 18:35 Hotel Prezydent.',
+      durationMinutes: 7,
       line: '7',
     },
     {
       type: 'Walk' as const,
-      instruction: 'Idz 4 minuty na Rynek.',
-      durationMinutes: 4,
+      instruction: 'Idz 3 min na miejsce wydarzenia (szacunek, linia prosta).',
+      durationMinutes: 3,
     },
+  ],
+  stops: [
+    { name: "Karpacka Osiedle Karpackie", latitude: 49.806768, longitude: 19.0337205 },
+    { name: "Hotel Prezydent", latitude: 49.823493, longitude: 19.0449202 },
   ],
 }
 
@@ -126,20 +139,73 @@ export const routes: Record<string, RouteResponse> = {
   [PRIMARY_EVENT_ID]: {
     eventId: PRIMARY_EVENT_ID,
     userId: DEMO_USER_ID,
-    plannerSource: 'Demo',
-    outbound: sharedOutbound,
+    plannerSource: 'MzkTimetable',
+    outbound: concertOutbound,
     returns: [
       {
-        durationMinutes: 34,
-        departureAt: '2026-09-19T21:44:00+02:00',
-        arrivalAt: '2026-09-19T22:18:00+02:00',
+        durationMinutes: 56,
+        departureAt: '2026-09-19T21:40:00+02:00',
+        arrivalAt: '2026-09-19T22:36:00+02:00',
         steps: [
           {
-            type: 'Transit',
-            instruction: 'Autobus linii 7.',
-            durationMinutes: 26,
+            type: 'Walk',
+            instruction: 'Idz 6 min do przystanku Plac Żwirki i Wigury (szacunek, linia prosta).',
+            durationMinutes: 6,
+          },
+          {
+            type: 'Wait',
+            instruction: 'Poczekaj 27 min na linie 7 (rozklad MZK).',
+            durationMinutes: 27,
             line: '7',
           },
+          {
+            type: 'Transit',
+            instruction: 'Linia 7, rozklad MZK: 22:13 Plac Żwirki i Wigury -> 22:23 Browarna.',
+            durationMinutes: 10,
+            line: '7',
+          },
+          {
+            type: 'Walk',
+            instruction: 'Idz 13 min do punktu startu (szacunek, linia prosta).',
+            durationMinutes: 13,
+          },
+        ],
+        stops: [
+          { name: "Plac Żwirki i Wigury", latitude: 49.8192094, longitude: 19.0436443 },
+          { name: "Browarna", latitude: 49.8193787, longitude: 19.0314566 },
+        ],
+      },
+      {
+        durationMinutes: 64,
+        departureAt: '2026-09-19T21:40:00+02:00',
+        arrivalAt: '2026-09-19T22:44:00+02:00',
+        steps: [
+          {
+            type: 'Walk',
+            instruction: 'Idz 9 min do przystanku Sobieskiego Wyspiańskiego (szacunek, linia prosta).',
+            durationMinutes: 9,
+          },
+          {
+            type: 'Wait',
+            instruction: 'Poczekaj 32 min na linie 7 (rozklad MZK).',
+            durationMinutes: 32,
+            line: '7',
+          },
+          {
+            type: 'Transit',
+            instruction: 'Linia 7, rozklad MZK: 22:21 Sobieskiego Wyspiańskiego -> 22:33 Karpacka Osiedle Karpackie.',
+            durationMinutes: 12,
+            line: '7',
+          },
+          {
+            type: 'Walk',
+            instruction: 'Idz 11 min do punktu startu (szacunek, linia prosta).',
+            durationMinutes: 11,
+          },
+        ],
+        stops: [
+          { name: "Sobieskiego Wyspiańskiego", latitude: 49.8203709, longitude: 19.0374888 },
+          { name: "Karpacka Osiedle Karpackie", latitude: 49.806768, longitude: 19.0337205 },
         ],
       },
     ],

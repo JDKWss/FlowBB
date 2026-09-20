@@ -224,8 +224,11 @@ class MockClientService implements ClientService {
     if (mode === 'Walking' || mode === 'Bike' || mode === 'Car') {
       const type = mode === 'Walking' ? 'Walk' : mode
       const instruction = mode === 'Walking' ? 'Walk along the demonstration route.' : mode === 'Bike' ? 'Cycle along the demonstration route.' : 'Drive along the demonstration route.'
+      // Tryby drogowe w mocku to symulacja: zrodlo jest demo, a przystanki autobusowe nie dotycza tej trasy.
+      result.plannerSource = 'Demo'
       for (const journey of [result.outbound, ...result.returns]) {
         journey.steps = [{ type, instruction, durationMinutes: journey.durationMinutes }]
+        journey.stops = null
       }
       // The late-night gap fixture models missing public transport, not other modes.
       if (result.returnGap) {

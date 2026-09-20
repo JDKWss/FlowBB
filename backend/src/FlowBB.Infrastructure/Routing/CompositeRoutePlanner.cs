@@ -7,6 +7,7 @@ namespace FlowBB.Infrastructure.Routing;
 
 public sealed class CompositeRoutePlanner(
     DemoRoutePlanner demoPlanner,
+    TimetableFallbackRoutePlanner transitPlanner,
     RoutingServiceRoutePlanner roadPlanner,
     RoutingServiceOptions options,
     ILogger<CompositeRoutePlanner> logger) : IRoutePlanner
@@ -16,7 +17,8 @@ public sealed class CompositeRoutePlanner(
         ArgumentNullException.ThrowIfNull(request);
         if (request.Mode == TransportMode.PublicTransport)
         {
-            return await demoPlanner.PlanAsync(request, cancellationToken);
+            // Rozklad MZK z kontrolowanym fallbackiem do planera demonstracyjnego (logika w TimetableFallbackRoutePlanner).
+            return await transitPlanner.PlanAsync(request, cancellationToken);
         }
 
         try

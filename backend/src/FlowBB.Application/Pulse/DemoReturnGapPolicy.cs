@@ -17,10 +17,12 @@ public enum PulseAlertSeverity
 public sealed record PulseAlert(PulseAlertCode Code, PulseAlertSeverity Severity, string Message);
 
 /// <summary>
-/// Jedyna regula luki powrotowej w MVP (docs/code/MODULE_PULSE.md). Uczestnik z <see cref="TransportMode.PublicTransport"/>
+/// Regula luki powrotowej dla agregatu PULSE i dla planerow bez rozkladu (docs/code/MODULE_PULSE.md). Planer trasy
+/// z rozkladu MZK (<c>PlannerSource.MzkTimetable</c>) wyznacza luke z prawdziwych godzin i nie podlega tej regule.
+/// Uczestnik z <see cref="TransportMode.PublicTransport"/>
 /// nie ma dogodnego powrotu, gdy wydarzenie konczy sie o 22:00 lub pozniej czasu lokalnego <c>Europe/Warsaw</c>;
 /// brak <c>EndAt</c> oznacza brak luki. To symulacja demonstracyjna, bez danych rozkladowych MZK.
-/// Z tej klasy korzystaja PULSE, komunikat <c>PulseUpdated</c> i trasa, zeby liczby byly spojne.
+/// Z tej klasy korzystaja PULSE, komunikat <c>PulseUpdated</c> i trasa planerow bez rozkladu, zeby ich liczby byly spojne.
 /// </summary>
 public static class DemoReturnGapPolicy
 {

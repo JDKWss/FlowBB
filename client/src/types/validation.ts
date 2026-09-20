@@ -67,8 +67,13 @@ const journeySchema = z.strictObject({
     instruction: z.string().max(300), durationMinutes: count,
     line: z.string().max(40).nullable().optional(),
   })).min(1),
+  stops: z.array(z.strictObject({
+    name: z.string().min(1).max(120),
+    latitude: z.number().finite().min(-90).max(90),
+    longitude: z.number().finite().min(-180).max(180),
+  })).min(2).nullable().optional(),
 })
 export const routeSchema = z.strictObject({
-  eventId: id, userId: id, plannerSource: z.enum(['Demo', 'RoadRouting', 'OpenTripPlanner']),
+  eventId: id, userId: id, plannerSource: z.enum(['Demo', 'RoadRouting', 'OpenTripPlanner', 'MzkTimetable']),
   outbound: journeySchema, returns: z.array(journeySchema), returnGap: z.boolean(),
 })

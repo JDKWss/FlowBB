@@ -15,6 +15,7 @@ export MZK_UID=$(id -u) MZK_GID=$(id -g)   # pliki w raw/ i parsed/ maja nalezec
 
 docker compose run --rm pipeline node pipeline/cli.mjs fetch      # PDF-y -> raw/, parsed/manifest.json
 docker compose run --rm pipeline node pipeline/cli.mjs extract    # -> parsed/departures.json
+docker compose run --rm pipeline node pipeline/cli.mjs stops      # -> parsed/stops.json (Overpass/OSM)
 docker compose run --rm pipeline node pipeline/cli.mjs calendar   # -> parsed/calendar_days.json
 docker compose run --rm load                                       # PostGIS + load-db + checks
 docker compose run --rm pipeline node --test "tests/*.test.mjs"   # testy jednostkowe i testy parsed/ (bez bazy)
@@ -24,6 +25,7 @@ docker compose down -v                                             # sprzatanie 
 
 - `--lines 7,12` wybiera inne linie (domyślnie `4,7,16,N1,N2`). Na stronie MZK jest 112 PDF-ów (ok. 353 MB); pobieramy tylko wybrane.
 - Baza jest efemeryczna (tmpfs, bez hasła, bez opublikowanych portów), więc nie koliduje z niczym na hoście. `load-db` zawsze zaczyna od `DROP TABLE`, więc ponowne uruchomienie jest idempotentne.
+- `stops` dopasowuje nazwy przystanków z PDF-ów do węzłów `highway=bus_stop` i `public_transport=platform` w OSM przez Overpass. Odpowiedź jest cache'owana w `cache/overpass-stops.json`, więc krok da się powtarzać bez ponownego obciążania publicznego API. Nazwy nierozpoznane trafiają do raportu, a ręczne współrzędne wpisuje się do `stops_overrides.json`.
 - Weryfikacja TLS jest włączona. Serwer MZK wysyła niekompletny łańcuch certyfikatów, więc `fetch` dokłada brakujący certyfikat pośredni Sectigo do `cache/bundle.pem`.
 
 ## Układ katalogu
@@ -34,12 +36,14 @@ docker compose down -v                                             # sprzatanie 
 | `sql/schema.sql`, `sql/checks.sql` | schemat `transit_*` (poziom 1 z planu) i kontrole po załadowaniu |
 | `tests/` | testy `node:test`: `lines.test.mjs` (parsed/, bez bazy), `db-load.test.mjs` (PostGIS, włączany przez `MZK_DB_TEST=1`), fixtures stron (bbox), `expected.json` i `line-baseline.json` |
 | `calendar_config.json` | okres ważności, wakacje szkolne (puste), dodatkowe święta |
-| `parsed/` | wynik, do commitowania: `manifest.json`, `departures.json`, `calendar_days.json` |
+| `parsed/` | wynik, do commitowania: `manifest.json`, `departures.json`, `stops.json`, `calendar_days.json` |
+| `stops_overrides.json` | ręczne współrzędne przystanków nierozpoznanych w OSM (obecnie nie jest potrzebny) |
 | `raw/`, `cache/` | PDF-y i certyfikaty (w `.gitignore`) |
 
 ## Co jest sprawdzone
 
 - Wynik obecnego przebiegu: 10 PDF-ów → 209 stron → 16826 odjazdów → PostGIS (151 przystanków, 122 dni kalendarza).
+- `stops`: **85/85 nazw przystanków dopasowanych automatycznie** do OSM, wszystkie `match: "auto"`, największy rozrzut słupków tej samej nazwy to 153 m (limit 400 m). Zero ręcznych korekt. Nazwy w OSM okazały się zapisane tak samo jak w PDF-ach MZK; jedyna różnica systematyczna to sufiks `NŻ` (na żądanie), którego OSM nie używa.
 - `tests/line-baseline.json` trzyma liczbę stron i odjazdów każdego z 10 kierunków. To wartości **regresyjne z parsera**, a nie niezależna weryfikacja z PDF-ami. Test `db-load.test.mjs` sprawdza je po załadowaniu do bazy, a ponowne ładowanie nie zmienia liczb wierszy.
 - Niezmienniki `lines.test.mjs`: każda flaga ma opis w legendzie swojej strony, `depot_run` to dokładnie flaga `#`, linie nocne mają tylko godziny 0–3, a linie dzienne przed 03:00 tylko zjazdy do zajezdni.
 - Ręcznie porównane z obrazem PDF-a (wartości wszystkich kolumn) zostały strony: linia 7 (Wapienica Dzwonkowa 03, str. 1; Dzwonkowa Cieszyńska 02, str. 28), N1 (Osiedle Kopernika 01) i N2 (Olimpijska 01). Linie 4 i 16 nie były porównywane stronami.
@@ -49,7 +53,7 @@ docker compose down -v                                             # sprzatanie 
 
 ## Znane ograniczenia i następne kroki
 
-1. **Współrzędne przystanków:** `transit_stop.geom` jest puste (`match = 'missing'`). Dopasowanie do OSM to osobny krok z planu (sekcja 5.4).
+1. **Współrzędne przystanków:** dostarcza je krok `stops` do `parsed/stops.json` (85/85, źródło: OSM przez Overpass, licencja ODbL). Jedna współrzędna na nazwę przystanku = centroid słupków obu kierunków; `load-db.mjs` nadal ich nie wpisuje do `transit_stop.geom` (`match = 'missing'`), bo PoC w bazie nie jest konsumentem tych danych.
 2. **Kursy:** tabele mają odjazdy z przystanków, a nie kursy. Składanie kursów (`transit_trip`, `transit_stop_time`) i GTFS dla OTP nie są zrobione. Flaga `K` oznacza kurs skrócony do Karbowej Hali Sportowej, a `#` zjazd do zajezdni, co wpływa na składanie kursów.
 3. **Godziny po północy:** linie nocne mają w PDF godziny 0–3, zapisane bez przesunięcia (`dep_sec` 0–14399), czyli jak wydrukowano. To samo dotyczy ostatniego wiersza „0” w PDF-ach linii dziennych (np. linia 4, Łagodna Szkoła 01: `00#`); to wyłącznie zjazdy do zajezdni, zapisane jako `dep_sec` 0, a nie 86400.
 4. **Święta:** dzień świąteczny (także w sobotę) dostaje rozkład niedzielny. To założenie, nie potwierdzona praktyka MZK. Wakacje szkolne nie są wpisane, więc `weekday_holiday` nie występuje w kalendarzu.

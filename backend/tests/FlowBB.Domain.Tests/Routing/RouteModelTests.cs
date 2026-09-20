@@ -172,6 +172,6 @@ public class RouteModelTests
     public void EnumNames_MatchOpenApiContract()
     {
         Enum.GetNames<RouteStepType>().Should().Equal("Walk", "Transit", "Bike", "Car", "Wait");
-        Enum.GetNames<PlannerSource>().Should().Equal("Demo", "RoadRouting", "OpenTripPlanner");
+        Enum.GetNames<PlannerSource>().Should().Equal("Demo", "RoadRouting", "OpenTripPlanner", "MzkTimetable");
     }
 }

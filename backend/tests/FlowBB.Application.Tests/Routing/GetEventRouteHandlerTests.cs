@@ -119,6 +119,57 @@ public class GetEventRouteHandlerTests
         _planner.VerifyNoOtherCalls();
     }
 
+    private static RoutePlan PlanFrom(PlannerSource source, bool returnGap, bool withReturn)
+    {
+        var step = new RouteStep(RouteStepType.Walk, "Idz.", 5);
+        var journey = new JourneyOption(5, Start, Start.AddMinutes(5), [step]);
+        return new RoutePlan(source, journey, withReturn ? [journey] : [], returnGap);
+    }
+
+    private async Task<RoutePlan> PlanFor(RoutePlan planned, DateTimeOffset end)
+    {
+        SetupEvent(CreateEvent(end));
+        SetupOrigin(new AttendanceOrigin(Home, TransportMode.PublicTransport));
+        _planner.Setup(p => p.PlanAsync(It.IsAny<RouteRequest>(), It.IsAny<CancellationToken>())).ReturnsAsync(planned);
+
+        return (await CreateHandler().HandleAsync(EventId, UserId)).Plan!;
+    }
+
+    [Fact]
+    public async Task HandleAsync_ForTheDemoPlannerAndALateEvent_KeepsApplyingTheDemoReturnGapRule()
+    {
+        var late = new DateTimeOffset(2026, 9, 25, 23, 15, 0, TimeSpan.FromHours(2));
+
+        var plan = await PlanFor(PlanFrom(PlannerSource.Demo, returnGap: false, withReturn: true), late);
+
+        plan.ReturnGap.Should().BeTrue();
+        plan.Returns.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task HandleAsync_ForTheTimetablePlannerAndALateEvent_KeepsTheLateReturnOptionAndItsOwnGap()
+    {
+        var late = new DateTimeOffset(2026, 9, 25, 23, 15, 0, TimeSpan.FromHours(2));
+        var planned = PlanFrom(PlannerSource.MzkTimetable, returnGap: true, withReturn: true);
+
+        var plan = await PlanFor(planned, late);
+
+        // Regula 22:00 nie moze nadpisac wyniku planera, ktory zna rozklad: pozna opcja powrotu ma zostac.
+        plan.Should().BeSameAs(planned);
+        plan.Returns.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public async Task HandleAsync_ForTheTimetablePlannerAndALateEvent_DoesNotInventAGapTheTimetableDoesNotHave()
+    {
+        var late = new DateTimeOffset(2026, 9, 25, 23, 15, 0, TimeSpan.FromHours(2));
+
+        var plan = await PlanFor(PlanFrom(PlannerSource.MzkTimetable, returnGap: false, withReturn: true), late);
+
+        plan.ReturnGap.Should().BeFalse();
+        plan.Returns.Should().HaveCount(1);
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
