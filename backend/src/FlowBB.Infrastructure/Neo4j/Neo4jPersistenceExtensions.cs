@@ -11,14 +11,7 @@ public static class Neo4jPersistenceExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton(_ => Neo4jOptions.FromEnvironment());
-        services.AddSingleton<IDriver>(provider =>
-        {
-            var options = provider.GetRequiredService<Neo4jOptions>();
-            options.Validate();
-            return GraphDatabase.Driver(
-                options.Uri,
-                AuthTokens.Basic(options.Username, options.Password));
-        });
+        services.AddSingleton<IDriver>(provider => Neo4jDriverFactory.Create(provider.GetRequiredService<Neo4jOptions>()));
 
         services.AddScoped<IAttendanceRepository, Neo4jAttendanceRepository>();
         services.AddScoped<IAttendanceOriginLookup, Neo4jAttendanceOriginLookup>();

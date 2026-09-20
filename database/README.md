@@ -111,11 +111,4 @@ PULSE nie jest osobną bazą ani zapisanym licznikiem. API odczytuje snapshoty r
 
 ### Testy integracyjne Neo4j
 
-Testy `FlowBB.Infrastructure.Tests` tworzą izolowane dane bezpośrednim Cypherem na skonfigurowanej instancji Neo4j i usuwają je po każdym teście. Są opt-in, aby zwykły `dotnet test` nie wymagał dostępu do bazy:
-
-```powershell
-$env:NEO4J_RUN_INTEGRATION_TESTS="true"
-dotnet test backend/tests/FlowBB.Infrastructure.Tests/FlowBB.Infrastructure.Tests.csproj
-```
-
-Połączenie jest pobierane z tych samych zmiennych `NEO4J_*` lub ignorowanego pliku konfiguracyjnego co backend. Testy nie zapisują ani nie wypisują sekretów oraz dokładnych współrzędnych w logach.
+Testy `FlowBB.Infrastructure.Tests` lacza sie z jednorazowa instancja Neo4j ustawiana zmiennymi `FLOWBB_TEST_NEO4J_URI` i `FLOWBB_TEST_NEO4J_PASSWORD` (opcjonalnie `..._USERNAME`, `..._DATABASE`). Sa to celowo inne zmienne niz `NEO4J_*`, zeby testy nie trafily w baze aplikacji (np. Aura z `.env`). Bez nich testy sa pomijane (`Skipped`), a zwykly `dotnet test` nie wymaga bazy. Szczegoly i przyklad uruchomienia: sekcja „Testy adapterow na prawdziwym Neo4j" wyzej.

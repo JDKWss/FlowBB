@@ -6,7 +6,8 @@ using Neo4j.Driver;
 
 namespace FlowBB.Infrastructure.Tests.Neo4j;
 
-public sealed class Neo4jPulseDataReaderTests : IAsyncLifetime
+[Collection(Neo4jCollection.Name)]
+public sealed class Neo4jPulseDataReaderTests(Neo4jFixture neo4j) : IAsyncLifetime
 {
     private const double FirstLatitude = 49.82251;
     private const double FirstLongitude = 19.04441;
@@ -29,12 +30,14 @@ public sealed class Neo4jPulseDataReaderTests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        options = Neo4jOptions.FromEnvironment();
-        options.Validate();
-        driver = GraphDatabase.Driver(
-            options.Uri,
-            AuthTokens.Basic(options.Username, options.Password));
-        await driver.VerifyConnectivityAsync();
+        // Polaczenie i schemat naleza do wspolnego Neo4jFixture (zmienne FLOWBB_TEST_NEO4J_*); bez niego test jest pomijany.
+        if (neo4j.Driver is null || neo4j.Options is null)
+        {
+            return;
+        }
+
+        driver = neo4j.Driver;
+        options = neo4j.Options;
         await CreateFixtureAsync();
         reader = new Neo4jPulseDataReader(driver, options);
     }
@@ -46,20 +49,13 @@ public sealed class Neo4jPulseDataReaderTests : IAsyncLifetime
             return;
         }
 
-        try
-        {
-            await driver.ExecutableQuery("MATCH (n {IntegrationTestRunId: $RunId}) DETACH DELETE n")
-                .WithParameters(new { RunId = runId })
-                .WithConfig(new QueryConfig(database: options.Database))
-                .ExecuteAsync();
-        }
-        finally
-        {
-            await driver.DisposeAsync();
-        }
+        await driver.ExecutableQuery("MATCH (n {IntegrationTestRunId: $RunId}) DETACH DELETE n")
+            .WithParameters(new { RunId = runId })
+            .WithConfig(new QueryConfig(database: options.Database))
+            .ExecuteAsync();
     }
 
-    [Neo4jIntegrationFact]
+    [Neo4jFact]
     public async Task GetPoints_ReturnsOnlyDeclarationsForRequestedEventWithoutUserId()
     {
         var points = await Reader.GetPointsAsync(targetEventId);
@@ -77,7 +73,7 @@ public sealed class Neo4jPulseDataReaderTests : IAsyncLifetime
             .Which.Should().Be(new PulsePoint(OtherLatitude, OtherLongitude, TransportMode.Car));
     }
 
-    [Neo4jIntegrationFact]
+    [Neo4jFact]
     public async Task GetPoints_ReturnsEmptyListForEventWithoutDeclarations()
     {
         var points = await Reader.GetPointsAsync(emptyEventId);
@@ -85,7 +81,7 @@ public sealed class Neo4jPulseDataReaderTests : IAsyncLifetime
         points.Should().BeEmpty();
     }
 
-    [Neo4jIntegrationFact]
+    [Neo4jFact]
     public async Task GetPoints_ReturnsUpdatedTransportMode()
     {
         await ExecuteAsync("""
@@ -103,7 +99,7 @@ public sealed class Neo4jPulseDataReaderTests : IAsyncLifetime
             .TransportMode.Should().Be(TransportMode.Bike);
     }
 
-    [Neo4jIntegrationFact]
+    [Neo4jFact]
     public async Task GetPoints_DoesNotReturnDeletedDeclaration()
     {
         await ExecuteAsync("""
@@ -124,7 +120,7 @@ public sealed class Neo4jPulseDataReaderTests : IAsyncLifetime
                 TransportMode.PublicTransport));
     }
 
-    [Neo4jIntegrationFact]
+    [Neo4jFact]
     public async Task GetEvent_ReturnsEventAndNullForMissingEvent()
     {
         var found = await Reader.GetEventAsync(targetEventId);
@@ -134,7 +130,7 @@ public sealed class Neo4jPulseDataReaderTests : IAsyncLifetime
         missing.Should().BeNull();
     }
 
-    [Neo4jIntegrationFact]
+    [Neo4jFact]
     public async Task GetEvents_ReturnsFixtureEvents()
     {
         var events = await Reader.GetEventsAsync();
@@ -144,7 +140,7 @@ public sealed class Neo4jPulseDataReaderTests : IAsyncLifetime
         events.Should().Contain(new PulseEventInfo(emptyEventId, "Pulse empty event"));
     }
 
-    [Neo4jIntegrationFact]
+    [Neo4jFact]
     public async Task GetPoints_InvalidCoordinatesAreNotIncludedInExceptionMessage()
     {
         const double invalidLatitude = 123.456789;

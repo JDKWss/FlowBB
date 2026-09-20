@@ -15,7 +15,7 @@ Rownolegle powstaly dwie wersje warstwy Neo4j: wersja z `develop` (issue #7 i #1
 | Rejestracja DI | `Neo4jPersistenceExtensions`, `Neo4jPulseDataReaderExtensions` | brak | z `develop`, dopasowana do nowych klas (osobny `OriginLookup`, dodany `Crew`) |
 | Inicjalizacja przy starcie | `Neo4jDatabaseInitializer` + embedded `flowbb-demo-seed.cypher` | `database/schema.cypher`, `flowbb-queries.cypher` | oba; initializer bez zmian |
 | Stary graf (`Neo4jFlowBbGraphRepository*`, `Domain/Models/*`, `IFlowBbGraphRepository`) | uzywany przez initializer | usuniety w #16 | **usuniety** po przepisaniu initializera (3.B, zrobione) |
-| Testy adapterow | `Neo4jPulseDataReaderTests`, `...RegistrationTests` (opt-in `NEO4J_RUN_INTEGRATION_TESTS`, zmienne `NEO4J_*`) | 41 testow (zmienne `FLOWBB_TEST_NEO4J_*`) | oba zestawy w jednym projekcie; testy Pulse z tej galezi w `Neo4jPulseSnapshotAdapterTests` |
+| Testy adapterow | `Neo4jPulseDataReaderTests`, `...RegistrationTests` (opt-in `NEO4J_RUN_INTEGRATION_TESTS`, zmienne `NEO4J_*`) | 41 testow (zmienne `FLOWBB_TEST_NEO4J_*`) | **jeden mechanizm**: wszystkie testy na `Neo4jFixture` i `Neo4jFactAttribute` (`FLOWBB_TEST_NEO4J_*`), testy Pulse z `develop` przeniesione; `Neo4jPulseSnapshotAdapterTests` z tej galezi zostaje |
 
 Dlaczego adaptery z tej galezi: wersje z `develop` licza `IsNew` osobnym `OPTIONAL MATCH` przed `MERGE` (dwa rownolegle zapisy tej samej pary moga oba zwrocic `IsNew = true`), a rownolegle `DELETE` tej samej pary zawyzaja `WasDeleted`. Adaptery z tej galezi zamykaja te wyscigi i maja testy na prawdziwym Neo4j, w tym rownolegle (25 zapisow tej samej pary, limit `MaxMembers` przy 12 rownoleglych dolaczeniach).
 
@@ -39,7 +39,7 @@ Docelowo `Home*` (ADR 001, AGENTS.md). Zmiany: `flowbb-demo-seed.cypher` (zamian
 `flowbb-queries.cypher` (4 uzytkownikow, reczny) i `flowbb-demo-seed.cypher` (82 uzytkownikow, uruchamiany przy starcie) uzywaja tych samych identyfikatorow wydarzen (`1111...`, `3333...`, `4444...`) z roznymi miejscami. Zastosowane po kolei w jednej bazie daja wydarzenia z dwoma relacjami `HOSTED_AT`, a lista wydarzen zwraca je dwa razy (potwierdzone na prawdziwej bazie). Adapter tego celowo nie maskuje, bo kontrakt mowi o dokladnie jednym miejscu. Zalecenie: zostawic jeden seed (demonstracyjny) albo dac im rozlaczne identyfikatory, a przed zmiana seedu czyscic baze (`MATCH (n) DETACH DELETE n`).
 
 **D. Drobne porzadki.**
-- `Neo4jDriverFactory` (z tej galezi) dubluje tworzenie `IDriver` w `Neo4jPersistenceExtensions`; uzywa go tylko fixture testow. Mozna zastapic go w rozszerzeniu albo usunac.
-- Testy z `develop` (`Neo4jPulseDataReaderTests`) czytaja `NEO4J_*` (baze aplikacji, np. Aura z `.env`) i zapisuja oraz usuwaja dane; testy z tej galezi uzywaja `FLOWBB_TEST_NEO4J_*`, zeby tego uniknac. Warto przeniesc oba zestawy na jeden mechanizm (`Neo4jFactAttribute` + `Neo4jFixture`).
+- ZROBIONE: `Neo4jPersistenceExtensions` tworzy `IDriver` przez `Neo4jDriverFactory` (jedno miejsce), tak samo initializer i fixture testow.
+- ZROBIONE: testy z `develop` (`Neo4jPulseDataReaderTests`) uzywaja `Neo4jFixture` i `FLOWBB_TEST_NEO4J_*` zamiast `NEO4J_*` (bazy aplikacji); usuniety `Neo4jIntegrationFactAttribute` i opt-in `NEO4J_RUN_INTEGRATION_TESTS`.
 - `Neo4jPulseDataReaderTests` i `Neo4jPulseSnapshotAdapterTests` pokrywaja sie czesciowo (punkty per wydarzenie, pusta lista); po uzgodnieniu mozna zostawic jeden.
 - Wydarzenie z niepoprawnymi polami (np. nieznana `Category`) powoduje `InvalidOperationException` z Id, a nie pominiecie wiersza, wiec jedno uszkodzone wydarzenie psuje cala liste. Community nie ma constraintow istnienia; decyzja, czy wolimy pomijanie z logiem, nalezy do Core Backend.
