@@ -110,9 +110,21 @@ informacji o zakresie/przetworzeniu). Przy `source: Demo` UI pokazuje
 
 Issue #98 ma utworzyc `data/air-quality/demo-snapshot.json` o ksztalcie
 dokladnie `AirQualityResponse`, z `status: Fallback`, `source: Demo` i stalym
-`measuredAt`. Plik jest wersjonowany i nie moze byc aktualizowany automatycznie
+`measuredAt`. Wzorem formatu jest `contracts/fixtures/air-quality-fallback.json`; `ContractFixturesTests`
+sprawdza go wzgledem kontraktu razem z regula, ze `Fresh` i `Stale` wystepuja tylko ze zrodlem `Gios`, a `Fallback`
+tylko z `Demo`. Snapshot jest jeden dla wszystkich wydarzen: `eventId` i `station.distanceMeters` w pliku sa stale (dane
+demonstracyjne), a use case (#96) podstawia `eventId` zadanego wydarzenia i zwraca pozostale pola bez zmian. Plik jest wersjonowany i nie moze byc aktualizowany automatycznie
 w runtime. Przeplyw ma pozostac prosty: deserializacja snapshotu i zwrot tego
 samego kontraktu publicznego.
+
+## Izolacja awarii
+
+Air Quality jest osobnym, tylko do odczytu endpointem. Zadna inna operacja API (Events, Attendance, Crew, Routing,
+PULSE, SignalR) nie wywoluje `IAirQualityProvider` i nie zalezy od dostepnosci GIOS; GIOS nie wplywa tez na `/health`
+ani `/health/ready`. Awaria, timeout, limit zapytan (`429`) albo bezuzyteczna odpowiedz GIOS konczy sie na granicy
+`getEventAirQuality`: ten endpoint zwraca `200` z `Fallback + Demo` (#96), a pozostale endpointy dzialaja bez zmian.
+Client i Dashboard traktuja karte jakosci powietrza jako opcjonalny widget: jej ladowanie i blad nie moga blokowac
+renderowania wydarzenia, KPI, mapy ani aktualizacji SignalR (#95).
 
 ## Granice kolejnych issue
 
