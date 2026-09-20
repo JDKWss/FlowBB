@@ -1,4 +1,4 @@
-using System.Diagnostics;
+using FlowBB.Api.Logging;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 
@@ -22,7 +22,7 @@ public sealed class GlobalExceptionHandler(
     {
         if (IsClientAbort(httpContext, exception))
         {
-            logger.LogDebug("Request was canceled by the client. TraceId: {TraceId}", ResolveTraceId(httpContext));
+            logger.LogDebug("Request was canceled by the client. TraceId: {TraceId}", TraceIdentifiers.Resolve(httpContext));
             httpContext.Response.StatusCode = StatusCodes.Status499ClientClosedRequest;
             return true;
         }
@@ -32,7 +32,7 @@ public sealed class GlobalExceptionHandler(
             "Unhandled exception for {Method} {Path}. TraceId: {TraceId}",
             httpContext.Request.Method,
             httpContext.Request.Path,
-            ResolveTraceId(httpContext));
+            TraceIdentifiers.Resolve(httpContext));
 
         httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
         return await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
@@ -50,13 +50,6 @@ public sealed class GlobalExceptionHandler(
         Status = StatusCodes.Status500InternalServerError,
         Title = UnexpectedErrorTitle,
         Type = "https://tools.ietf.org/html/rfc9110#section-15.6.1",
-        Extensions = { ["traceId"] = ResolveTraceId(httpContext) }
+        Extensions = { ["traceId"] = TraceIdentifiers.Resolve(httpContext) }
     };
-
-    /// <summary>
-    /// Ten sam identyfikator trafia do logu i do odpowiedzi. Zgodnie z domyslna konwencja ASP.NET Core dla ProblemDetails
-    /// jest to <c>Activity.Current.Id</c> (W3C), a bez aktywnosci <c>HttpContext.TraceIdentifier</c>. Dzieki temu <c>traceId</c>
-    /// ma taki sam format we wszystkich odpowiedziach bledow API.
-    /// </summary>
-    private static string ResolveTraceId(HttpContext httpContext) => Activity.Current?.Id ?? httpContext.TraceIdentifier;
 }

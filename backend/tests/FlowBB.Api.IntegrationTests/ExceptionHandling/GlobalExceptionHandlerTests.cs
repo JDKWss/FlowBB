@@ -1,5 +1,6 @@
 using System.Text.Json;
 using FlowBB.Api.ExceptionHandling;
+using FlowBB.Api.IntegrationTests.Infrastructure;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,21 +12,6 @@ public sealed class GlobalExceptionHandlerTests
 {
     private const string TraceId = "trace-123";
     private const string Secret = "Neo.ClientError.Security.Unauthorized neo4j://user:hunter2@db.example.io";
-
-    private sealed record LogEntry(LogLevel Level, Exception? Exception, string Message);
-
-    private sealed class ListLogger<T> : ILogger<T>
-    {
-        public List<LogEntry> Entries { get; } = [];
-
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(
-            LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
-            Entries.Add(new LogEntry(logLevel, exception, formatter(state, exception)));
-    }
 
     private sealed record Setup(GlobalExceptionHandler Handler, ListLogger<GlobalExceptionHandler> Logger, DefaultHttpContext Context);
 
