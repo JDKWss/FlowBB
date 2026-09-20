@@ -109,6 +109,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EventDetails"
+        "400":
+          description: |
+            `eventId` nie jest niepustym UUID. Niepoprawny format identyfikatora jest
+            bledem zadania (400) i jest odrozniany od poprawnego UUID nieistniejacego
+            wydarzenia (404).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+              example:
+                title: "Path parameter 'eventId' must be a non-empty UUID."
+                status: 400
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
