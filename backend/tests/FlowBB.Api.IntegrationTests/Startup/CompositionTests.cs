@@ -4,6 +4,9 @@ using FlowBB.Application.Abstractions.Realtime;
 using FlowBB.Application.Abstractions.Routing;
 using FlowBB.Application.Attendance.DeleteAttendance;
 using FlowBB.Application.Attendance.UpsertAttendance;
+using FlowBB.Application.Crews.GetEventGroups;
+using FlowBB.Application.Crews.JoinCrew;
+using FlowBB.Application.Crews.LeaveCrew;
 using FlowBB.Application.Events.GetEvent;
 using FlowBB.Application.Events.GetEvents;
 using FlowBB.Application.Pulse.GetActivityMap;
@@ -25,9 +28,6 @@ public sealed class CompositionTests
 {
     private const string OperationIdPattern = @"operationId:\s*(\w+)";
 
-    // Crew czeka na adapter ICrewRepository z issue #18. Po jego podpieciu lista ma zostac usunieta.
-    private static readonly string[] PendingCrewOperations = ["getEventGroups", "joinGroup", "leaveGroup"];
-
     private static readonly Type[] MappedHandlerTypes =
     [
         typeof(GetEventsHandler),
@@ -38,7 +38,10 @@ public sealed class CompositionTests
         typeof(GetPulseHexagonsHandler),
         typeof(GetEventPulseHandler),
         typeof(GetPulseSummaryHandler),
-        typeof(GetEventRouteHandler)
+        typeof(GetEventRouteHandler),
+        typeof(GetEventGroupsHandler),
+        typeof(JoinCrewHandler),
+        typeof(LeaveCrewHandler)
     ];
 
     private static readonly IReadOnlyDictionary<string, string> FakeNeo4jEnvironment =
@@ -57,14 +60,8 @@ public sealed class CompositionTests
         var mappedOperations = GetMappedOperations(factory.Services);
         var contractOperations = GetContractOperations();
 
-        PendingCrewOperations.Except(contractOperations).Should().BeEmpty();
-        contractOperations
-            .Except(PendingCrewOperations)
-            .Except(mappedOperations)
-            .Should().BeEmpty("every non-Crew operationId must be mapped");
-        PendingCrewOperations
-            .Intersect(mappedOperations)
-            .Should().BeEmpty("the pending list must be removed when Crew is mapped");
+        contractOperations.Should().NotBeEmpty("the contract must be parsed, otherwise the check below is vacuous");
+        contractOperations.Except(mappedOperations).Should().BeEmpty("every operationId from the contract must be mapped");
 
         return Task.CompletedTask;
     });
@@ -80,6 +77,7 @@ public sealed class CompositionTests
         AssertSingle<IEventLookup>(services);
         AssertSingle<IAttendanceRepository>(services);
         AssertSingle<IAttendanceOriginLookup>(services);
+        AssertSingle<ICrewRepository>(services);
         AssertSingle<IPulseDataReader>(services);
         AssertSingle<IPulseNotifier>(services);
         AssertSingle<IRoutePlanner>(services);

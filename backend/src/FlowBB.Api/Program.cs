@@ -1,4 +1,5 @@
 using FlowBB.Api.ExceptionHandling;
+using FlowBB.Api.Endpoints.Crews;
 using FlowBB.Api.Endpoints.Events;
 using FlowBB.Api.Endpoints.Pulse;
 using FlowBB.Api.Endpoints.Routing;
@@ -30,6 +31,7 @@ builder.Services.AddEventsModule();
 builder.Services.AddAttendanceModule();
 builder.Services.AddPulseModule();
 builder.Services.AddRoutingModule();
+builder.Services.AddCrewModule();
 
 var routingServiceUrl = builder.Configuration["Routing:ServiceUrl"] ?? "http://routing:8000";
 if (!Uri.TryCreate(routingServiceUrl, UriKind.Absolute, out var routingServiceUri))
@@ -97,7 +99,7 @@ app.MapEventsEndpoints();
 app.MapAttendanceEndpoints();
 app.MapPulseEndpoints();
 app.MapRoutingEndpoints();
-// TODO(#54): AddCrewModule()/MapCrewEndpoints() po adapterze ICrewRepository (issue #18).
+app.MapCrewEndpoints();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }))
     .WithName("getHealth");
 
