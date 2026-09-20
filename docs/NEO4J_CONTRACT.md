@@ -136,5 +136,5 @@ PULSE nie przechowuje niezależnych liczników. Po zatwierdzeniu transakcji Atte
 | 2 | Idempotentny importer realnych wydarzen | Data/Neo4j + Backend Events |
 | 3 | Interfejsy repozytoriow z Domain do `Application/Abstractions`: decyzja po MVP albo przy pierwszej implementacji repozytorium, nie blokuje MVP | Core Backend Owner + Data/Neo4j |
 | 4 | Usuniecie pakietow EF Core/Npgsql z Infrastructure: osobny maly task porzadkowy po potwierdzeniu, ze kod runtime ich nie uzywa | Data/Neo4j (zgoda Core Backend Owner) |
-| 5 | Ujednolicenie nazw wspolrzednych uzytkownika (`Home*` docelowo, `DefaultOrigin*` w seedzie demonstracyjnym, `Domain/Models/User.cs` i starym adapterze grafu). Do tego czasu adaptery czytaja obie nazwy; plan: [NEO4J_ADAPTER_RECONCILIATION.md](NEO4J_ADAPTER_RECONCILIATION.md) | Data/Neo4j + Core Backend Owner |
+| 5 | Ujednolicenie nazw wspolrzednych uzytkownika (`Home*` docelowo, `DefaultOrigin*` w seedzie demonstracyjnym). Do tego czasu adaptery czytaja obie nazwy; plan: [NEO4J_ADAPTER_RECONCILIATION.md](NEO4J_ADAPTER_RECONCILIATION.md) | Data/Neo4j + Core Backend Owner |
 | 6 | Adaptery Neo4j (Events, Attendance, PULSE, Crew): zrobione, testy na prawdziwej instancji w `FlowBB.Infrastructure.Tests` | Data/Neo4j |
