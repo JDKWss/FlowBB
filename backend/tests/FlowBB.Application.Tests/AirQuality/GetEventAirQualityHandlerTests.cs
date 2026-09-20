@@ -76,6 +76,33 @@ public sealed class GetEventAirQualityHandlerTests
         result.Should().BeSameAs(FallbackResult);
     }
 
+    [Theory]
+    [InlineData(-30)]
+    [InlineData(-91)]
+    public async Task HandleAsync_SuccessfulGiosReading_IsCachedForTheFullCacheLifetime(int measuredMinutesAgo)
+    {
+        var cache = new TestAirQualityCache();
+        var handler = Handler(ProviderReturning(Reading(Now.AddMinutes(measuredMinutesAgo))).Object, Mock.Of<IAirQualityFallbackProvider>(), cache: cache);
+
+        await handler.HandleAsync(EventId);
+
+        cache.LastLifetime.Should().Be(TimeSpan.FromMinutes(30));
+    }
+
+    [Fact]
+    public async Task HandleAsync_FallbackResult_IsCachedOnlyForTheShortFallbackLifetime()
+    {
+        var provider = new Mock<IAirQualityProvider>();
+        provider.Setup(item => item.GetAsync(EventLocation, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new AirQualityProviderException("Unavailable."));
+        var cache = new TestAirQualityCache();
+        var handler = Handler(provider.Object, Fallback().Object, cache: cache);
+
+        await handler.HandleAsync(EventId);
+
+        cache.LastLifetime.Should().Be(TimeSpan.FromSeconds(45));
+    }
+
     [Fact]
     public async Task HandleAsync_WithinCacheWindow_CallsProviderOnce()
     {
@@ -92,7 +119,8 @@ public sealed class GetEventAirQualityHandlerTests
     private static GetEventAirQualityHandler Handler(
         IAirQualityProvider provider,
         IAirQualityFallbackProvider fallback,
-        TimeSpan? sourceTimeout = null)
+        TimeSpan? sourceTimeout = null,
+        TestAirQualityCache? cache = null)
     {
         var events = new Mock<IEventLookup>();
         events.Setup(item => item.FindByIdAsync(EventId, It.IsAny<CancellationToken>()))
@@ -101,12 +129,13 @@ public sealed class GetEventAirQualityHandlerTests
             events.Object,
             provider,
             fallback,
-            new TestAirQualityCache(),
+            cache ?? new TestAirQualityCache(),
             new FixedTimeProvider(Now),
             new AirQualityPolicyOptions(
-                TimeSpan.FromMinutes(20),
+                TimeSpan.FromMinutes(30),
                 sourceTimeout ?? TimeSpan.FromSeconds(1),
-                TimeSpan.FromMinutes(90)));
+                TimeSpan.FromMinutes(90),
+                TimeSpan.FromSeconds(45)));
     }
 
     private static Mock<IAirQualityProvider> ProviderReturning(AirQualityReading reading)
@@ -162,9 +191,11 @@ public sealed class GetEventAirQualityHandlerTests
     {
         private readonly ConcurrentDictionary<Guid, object> _items = new();
 
+        public TimeSpan? LastLifetime { get; private set; }
+
         public async Task<T> GetOrCreateAsync<T>(
             Guid eventId,
-            TimeSpan lifetime,
+            Func<T, TimeSpan> lifetimeFor,
             Func<CancellationToken, Task<T>> factory,
             CancellationToken cancellationToken = default)
             where T : class
@@ -176,6 +207,7 @@ public sealed class GetEventAirQualityHandlerTests
 
             var created = await factory(cancellationToken);
             _items[eventId] = created;
+            LastLifetime = lifetimeFor(created);
             return created;
         }
     }

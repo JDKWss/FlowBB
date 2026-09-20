@@ -13,20 +13,17 @@ public sealed class GetPulseSummaryHandler(IPulseDataReader reader, TimeProvider
 {
     public async Task<PulseSummary> HandleAsync(CancellationToken cancellationToken = default)
     {
-        var events = await reader.GetEventsAsync(cancellationToken);
+        var snapshots = await reader.GetEventsWithPointsAsync(cancellationToken);
+        var allPoints = snapshots.SelectMany(snapshot => snapshot.Points).ToList();
 
-        var allPoints = new List<PulsePoint>();
-        var participantsWithoutReturn = 0;
-        foreach (var info in events)
-        {
-            var points = await reader.GetPointsAsync(info.Id, cancellationToken);
-            allPoints.AddRange(points);
-            participantsWithoutReturn += DemoReturnGapPolicy.CountParticipantsWithoutReturn(info.EndAt, ModalSplit.From(points));
-        }
+        var participantsWithoutReturn = snapshots.Sum(snapshot =>
+            DemoReturnGapPolicy.CountParticipantsWithoutReturn(
+                snapshot.Event.EndAt,
+                ModalSplit.From(snapshot.Points)));
 
         return new PulseSummary(
             clock.GetUtcNow(),
-            events.Count,
+            snapshots.Count,
             allPoints.Count,
             ModalSplit.From(allPoints),
             participantsWithoutReturn);

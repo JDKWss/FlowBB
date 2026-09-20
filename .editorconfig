@@ -1,0 +1,22 @@
+# Konfiguracja analizatorow (issue #101). Celowo bez regul formatowania: `dotnet format --verify-no-changes` w CI
+# ma nadal sprawdzac tylko to, co sprawdza dzis.
+root = true
+
+[*.cs]
+# Reguly bez naruszen w kodzie na dzien wprowadzenia: podniesione do warning, zeby nie pojawily sie nowe.
+dotnet_diagnostic.CA2016.severity = warning
+dotnet_diagnostic.CA2200.severity = warning
+dotnet_diagnostic.CA2201.severity = warning
+dotnet_diagnostic.CA2213.severity = warning
+dotnet_diagnostic.CA1816.severity = warning
+dotnet_diagnostic.CA1862.severity = warning
+dotnet_diagnostic.CA1829.severity = warning
+dotnet_diagnostic.CA1854.severity = warning
+dotnet_diagnostic.CA1845.severity = warning
+dotnet_diagnostic.CA1847.severity = warning
+dotnet_diagnostic.CA1860.severity = warning
+dotnet_diagnostic.CA2254.severity = warning
+
+[backend/tests/**.cs]
+# Nazwy testow w stylu Metoda_Warunek_Wynik sa przyjeta konwencja projektu.
+dotnet_diagnostic.CA1707.severity = none

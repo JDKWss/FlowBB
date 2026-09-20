@@ -43,13 +43,15 @@ if (!Uri.TryCreate(giosBaseUrl, UriKind.Absolute, out var giosBaseUri))
     throw new InvalidOperationException("AirQuality:GiosBaseUrl must be an absolute URI.");
 }
 
-var airQualityCacheMinutes = builder.Configuration.GetValue<double?>("AirQuality:CacheMinutes") ?? 20;
+var airQualityCacheMinutes = builder.Configuration.GetValue<double?>("AirQuality:CacheMinutes") ?? 30;
+var airQualityFallbackCacheSeconds = builder.Configuration.GetValue<double?>("AirQuality:FallbackCacheSeconds") ?? 60;
 var airQualityTimeoutSeconds = builder.Configuration.GetValue<double?>("AirQuality:TimeoutSeconds") ?? 4;
 var airQualityFreshnessMinutes = builder.Configuration.GetValue<double?>("AirQuality:FreshnessMinutes") ?? 90;
 var airQualityPolicy = new FlowBB.Application.AirQuality.GetEventAirQuality.AirQualityPolicyOptions(
     TimeSpan.FromMinutes(airQualityCacheMinutes),
     TimeSpan.FromSeconds(airQualityTimeoutSeconds),
-    TimeSpan.FromMinutes(airQualityFreshnessMinutes));
+    TimeSpan.FromMinutes(airQualityFreshnessMinutes),
+    TimeSpan.FromSeconds(airQualityFallbackCacheSeconds));
 builder.Services.AddAirQualityModule(airQualityPolicy, giosBaseUri);
 
 var routingServiceUrl = builder.Configuration["Routing:ServiceUrl"] ?? "http://routing:8000";

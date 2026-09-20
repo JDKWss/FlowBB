@@ -29,6 +29,9 @@ public class PulseHandlersTests
         var reader = new Mock<IPulseDataReader>();
         reader.Setup(r => r.GetEventsAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(events.Select(e => new PulseEventInfo(e.Id, e.Name)).ToList());
+        reader.Setup(r => r.GetEventsWithPointsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(events.Select(e =>
+                new PulseEventSnapshot(new PulseEventInfo(e.Id, e.Name), e.Points)).ToList());
         foreach (var (id, name, points) in events)
         {
             reader.Setup(r => r.GetEventAsync(id, It.IsAny<CancellationToken>())).ReturnsAsync(new PulseEventInfo(id, name));
@@ -47,7 +50,7 @@ public class PulseHandlersTests
         var pulse = await handler.HandleAsync(EventId);
 
         pulse.Should().NotBeNull();
-        pulse!.EventId.Should().Be(EventId);
+        pulse.EventId.Should().Be(EventId);
         pulse.EventName.Should().Be("Koncert");
         pulse.GeneratedAt.Should().Be(Now);
         pulse.ParticipantsCount.Should().Be(5);
@@ -65,6 +68,8 @@ public class PulseHandlersTests
         var reader = new Mock<IPulseDataReader>();
         var info = new PulseEventInfo(id, name, endAt);
         reader.Setup(r => r.GetEventsAsync(It.IsAny<CancellationToken>())).ReturnsAsync([info]);
+        reader.Setup(r => r.GetEventsWithPointsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new PulseEventSnapshot(info, points)]);
         reader.Setup(r => r.GetEventAsync(id, It.IsAny<CancellationToken>())).ReturnsAsync(info);
         reader.Setup(r => r.GetPointsAsync(id, It.IsAny<CancellationToken>())).ReturnsAsync(points);
         return reader;
@@ -107,11 +112,11 @@ public class PulseHandlersTests
         var reader = new Mock<IPulseDataReader>();
         var late = new PulseEventInfo(EventId, "Pozne", LateEnd);
         var early = new PulseEventInfo(OtherEventId, "Wczesne", EarlyEnd);
-        reader.Setup(r => r.GetEventsAsync(It.IsAny<CancellationToken>())).ReturnsAsync([late, early]);
-        reader.Setup(r => r.GetPointsAsync(EventId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Points(4, TransportMode.PublicTransport).Concat(Points(3, TransportMode.Bike)).ToList());
-        reader.Setup(r => r.GetPointsAsync(OtherEventId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Points(6, TransportMode.PublicTransport));
+        reader.Setup(r => r.GetEventsWithPointsAsync(It.IsAny<CancellationToken>())).ReturnsAsync(
+        [
+            new(late, Points(4, TransportMode.PublicTransport).Concat(Points(3, TransportMode.Bike)).ToList()),
+            new(early, Points(6, TransportMode.PublicTransport))
+        ]);
         var handler = new GetPulseSummaryHandler(reader.Object, new FixedTimeProvider(Now));
 
         var summary = await handler.HandleAsync();
@@ -151,6 +156,9 @@ public class PulseHandlersTests
         summary.ParticipantsCount.Should().Be(6);
         summary.ModalSplit.Should().Be(new ModalSplit(2, 0, 4, 0, 0));
         summary.GeneratedAt.Should().Be(Now);
+        reader.Verify(r => r.GetEventsWithPointsAsync(It.IsAny<CancellationToken>()), Times.Once);
+        reader.Verify(r => r.GetEventsAsync(It.IsAny<CancellationToken>()), Times.Never);
+        reader.Verify(r => r.GetPointsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

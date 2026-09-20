@@ -16,4 +16,7 @@ public interface IPulseDataReader
 
     /// <summary>Wszystkie wydarzenia (do KPI calego miasta).</summary>
     Task<IReadOnlyList<PulseEventInfo>> GetEventsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Wszystkie wydarzenia wraz z punktami PULSE, pobrane jednym zbiorczym odczytem.</summary>
+    Task<IReadOnlyList<PulseEventSnapshot>> GetEventsWithPointsAsync(CancellationToken cancellationToken = default);
 }

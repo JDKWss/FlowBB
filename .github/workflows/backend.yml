@@ -62,7 +62,7 @@ jobs:
       - name: Verify formatting
         run: dotnet format backend/FlowBB.sln --verify-no-changes
 
-    # TODO(#45): Add a separate job with a Neo4j service for database integration tests.
+    # Testy adapterow Neo4j na prawdziwej bazie: .github/workflows/neo4j-integration.yml (#92).
 
   docker-build:
     runs-on: ubuntu-latest

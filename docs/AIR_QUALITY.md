@@ -37,8 +37,11 @@ odpowiedz GIOS zwraca `200` z `Fallback + Demo`, a nie publiczne `5xx`.
 
 Kombinacje `Fresh + Demo` i `Fallback + Gios` nie sa produkowane.
 Prog 90 minut wynika z godzinnego cyklu publikacji GIOS. Use case klasyfikuje
-wiek, utrzymuje 20-minutowy cache, ogranicza rownolegle wywolania dla wydarzenia
-i wybiera fallback po timeoutcie lub bledzie dostawcy. Metadane listy stacji
+wiek, utrzymuje cache (wynik `Fresh`/`Stale` 30 minut, `AirQuality:CacheMinutes`; wynik `Fallback` tylko 60 sekund,
+`AirQuality:FallbackCacheSeconds`, zeby po awarii szybko wrocic do GIOS), ogranicza rownolegle wywolania dla wydarzenia
+i wybiera fallback po timeoutcie lub bledzie dostawcy. Minimum 30 minut dla udanego odczytu wynika z ogolnej zasady
+GIOS o pobieraniu danych nie czesciej niz dwa razy na godzine; krotki cache fallbacku nie zwieksza liczby zapytan
+ponad ograniczenie rownoleglych wywolan (jedno wywolanie fabryki na wydarzenie w oknie). Metadane listy stacji
 oraz stanowisk sa wspoldzielone przez wydarzenia i buforowane przez 12 godzin,
 aby respektowac ostrzejszy limit uslug metadanych GIOS.
 

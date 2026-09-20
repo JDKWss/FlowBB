@@ -15,8 +15,8 @@
   <ItemGroup>
     <EmbeddedResource Include="..\..\..\database\flowbb-demo-seed.cypher"
                       LogicalName="FlowBB.Database.flowbb-demo-seed.cypher" />
-    <EmbeddedResource Include="..\..\..\database\schema.cypher"
-                      LogicalName="FlowBB.Database.schema.cypher" />
+    <EmbeddedResource Include="..\..\..\database\migrations\*.cypher"
+                      LogicalName="FlowBB.Database.Migrations.%(Filename)%(Extension)" />
     <EmbeddedResource Include="..\..\..\data\air-quality\demo-snapshot.json"
                       LogicalName="FlowBB.Data.AirQuality.demo-snapshot.json" />
   </ItemGroup>

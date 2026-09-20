@@ -72,7 +72,10 @@ public class GetEventsHandlerTests
     {
         var (handler, repository) = Create([]);
 
-        var act = () => handler.HandleAsync(new GetEventsQuery(To, From));
+        var later = To;
+        var earlier = From;
+
+        var act = () => handler.HandleAsync(new GetEventsQuery(later, earlier));
 
         await act.Should().ThrowAsync<ArgumentException>();
         repository.Verify(

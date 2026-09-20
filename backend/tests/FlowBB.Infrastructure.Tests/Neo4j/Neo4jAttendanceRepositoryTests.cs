@@ -255,10 +255,19 @@ public sealed class Neo4jAttendanceRepositoryTests(Neo4jFixture neo4j)
             """,
             new { u = userId.ToString("D"), e = eventId.ToString("D") });
 
-        var act = () => CreateLookup().FindAsync(eventId, userId);
+        try
+        {
+            var act = () => CreateLookup().FindAsync(eventId, userId);
 
-        var thrown = (await act.Should().ThrowAsync<InvalidOperationException>()).Which;
-        thrown.Message.Should().Contain(userId.ToString("D")).And.NotContain("123.456");
-        thrown.InnerException.Should().BeNull();
+            var thrown = (await act.Should().ThrowAsync<InvalidOperationException>()).Which;
+            thrown.Message.Should().Contain(userId.ToString("D")).And.NotContain("123.456");
+            thrown.InnerException.Should().BeNull();
+        }
+        finally
+        {
+            await neo4j.ExecuteAsync(
+                "MATCH (:User {UserId: $u})-[r:IS_GOING_TO]->(:Event {EventId: $e}) DELETE r",
+                new { u = userId.ToString("D"), e = eventId.ToString("D") });
+        }
     }
 }

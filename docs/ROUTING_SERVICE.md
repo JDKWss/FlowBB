@@ -1,13 +1,14 @@
 # FlowBB road-routing service
 
-Status: **Integrated for the local end-to-end demo; ADR 002 remains Proposed**
+Status: **Integrated for the local end-to-end demo; ADR 002 accepted for the MVP (2026-09-20), production acceptance open**
 Decision record: [ADR 002](adr/002-road-routing-engine.md)
 
 Implementation status on `develop` (2026-09-20): the private FastAPI service,
 OSMnx artifact builder, private Compose services, ASP.NET adapter and composite
 planner are wired. Walking/Bike/Car return `RoadRouting` with distance and
 GeoJSON; PublicTransport and controlled transient fallback use `Demo`.
-ADR 002 remains `Proposed`; integration does not change its governance status.
+ADR 002 is accepted for the MVP with `DemoRoutePlanner` as the default mode and fallback; the measured gate in
+section 15 and production acceptance are tracked in #127 and #110, OSM attribution in #128.
 
 ## 1. Purpose
 
@@ -500,6 +501,42 @@ remaining gate is:
 11. no exact coordinates in ordinary logs;
 12. the public API remains the only browser boundary.
 
+### 15.1 Measured results (issue #127, 2026-09-20)
+
+Artifact `bielsko-2026-09-20-r6000`, prepared from Overpass in about 1.5 minutes.
+Hardware: Windows 11 host, 16 logical CPUs, 32 GB RAM, Docker Desktop (15.2 GiB
+visible to containers). This is a development machine, not confirmed demo
+hardware, so the numbers show the order of magnitude and must be repeated on
+the presentation laptop.
+
+| Point | Result | Evidence |
+|---|---|---|
+| 1 | Partial | Dataset is reproducible from `manifest.json` (centre, radius, sha256), but it is generated from live Overpass, not a pinned PBF, so a new run can differ. |
+| 2 | PASS | Walking 34,046 nodes / 90,934 edges, Bike 20,593 / 47,203, Car 4,366 / 9,699. Geometries differ per mode on the golden pairs (Bike and Car coincide on one short pair). |
+| 3 | PASS | Destination 40 km outside the area returns `422 SNAP_TOO_FAR`; a Car request whose point is over 500 m from a drivable road returns the same code. |
+| 4 | Partial | Car is directed: Rynek to Dworzec is 1,725 m and back is 1,497 m. One Car reverse pair returned `404 ROUTE_NOT_FOUND`. Bicycle contraflow exceptions were not measured. |
+| 5 | PASS (counts) | First coordinate is `[longitude, latitude]`; 100-380 points per route. Road-following was judged from point counts, not visually on a map. |
+| 6 | PASS | Route length is 1.05-1.48 times the straight line; Walking 4.8 km/h and Bike 15 km/h by construction, Car 37-47 km/h; identical repeat requests give identical responses. |
+| 7 | Measured | Graph load 7.4 s; resident memory about 658 MiB after load and 660 MiB after the run; artifacts 71.2 MB (40.6 + 23.7 + 6.9). Warm latency over 30 requests, Rynek to Wapienica: Walking median 105 ms (p95 113), Bike 59 ms (p95 60), Car 8 ms (p95 9). |
+| 8 | PASS | The real-graph tests pass with `docker run --network none`. |
+| 9 | PASS | `/health` returned `ready`, `processAlive: true`, `graphLoaded: true`; the not-ready state is covered by the synthetic suite. |
+| 10 | Partial | `ROUTE_NOT_FOUND` and `SNAP_TOO_FAR` observed on real graphs; timeout and cancellation were not measured here (`Routing:TimeoutSeconds` is 3, warm latency is far below it). |
+| 11 | PASS | Service logs of the whole run contain no coordinate-like values, only the mode, distance, snap distances and error category. |
+| 12 | PASS (config) | The `routing` service has no host port in Compose; not tested by an external probe. |
+
+The golden routes are executable: `routing-service/tests/test_real_graphs.py`
+(13 tests, skipped without `ROUTING_REAL_DATA_DIR`). Run it with the test image
+and the prepared volume:
+
+```bash
+docker build --target test -t flowbb-routing-test routing-service
+docker run --rm -v <routing-data-volume>:/data:ro -e ROUTING_REAL_DATA_DIR=/data   flowbb-routing-test python -m pytest -q tests/test_real_graphs.py
+```
+
+Expected distances have a 10% tolerance because OSM changes between artifact
+generations. Walking is the slowest mode (about 105 ms warm) because its graph is
+the largest; this is well within the 3 s API timeout.
+
 If OSMnx/NetworkX fails the measured gate, compare Valhalla behind FastAPI.
 Do not silently switch to custom A*, a public routing API or a new database.
 If no real router passes before feature freeze, retain `DemoRoutePlanner` and
@@ -520,7 +557,8 @@ defer real routing.
 - worker count, given that each worker may duplicate in-memory graphs;
 - whether P0 requires maneuvers or allows `steps: []`;
 - OSM attribution presentation and artifact refresh owner;
-- production acceptance of ADR 002 and the operational ownership that follows.
+- production acceptance of ADR 002 and the operational ownership that follows (#110; measured gate: #127;
+  OSM attribution: #128). The MVP acceptance is recorded in ADR 002, section "Decision record".
 
 The public contract delta is implemented: `PlannerSource.RoadRouting`, total
 distance and GeoJSON LineString are mapped without exposing engine-specific

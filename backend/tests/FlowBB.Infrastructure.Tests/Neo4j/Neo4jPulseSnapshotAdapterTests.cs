@@ -117,12 +117,21 @@ public sealed class Neo4jPulseSnapshotAdapterTests(Neo4jFixture neo4j)
             """,
             new { u = userId.ToString("D"), e = eventId.ToString("D") });
 
-        var act = () => CreateReader().GetPointsAsync(eventId);
+        try
+        {
+            var act = () => CreateReader().GetPointsAsync(eventId);
 
-        var thrown = (await act.Should().ThrowAsync<InvalidOperationException>()).Which;
-        thrown.Message.Should().Contain(eventId.ToString("D")).And.NotContain("91.234");
-        thrown.Message.Should().NotContain(userId.ToString("D"));
-        thrown.InnerException.Should().BeNull();
+            var thrown = (await act.Should().ThrowAsync<InvalidOperationException>()).Which;
+            thrown.Message.Should().Contain(eventId.ToString("D")).And.NotContain("91.234");
+            thrown.Message.Should().NotContain(userId.ToString("D"));
+            thrown.InnerException.Should().BeNull();
+        }
+        finally
+        {
+            await neo4j.ExecuteAsync(
+                "MATCH (:User {UserId: $u})-[r:IS_GOING_TO]->(:Event {EventId: $e}) DELETE r",
+                new { u = userId.ToString("D"), e = eventId.ToString("D") });
+        }
     }
 
     [Neo4jFact]

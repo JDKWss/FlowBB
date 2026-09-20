@@ -201,7 +201,7 @@ EVENT  PulseUpdated
 
 - Obecne dane MZK (`data/gtfs/mzk/parsed/`) to odjazdy z przystankow. Nie zawieraja jeszcze pelnych kursow (trips), kolejnosci przystankow, kompletnego powiazania kursow ani wspolrzednych wszystkich przystankow.
 - Nie opisuj ich jako kompletnego systemu routingu. Dane MZK moga pozniej wzbogacac informacje transportowe, ale nie zasilaja obecnego planera.
-- Routing drogowy Walking/Bike/Car dziala przez prywatna usluge Python/FastAPI w tym samym Docker Compose. Tylko ASP.NET komunikuje sie z nia przez wewnetrzny REST; przegladarka nigdy nie wywoluje jej bezposrednio. PublicTransport i kontrolowany fallback obsluguje `DemoRoutePlanner`. Szczegoly: `docs/ROUTING_SERVICE.md` i ADR 002 o statusie `Proposed`.
+- Routing drogowy Walking/Bike/Car dziala przez prywatna usluge Python/FastAPI w tym samym Docker Compose. Tylko ASP.NET komunikuje sie z nia przez wewnetrzny REST; przegladarka nigdy nie wywoluje jej bezposrednio. PublicTransport i kontrolowany fallback obsluguje `DemoRoutePlanner`. Szczegoly: `docs/ROUTING_SERVICE.md` i ADR 002 o statusie `Accepted for the MVP`.
 
 ### Ogolne
 
@@ -265,6 +265,25 @@ Nie instaluj globalnych narzedzi ani nie aktualizuj lockfile bez potrzeby zadani
 - Commit ma obejmowac jedna logiczna zmiane i przejsc lokalna weryfikacje.
 - Czlowiek czyta diff przed commitem i merge'em.
 - Integracja odbywa sie czesto; nie trzymaj osmiu godzin zmian tylko lokalnie.
+
+### Ochrona `develop` bez wymuszenia technicznego (#81, wariant B)
+
+Obecny plan GitHub nie udostepnia ochrony galezi dla repozytorium prywatnego (API zwraca 403), wiec `develop` i `main`
+chroni umowa procesowa, sprawdzana w review:
+
+- Zmiany trafiaja na `develop` wylacznie przez PR. Zadnego `git push` wprost na `develop` ani `main`, takze merge'y
+  `origin/develop` wypychanych bezposrednio, i zadnego force-push.
+- PR scala sie dopiero po zielonym CI wszystkich workflowow uruchomionych dla zmienionych sciezek: `Backend CI`
+  (`build-and-test`, `docker-build`), `Contracts CI` (`openapi`), `Frontend CI` (`app`), `Routing service CI` (`pytest`).
+  Workflow z filtrem sciezek, ktory sie nie uruchomil, nie jest czerwony, ale nie potwierdza tez zmiany.
+- Przed merge zaktualizuj galaz: scal biezacy `origin/develop` (merge, nie rebase) i sprawdz wynik na scalonym stanie.
+- Diff czyta czlowiek; zmiany w `contracts/`, `Program.cs` i wspolnych plikach wymagaja review ich wlasciciela (sekcja 6).
+  Agent scala PR tylko na wyrazne polecenie czlowieka.
+- Czerwony `develop` blokuje nowe merge'e: naprawa albo revert ma pierwszenstwo przed kolejnymi PR.
+- Testy, ktorych CI nie uruchamia (np. testy na prawdziwym Neo4j, `Smoke/`), uruchom lokalnie przed PR i podaj wynik w opisie.
+
+Jesli plan GitHub sie zmieni lub repozytorium zostanie upublicznione, przejdz na wariant A z #81 (ochrona galezi z wymaganymi
+checks i review).
 
 ## 12. Kolejnosc realizacji i bramki
 
