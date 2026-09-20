@@ -175,8 +175,8 @@ FlowBB has two independent React + Vite + TypeScript applications:
   → attendance saved
 
 BACKEND
-→ PostgreSQL
-→ aggregate recalculated
+→ Neo4j
+→ aggregate recalculated in C#
 → SignalR PulseUpdated
 
 DASHBOARD

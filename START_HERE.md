@@ -1,5 +1,11 @@
 # Jak wdrozyc konfiguracje agentow FlowBB
 
+> **Charakter dokumentu:** bootstrap/onboarding. Kroki ponizej opisuja
+> poczatkowe przygotowanie repozytorium i podzial pracy, a nie biezacy status
+> implementacji. Stan kodu na `develop` z 2026-09-20 opisuje
+> [docs/MVP_WORK_PLAN.md](docs/MVP_WORK_PLAN.md), a uruchamialnosc scenariusza
+> [docs/DEMO_RUNBOOK.md](docs/DEMO_RUNBOOK.md).
+
 ## 1. Skopiuj pliki do roota repozytorium
 
 ```text
@@ -21,9 +27,11 @@ flowbb/
 
 W `AGENTS.md` pozostawiono role zamiast imion poza Kuba. Wpisz imiona pozostalych osob dopiero, gdy potwierdzicie odpowiedzialnosci.
 
-## 3. Uzupelnij fixture'y przed kodem
+## 3. Poczatkowe przygotowanie fixture'ow
 
-Plik `contracts/openapi.yaml` jest juz przygotowany. Przed rozpoczeciem implementacji zatwierdzcie go wspolnie i dodajcie fixture'y:
+Ten krok byl przewidziany przed rozpoczeciem implementacji. `contracts/openapi.yaml`
+pozostaje zrodlem prawdy; fixture'y nalezy utrzymywac zgodnie z jego aktualnym
+ksztaltem:
 
 ```text
 contracts/openapi.yaml
@@ -58,7 +66,7 @@ Otworz repo jako workspace. W zadaniu wybierz wlasciwa persone z `.agents/agents
 Przeczytaj AGENTS.md i contracts/. Potwierdz granice roli @nazwa-roli. Nie edytuj plikow, dopoki nie podasz planu i testu akceptacyjnego.
 ```
 
-## 5. Pierwsze przypisania
+## 5. Pierwotne przypisania implementacyjne
 
 1. Core Backend Owner (Kuba) + `@core-backend` i `@integration-backend`: integracja backendu i `Program.cs`, Attendance (po Events), SignalR i `PulseUpdated`, PULSE API, routing i `DemoRoutePlanner`, Docker Compose calej aplikacji.
 2. Backend Events + `@events-backend`: endpointy Events i `IEventLookup`.

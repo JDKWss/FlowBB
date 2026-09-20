@@ -2,7 +2,15 @@
 
 Wersja poprawiona. Zmiany względem v1 są w sekcji 11, zmiany wprowadzone po v2 w sekcji 12. Stan wiedzy: 2026-09-19.
 
-> **Status architektoniczny (2026-09-19):** ten dokument opisuje odseparowany pipeline danych transportowych. Baza w sekcji 6.1 (PostgreSQL + PostGIS) to baza PoC, a nie baza runtime aplikacji FlowBB; ta jest Neo4j ([ADR 001](adr/001-runtime-persistence.md)). Odniesienia do migracji i integracji z aplikacja w dalszej czesci sa materialem historycznym.
+> **Status architektoniczny (2026-09-20):** ten dokument opisuje
+> odseparowany PoC pipeline'u danych transportowych. Baza w sekcji 6.1
+> (PostgreSQL + PostGIS) nie jest baza runtime aplikacji FlowBB; ta jest Neo4j
+> ([ADR 001](adr/001-runtime-persistence.md)). PoC nie przechowuje Events ani
+> Attendance i nie jest synchronizowany z Neo4j. Obecne dane nie zawieraja
+> kompletnego grafu tras (pelnych trips, kolejnosci i powiazan wszystkich
+> przystankow oraz wszystkich wspolrzednych). Odniesienia do PULSE, routingu
+> aplikacji, migracji i integracji z runtime w dalszej czesci sa zachowanym
+> planem historycznym, a nie opisem obecnej architektury.
 
 > **Stan realizacji (2026-09-19):** powstał proof of concept, który odbiega od tego planu (Node zamiast Pythona, ścieżka `data/gtfs/mzk/`, zakres: linia 7 + N1/N2, bez GTFS/OTP). Szczegóły i nowe ustalenia są w sekcji 13, a instrukcja uruchomienia w `data/gtfs/mzk/README.md`.
 
@@ -41,13 +49,18 @@ Ten zestaw dawałby: trzy punkty styku z koleją (Bielsko-Biała Główna, Lipni
 
 ### D2. Kontrakt `RouteResult`
 
-Uzgodnić z Backend #1 i frontendem **przed** implementacją `DemoRoutePlanner` (pola: kroki, godziny, linie, przystanki, powrót). Bez tego ścieżka awaryjna z 6.2 nie jest ścieżką awaryjną, tylko drugim projektem.
+**Status historycznego punktu:** kontrakt zostal pozniej ustalony jako
+`RouteResponse` w `contracts/openapi.yaml`; kanoniczny endpoint to
+`GET /api/events/{eventId}/route?userId={userId}`. Nie nalezy projektowac
+drugiego `RouteResult` wedlug tego planu.
 
 ---
 
 ## 1. Cel i definicja ukończenia
 
-**Cel:** zamienić publiczne rozkłady przystankowe MZK (PDF) na dane, z których korzystają routing (OTP albo `DemoRoutePlanner`) i PULSE (np. alert "brak powrotu po 22:00").
+**Pierwotny cel PoC:** zamienić publiczne rozkłady przystankowe MZK (PDF) na
+dane analizowane niezaleznie od aplikacji. Ich uzycie przez routing lub PULSE
+jest planem przyszlym i wymaga osobnej decyzji; obecny runtime ich nie czyta.
 
 **Wyjścia pipeline'u, w kolejności ważności:**
 1. `data/mzk/parsed/departures.json` — odjazdy z przystanków (wystarcza do demo)
@@ -385,9 +398,12 @@ Kod wyjścia ≠ 0 przy przekroczeniu progu jakości. Progi w jednym miejscu —
 
 ## 6. Integracja z aplikacją
 
-### 6.1 Baza (PostgreSQL + PostGIS)
+### 6.1 Baza PoC (PostgreSQL + PostGIS; plan historyczny)
 
-OTP **nie** korzysta z bazy — dostaje wygenerowany GTFS. Baza jest potrzebna dla PULSE, mapy przystanków i awaryjnego routingu bez OTP.
+OTP **nie** korzysta z bazy — dostaje wygenerowany GTFS. W pierwotnym planie
+baza miala obslugiwac PULSE, mape przystankow i awaryjny routing bez OTP.
+ADR 001 odrzucil te role runtime: PULSE korzysta z Neo4j i agregacji w C#,
+a ewentualna integracja danych MZK wymaga osobnej decyzji architektonicznej.
 
 | Tabela | Po co | Źródło | Szacunek wierszy | Poziom |
 |---|---|---|---|---|
@@ -466,10 +482,12 @@ CREATE INDEX transit_stop_time_stop ON transit_stop_time (stop_id, dep_sec);
 
 **Import (`load_db.py`):** kolejność ładowania `transit_line_direction` → `transit_stop` → `transit_source` → `transit_calendar_day` → `transit_departure` → `transit_trip` → `transit_stop_time`. Przed importem `TRUNCATE ... CASCADE` w odwrotnej kolejności. Dane są w całości odtwarzalne z `parsed/*.json`, więc idempotencja jest darmowa. Ładowanie masowe przez `COPY`.
 
-### 6.2 Routing
+### 6.2 Routing (plan historyczny / praca przyszla)
 
 - **OTP:** `mzk-derived.zip` + GTFS Kolei Śląskich + OSM (Geofabrik, śląskie) → `OtpRoutePlanner`.
-- **Awaryjnie:** `parsed/demo_routes.json` → `DemoRoutePlanner`, albo zapytanie SQL na `transit_stop_time` (poniżej). Kontrakt `RouteResult` uzgodniony w D2 **przed** implementacją.
+- **Awaryjnie (pierwotny plan):** `parsed/demo_routes.json` →
+  `DemoRoutePlanner`, albo zapytanie SQL na `transit_stop_time` (ponizej).
+  Aktualnym kontraktem jest `RouteResponse` z OpenAPI, zgodnie z aktualizacja D2.
 
 Połączenie bezpośrednie A→B (bez przesiadek), do demo z jedną linią wystarczy:
 ```sql

@@ -1,55 +1,59 @@
 # Runbook demo FlowBB
 
 Instrukcja uruchomienia i przeprowadzenia krytycznego scenariusza demo (AGENTS.md, sekcja 2) oraz plan awaryjny.
-Dokument powstaje razem z issue #22. **Stan na dzien utworzenia:** nie wszystkie kroki da sie jeszcze wykonac, bo brakuje modulow
-opisanych w `docs/MVP_WORK_PLAN.md`. Kazdy krok ponizej ma oznaczony status; sekcje ze statusem "PO #N" trzeba zweryfikowac,
-gdy dana czesc trafi na `develop`.
+**Status: 2026-09-20 (`develop`).** Nie wszystkie kroki da sie jeszcze wykonac.
+Kod modulu moze istniec i miec testy, ale dopoki nie jest zarejestrowany oraz
+zmapowany w `Program.cs`, nie jest dostepny w uruchomionym API.
 
 ## 1. Status krokow scenariusza
 
 | # | Krok | Endpoint / element | Status |
 |---|---|---|---|
-| 1 | Uzytkownik otwiera wydarzenie w `/client` | `GET /api/events`, `GET /api/events/{id}` | PO #2, #9, #11 (Events) i #16 (adapter) |
-| 2 | Klika "Ide" i wybiera srodek transportu | `POST /api/events/{id}/attendance` | endpoint gotowy (#14); zapis do Neo4j PO #17 |
-| 3 | API zapisuje deklaracje w Neo4j | relacja `IS_GOING_TO` | PO #17 (adapter Attendance) |
-| 4 | Backend przelicza agregaty | logika PULSE (#5) | gotowe; dane z Neo4j PO #15 |
-| 5 | SignalR wysyla `PulseUpdated` | hub `/hubs/pulse` | gotowe (#19); wlaczenie w `Program.cs` PO #21 |
-| 6 | Dashboard pokazuje licznik bez odswiezania (`82 -> 83`) | `/dashboard`, klient SignalR | frontend; backend gotowy, podpiecie PO #21 |
-| 7 | Uzytkownik widzi trase z `IRoutePlanner` | `GET`/`POST /api/events/{id}/route` | PO #4, #13 |
-| 8 | Uzytkownik dolacza do mikrogrupy CREW | `GET groups`, `POST/DELETE members` | PO #3, #12 i #18 |
-| 9 | Dashboard pokazuje popyt na mapie heksagonalnej | `GET /api/pulse/hexagons` | endpoint gotowy (#20); dane PO #15 |
+| 1 | Uzytkownik otwiera wydarzenie w `/client` | `GET /api/events`, `GET /api/events/{id}` | kontrakt istnieje; brak modulu backendowego i mapowania |
+| 2 | Klika "Ide" i wybiera srodek transportu | `POST /api/events/{id}/attendance` | kod endpointu i testy istnieja; brak adaptera Neo4j i mapowania w glownym hoscie |
+| 3 | API zapisuje deklaracje w Neo4j | relacja `IS_GOING_TO` ze snapshotem | ogolne repozytorium zapisuje relacje bez snapshotu; brak adaptera `IAttendanceRepository` |
+| 4 | Backend przelicza agregaty | logika PULSE w C# | handlery i testy istnieja; brak `IPulseDataReader` dla Neo4j i rejestracji |
+| 5 | SignalR wysyla `PulseUpdated` | hub `/hubs/pulse` | hub jest zarejestrowany i zmapowany; publikacja po Attendance dziala w tescie na fake'u |
+| 6 | Dashboard pokazuje licznik bez odswiezania (`82 -> 83`) | `/dashboard`, klient SignalR | pelny przebieg niezweryfikowany; REST Attendance/PULSE nie jest zmapowany w glownym hoscie |
+| 7 | Uzytkownik widzi trase z `IRoutePlanner` | `GET /api/events/{id}/route?userId={userId}` | kontrakt OpenAPI istnieje; brak implementacji backendowej na `develop` |
+| 8 | Uzytkownik dolacza do mikrogrupy CREW | `GET groups`, `POST/DELETE members` | kontrakt i ogolny model grafu istnieja; brak modulu Application/API |
+| 9 | Dashboard pokazuje popyt na mapie heksagonalnej | `GET /api/pulse/hexagons` | kod endpointu i agregacji istnieje; brak adaptera Neo4j i mapowania |
 
-Zweryfikowane do tej pory: endpointy Attendance i PULSE, hub SignalR oraz przeplyw "POST -> komunikat SignalR" (testy integracyjne
-na fake'u persystencji). **Niezweryfikowane:** polaczenie z prawdziwym Neo4j, Events, Crew, trasa i pelny przebieg z frontendem.
+Zweryfikowane w izolowanych hostach testowych: endpointy Attendance i PULSE,
+hub SignalR oraz przeplyw "POST -> komunikat SignalR" na fake'u persystencji.
+W glownym `Program.cs` dostepne sa obecnie `/health` i `/hubs/pulse` (oraz
+OpenAPI/Scalar w Development). **Niezweryfikowane:** polaczenie modulow z
+prawdziwym Neo4j, Events, Crew, routing i pelny przebieg z frontendem.
 
 ## 2. Wymagania
 
 - Docker (Compose v2) albo .NET SDK 10 do uruchomienia API lokalnie.
 - PowerShell 7 (`pwsh`) do skryptu smoke testu.
-- Neo4j: instancja Aura (plik z danymi w `backend/`, patrz `backend/README.md`) albo lokalny kontener (profil `local-db`, PO #21).
+- Neo4j: instancja Aura (patrz `backend/README.md`) albo lokalny kontener (profil `local-db`).
 - Przegladarka desktopowa dla `/dashboard`, przegladarka w mobilnym viewporcie dla `/client`.
-- Zadnych sekretow w repozytorium: hasla i dane polaczenia tylko w `.env` (ignorowany przez git), wzor w `.env.example` (PO #21).
+- Zadnych sekretow w repozytorium: hasla i dane polaczenia tylko w `.env` (ignorowany przez git), wzor w `.env.example`.
 
 ## 3. Uruchomienie od czystego srodowiska
 
-Kroki oznaczone (PO #21) wymagaja plikow z issue #21 (Dockerfile, Compose, `.env.example`).
-
 1. Sklonuj repozytorium i przejdz na `develop`: `git clone https://github.com/JDKWss/FlowBB.git` i `git switch develop`.
-2. (PO #21) Skopiuj `.env.example` do `.env` i uzupelnij `NEO4J_URI`, `NEO4J_DATABASE`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`.
+2. Skopiuj `.env.example` do `.env` i uzupelnij `NEO4J_URI`, `NEO4J_DATABASE`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`.
 3. Zaladuj schemat i seed do Neo4j: uruchom kolejno bloki z `database/flowbb-queries.cypher` w Neo4j Query (kazdy blok osobno,
    od pierwszego slowa do srednikow, jak opisuje naglowek pliku). Skrypt jest idempotentny; ponowne uruchomienie nie duplikuje danych.
-4. (PO #21) Uruchom stos: `docker compose -f infra/docker-compose.yml up --build` (dodaj `--profile local-db` dla lokalnego Neo4j).
+4. Uruchom stos: `docker compose -f infra/docker-compose.yml up --build` (dodaj `--profile local-db` dla lokalnego Neo4j).
 5. Sprawdz zdrowie API: `GET http://localhost:8080/health` powinno zwrocic `200 {"status":"ok"}`.
 6. Otworz Scalar z OpenAPI (srodowisko Development): `http://localhost:8080/scalar`.
 7. Uruchom smoke test (sekcja 5).
 
-Do czasu #21 API mozna uruchomic recznie: `dotnet run --project backend/src/FlowBB.Api --urls http://localhost:8080`.
-Dzis odpowiada wtedy tylko `/health`.
+API mozna tez uruchomic recznie: `dotnet run --project backend/src/FlowBB.Api --urls http://localhost:8080`.
+Na stanie z 2026-09-20 glowny host udostepnia `/health` i `/hubs/pulse`;
+pozostale klasy endpointow nie sa jeszcze mapowane w `Program.cs`.
 
-## 4. Przebieg prezentacji (10 minut)
+## 4. Docelowy przebieg prezentacji (10 minut)
 
 Dane sa syntetyczne i oznaczone w UI jako `DEMO DATA / SYMULACJA`. Uzytkownik demo: `dddddddd-dddd-dddd-dddd-dddddddddddd`
 (nie deklaruje udzialu w wydarzeniu `11111111-1111-1111-1111-111111111111` przed pokazem).
+Ten scenariusz jest celem P0; tabela statusowa w sekcji 1 wskazuje kroki,
+ktorych aktualny glowny host jeszcze nie obsluguje.
 
 | Krok | Co robisz | Oczekiwany rezultat |
 |---|---|---|
@@ -80,9 +84,10 @@ Skrypt wykonuje kroki scenariusza przez HTTP i konczy sie wynikiem PASS, FAIL al
 Opcje: `-EventId`, `-UserId`, `-TransportMode`, `-KeepData` (nie sprzataj po tescie).
 Skrypt tworzy deklaracje tylko dla uzytkownika demo i usuwa ja na koncu, o ile sam ja utworzyl.
 
-**Weryfikacja skryptu:** uruchomiony na tymczasowym hoscie z prawdziwymi endpointami Attendance, PULSE i hubem SignalR (dane w pamieci
-zamiast Neo4j): 10 PASS, 0 FAIL, 3 SKIP (Events, trasa, Crew). Kroki Events, trasa i Crew nie byly weryfikowane, bo tych endpointow
-nie ma jeszcze na `develop`; ich asercje trzeba potwierdzic, gdy sie pojawia.
+**Historyczny wynik weryfikacji skryptu:** na tymczasowym hoscie z endpointami
+Attendance, PULSE i hubem SignalR (dane w pamieci zamiast Neo4j) uzyskano
+10 PASS, 0 FAIL, 3 SKIP. Nie jest to wynik glownego hosta na aktualnym
+`develop` ani potwierdzenie integracji z Neo4j.
 
 **Czego skrypt nie sprawdza:** samego komunikatu SignalR (tylko negocjacje huba; komunikat pokrywaja testy integracyjne
 `AttendanceSignalRFlowTests`), ani zachowania frontendu. Krok 4 scenariusza sprawdzaj wzrokowo na dashboardzie.
@@ -98,8 +103,8 @@ nie ma jeszcze na `develop`; ich asercje trzeba potwierdzic, gdy sie pojawia.
 
 | Awaria | Objaw | Co robisz |
 |---|---|---|
-| Neo4j niedostepne | `/health` 200, ale Attendance/PULSE zwracaja 500 | Przelacz na lokalny kontener (`--profile local-db`, PO #21) i zaladuj seed ponownie; ostatecznie pokaz nagranie z backupu |
-| Brak internetu | Aura nieosiagalna | Lokalny kontener Neo4j; `DemoRoutePlanner` dziala bez sieci i bez OTP |
+| Neo4j niedostepne | `/health` 200, ale Attendance/PULSE zwracaja 500 | Przelacz na lokalny kontener (`--profile local-db`) i zaladuj seed ponownie; ostatecznie pokaz nagranie z backupu |
+| Brak internetu | Aura nieosiagalna | Lokalny kontener Neo4j; po wdrozeniu routing ma korzystac z offline'owego `DemoRoutePlanner`, bez OTP |
 | SignalR nie laczy sie | Licznik nie zmienia sie na zywo | Odswiez dashboard (odpowiedz REST zawiera aktualny licznik); sprawdz CORS i adres API w `.env` |
 | Telefon nie widzi API | `/client` bez danych | Uzyj mobilnego viewportu w przegladarce na laptopie; awaryjnie tunel `cloudflared` do API |
 | Mapa pusta | Brak komorek na `/api/pulse/hexagons` | Za malo osob w jednej komorce (prog 10): dosiej dane demo lub zmniejsz rozmiar siatki (obecnie 900 m) - to decyzja Core Ownera |
@@ -112,12 +117,19 @@ Backup: nagraj przebieg scenariusza (sekcja 4) i zapisz zrzuty ekranu dashboardu
 - `participantsWithoutReturn` zawsze 0, a lista alertow pusta: logika powrotow nie istnieje.
 - Siatka heksagonow: rozmiar 900 m, lokalny rzut metryczny wokol Rynku (nie EPSG:2180); komorki `count < 10` nie sa zwracane.
 - `GET /api/pulse/summary` odpytuje wydarzenia po kolei (N+1); przy dziesiatkach wydarzen jest to wystarczajace dla demo.
-- Routing: deterministyczny `DemoRoutePlanner`. Dane MZK sa niekompletne (brak pelnych trips, kolejnosci przystankow, powiazania kursow
-  i wspolrzednych) i nie stanowia systemu routingu.
+- Routing: kanoniczny kontrakt to
+  `GET /api/events/{eventId}/route?userId={userId}`. Punkt startu i tryb maja
+  pochodzic ze snapshotu Attendance, a nie z body zadania. `IRoutePlanner` i
+  deterministyczny `DemoRoutePlanner` sa przyjeta architektura MVP, ale ich
+  implementacji nie ma obecnie na `develop`. Dane MZK sa niekompletne i nie
+  stanowia grafu routingu.
 - PostgreSQL/PostGIS w `data/gtfs/mzk/` to odseparowany PoC, nie baza aplikacji (patrz `docs/adr/001-runtime-persistence.md`).
-- **Otwarta decyzja:** czy relacja `IS_GOING_TO` przechowuje `TransportMode` i `UpdatedAt` (wymagane przez OpenAPI, ale wykluczone w obecnej
-  wersji `docs/NEO4J_CONTRACT.md`). Do jej rozstrzygniecia modal split i mapa PULSE nie beda mialy danych z Neo4j.
-- Kontrakt trasy: `develop` ma `GET ...?userId=`, a `develop-client` `POST` z `origin`. Skrypt smoke testu probuje obu wariantow.
+- ADR 001 rozstrzyga, ze `IS_GOING_TO` przechowuje `TransportMode`, punkt
+  startu i `UpdatedAt`. Biezacy adapter ogolnego grafu jeszcze tego nie realizuje.
+- **Historyczna uwaga:** wczesniejszy branch kliencki eksperymentowal z POST
+  i punktem startu w body. Nie jest to aktualny kontrakt `develop`.
+- `infra/smoke-test.ps1` nadal zawiera zgodnosciowy fallback do historycznego
+  POST. Skrypt wymaga osobnego zadania kodowego; ten fallback nie jest kontraktem.
 
 ## 9. Kryteria gotowosci demo
 

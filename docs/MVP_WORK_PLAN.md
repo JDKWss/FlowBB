@@ -2,6 +2,10 @@
 
 Uzupelnia `AGENTS.md` (zasady) i [ADR 001](adr/001-runtime-persistence.md) (baza runtime). Kontrakt danych: [NEO4J_CONTRACT.md](NEO4J_CONTRACT.md).
 
+> **Status implementacji: 2026-09-20 (`develop`).** Ten dokument zachowuje
+> role, kolejnosc prac i bramki MVP. Tabele statusowe ponizej odrozniaja kod
+> istniejacy w repozytorium od modulow zarejestrowanych w uruchamianym API.
+
 ## 1. Odpowiedzialnosci
 
 | Osoba | Odpowiedzialnosc | Nie robi |
@@ -13,19 +17,24 @@ Uzupelnia `AGENTS.md` (zasady) i [ADR 001](adr/001-runtime-persistence.md) (baza
 
 Rola integracyjna nalezy do Core Backend Ownera: integracja backendu, `Program.cs`, SignalR, Attendance Application/API, PULSE API, `DemoRoutePlanner`, CORS, health check i Docker Compose na poziomie calej aplikacji. Data/Neo4j Owner przygotowuje usluge Neo4j do Compose i konsultuje jej konfiguracje, a Core Backend Owner wlacza ja do calego Compose. Crew (domena na `feature/crew-domain`) pozostaje u Core Backend Ownera, do czasu wskazania innego wlasciciela.
 
-## 2. Granice modulow
+## 2. Granice modulow i stan implementacji
 
-| Modul | Warstwy | Zalezy od |
-|---|---|---|
-| Events | Domain, Application (`Events/*`), Api (`Endpoints/Events`), Infrastructure/Neo4j (odczyt) | schemat Neo4j |
-| Attendance | Application, Api, SignalR (`Hubs`) | `IEventLookup` z Events, adapter Neo4j |
-| Crew | Domain (`Crews`), Application (`Crews/*`), Api | schemat Neo4j (`Crew`) |
-| PULSE | Application (`Pulse/*`), Api, `Hubs` | odczyty Attendance z Neo4j |
-| Routing | Application (`Abstractions/Routing`), Infrastructure (`Routing`) | brak zaleznosci od bazy |
+| Modul | Docelowe warstwy | Stan na `develop` 2026-09-20 | Podpiecie w `Program.cs` |
+|---|---|---|---|
+| Events | Domain, Application (`Events/*`), Api (`Endpoints/Events`), Infrastructure/Neo4j (odczyt) | istnieje ogolny model grafu `Event`; brak modulu Events, `IEventLookup` i endpointow | nie |
+| Attendance | Application, Api, SignalR (`Hubs`) | sa encja, handlery, abstrakcja repozytorium, endpointy i testy; brak adaptera `IAttendanceRepository` dla Neo4j | nie |
+| Crew | Domain (`Crews`), Application (`Crews/*`), Api | istnieje model grafu `Crew` i operacje ogolnego repozytorium; brak modulu Application/API | nie |
+| PULSE | Application (`Pulse/*`), Api, `Hubs` | sa handlery agregacji, endpointy i testy; brak adaptera `IPulseDataReader` dla Neo4j | nie |
+| Routing | Application (`Abstractions/Routing`), Infrastructure (`Routing`) | kontrakt GET jest w OpenAPI; brak `IRoutePlanner`, `DemoRoutePlanner`, handlera i endpointu w kodzie | nie |
+| SignalR | Api (`Hubs`) | hub i notifier istnieja; `/hubs/pulse` jest mapowany | tak |
+
+Uruchamiany host mapuje obecnie `/health`, `/hubs/pulse` oraz dokumentacje API
+w srodowisku Development. Obecnosc klas endpointow Attendance/PULSE nie oznacza,
+ze ich trasy sa dostepne w tym hoscie.
 
 Zasady: agent pracujacy nad Attendance nie implementuje Events (uzywa `IEventLookup`, w testach fake'a). Nie tworzymy produkcyjnego `DemoEventLookup`.
 
-## 3. Zaleznosci miedzy zadaniami
+## 3. Zaleznosci miedzy zadaniami (plan integracji)
 
 ```text
 Dokumentacja (ta zmiana) --> Crew Domain (merge)
@@ -36,6 +45,8 @@ Routing (DemoRoutePlanner) ---------------------------------------> Frontend /cl
 ```
 
 ## 4. Kolejnosc integracji i bramki
+
+Ponizsza tabela definiuje kryteria bramek, a nie deklaruje ich ukonczenia.
 
 | # | Bramka | Kryterium akceptacji |
 |---|---|---|
@@ -61,7 +72,7 @@ Bramki 1-3 sa warunkiem startu bramek 4-9. Bramki 5 i 4 mozna prowadzic rownoleg
 - Commit lokalny wykonuje agent tylko na wyrazne polecenie; `push`, merge i rebase robi czlowiek.
 - Diff czyta czlowiek przed commitem i merge'em.
 
-## 6. Problemy znalezione w kodzie (zadania dla wlascicieli)
+## 6. Aktualne problemy znalezione w kodzie (zadania dla wlascicieli)
 
 Tej zmiany nie robi sie w ramach dokumentacji. Kazda pozycja wymaga osobnego zadania. Priorytety: **MVP** = potrzebne do scenariusza demo, **Porzadki** = maly task po potwierdzeniu, ze nic nie zalezy od starego kodu, **Po MVP** = nie blokuje MVP.
 
@@ -69,17 +80,24 @@ Tej zmiany nie robi sie w ramach dokumentacji. Kazda pozycja wymaga osobnego zad
 |---|---|---|---|
 | 1 | `FlowBB.Infrastructure.csproj` nadal zawiera `Npgsql.EntityFrameworkCore.PostgreSQL`, `...NetTopologySuite` i `Microsoft.EntityFrameworkCore.*`. Osobny maly task porzadkowy po potwierdzeniu, ze kod runtime ich nie uzywa | Porzadki | Data/Neo4j (zgoda Core Backend Owner) |
 | 2 | `IFlowBbGraphRepository` i modele w `FlowBB.Domain/Repositories` i `Models`: interfejs powinien docelowo trafic do `Application/Abstractions/Persistence`. Decyzja po MVP albo przy pierwszej implementacji repozytorium; nie blokuje MVP | Po MVP | Core Backend Owner + Data/Neo4j |
-| 3 | `Event` ma `Title` i `DateTime` zamiast `Name` i `StartAt` oraz brak `EndAt`, `Category`, `Source` | MVP | Data/Neo4j + Backend Events |
-| 4 | `SetUserGoingToEventAsync` tworzy relacje bez `TransportMode`, wspolrzednych i `UpdatedAt`; brak usuwania i odczytu dla Attendance po stronie Application | MVP | Data/Neo4j |
-| 5 | Brak `HomeLatitude` i `HomeLongitude` w `User`. `Email` i `PasswordHash` pozostaja bez zmian: logowanie jest poza zakresem, a pola nie beda uzywane | MVP (Home*) | Data/Neo4j |
-| 6 | Identyfikatory w kodzie Neo4j sa `string`, a kontrakt API uzywa `Guid`; konwersja w adapterze | MVP | Data/Neo4j |
-| 7 | `Venue.VenueId` to tekstowe slugi, a nie Guid | MVP (decyzja) | Core Backend Owner |
-| 8 | Brak seedu z gestymi punktami startowymi uzytkownikow (mapa heksagonalna bylaby pusta przy progu `count >= 10`) | MVP | Data/Neo4j |
-| 9 | `PLAN_EVENTS_LOAD.md` opisuje seeder PostGIS/EF Core; wymaga przepisania pod Neo4j przez Backend Events i Data/Neo4j | MVP | Backend Events + Data/Neo4j |
-| 10 | Dane MZK nie maja trips, kolejnosci przystankow, powiazania kursow i wspolrzednych; do czasu ich uzupelnienia routing to `DemoRoutePlanner` | Po MVP | Core Backend Owner |
-| 11 | Repozytorium nie ma `.env.example`, Docker Compose ani konfiguracji Neo4j dla API (w kodzie: `NEO4J_*` ze zmiennych srodowiskowych). Zadanie Core Backend Ownera wykonywane wspolnie z Data/Neo4j (usluga Neo4j) | MVP | Core Backend Owner + Data/Neo4j |
-| 12 | Lokalny `develop` moze zostawac w tyle za `origin/develop`; przed pracami wykonuj `git fetch` | Porzadki | wszyscy |
-| 13 | `FlowBB.Domain.Tests` nie ma jeszcze zadnych testow. To luka, nie blad; zostanie uzupelniona razem z pierwsza logika domenowa (np. Crew) | MVP | wlasciciel danej logiki domenowej |
+| 3 | `SetUserGoingToEventAsync` nadal zapisuje gola relacje bez `TransportMode`, `OriginLatitude`, `OriginLongitude` i `UpdatedAt`. Application ma juz `IAttendanceRepository` i handlery zapisu/usuwania, ale Infrastructure nie implementuje tego interfejsu | MVP | Data/Neo4j |
+| 4 | Model i seed uzywaja `DefaultOriginLatitude/Longitude`, podczas gdy ADR 001 i `AGENTS.md` wymagaja `HomeLatitude/Longitude` oraz snapshotu punktu na relacji. Nazwy trzeba ujednolicic przy adapterze Attendance | MVP | Data/Neo4j + Core Backend Owner |
+| 5 | `Venue.VenueId` to tekstowe slugi, a nie Guid | MVP (decyzja) | Core Backend Owner |
+| 6 | Seed ma czterech uzytkownikow w roznych punktach; nie zapewnia gestosci potrzebnej do widocznych heksagonow przy progu `count >= 10` | MVP | Data/Neo4j |
+| 7 | `PLAN_EVENTS_LOAD.md` zachowuje historyczny plan PostGIS/EF Core; aktualny importer wydarzen do Neo4j nie istnieje | MVP | Backend Events + Data/Neo4j |
+| 8 | Dane MZK nie maja pelnych trips, kolejnosci przystankow, powiazania kursow i wszystkich wspolrzednych; nie sa grafem routingu | Po MVP | Core Backend Owner |
+| 9 | Attendance i PULSE maja kod modulow oraz testy na fake'ach, ale brak adapterow Neo4j i rejestracji/mapowania w `Program.cs` | MVP | Core Backend Owner + Data/Neo4j |
+| 10 | Events, Crew i Routing nie maja jeszcze kompletnych modulow Application/API na `develop`; routing ma jedynie zatwierdzony kontrakt GET w OpenAPI | MVP | wlasciciele modulow |
+
+### Rozwiazane od utworzenia planu
+
+- `Event` uzywa `Name`, `StartAt` i opcjonalnego `EndAt`; `Category` i `Source`
+  nie naleza do modelu grafu zgodnie z `NEO4J_CONTRACT.md`.
+- Adapter ogolnego grafu konwertuje identyfikatory wezlow `Guid` do/z tekstu Neo4j.
+- Repozytorium zawiera `.env.example`, `infra/docker-compose.yml` i
+  `infra/smoke-test.ps1`.
+- `FlowBB.Domain.Tests`, `FlowBB.Application.Tests` i
+  `FlowBB.Api.IntegrationTests` zawieraja testy.
 
 ## 7. Weryfikacja ukonczenia
 
