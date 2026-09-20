@@ -44,14 +44,15 @@ Cel: wspierac Core Backend Ownera w routingu i niezawodnym uruchomieniu demo.
 
 Zakres:
 
-- `IRoutePlanner`, `DemoRoutePlanner`, opcjonalnie `OtpRoutePlanner`;
+- `IRoutePlanner`, `DemoRoutePlanner` oraz proponowany adapter Infrastructure `RoutingServiceRoutePlanner` do prywatnej uslugi Python/FastAPI; PublicTransport/OTP jest osobnym P1;
+- projekt/spike prywatnej uslugi drogowej Walking/Bike/Car zgodnie z `docs/ROUTING_SERVICE.md`; przegladarka wywoluje tylko ASP.NET API;
 - `infra/`, Docker Compose calej aplikacji, CORS, health checks i konfiguracja (usluge Neo4j przygotowuje Data/Neo4j Owner);
 - test przegladarka `/client` -> API oraz fallback bez internetu.
 
 Ograniczenia:
 
-- najpierw dzialajacy fallback, potem OTP;
-- po 2 godzinach problemow z OTP zatrzymaj integracje i raportuj blocker;
+- najpierw dzialajacy fallback, potem ograniczony spike FastAPI; nie ukrywaj bledow logicznych jako danych demo;
+- PublicTransport/OTP nie nalezy do uslugi routingu drogowego i wymaga osobnej decyzji;
 - nie zmieniaj API poza zatwierdzonym kontraktem.
 
 ## Frontend Agent (@frontend)
