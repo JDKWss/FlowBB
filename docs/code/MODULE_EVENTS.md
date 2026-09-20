@@ -44,18 +44,11 @@ Routing binding na `{eventId:guid}` dalby 404 w obu przypadkach.
 **Uwaga dla Data/Neo4j:** [NEO4J_CONTRACT.md](../NEO4J_CONTRACT.md) mowi, ze `Category` i `Source`
 nie wystepuja w grafie, a kategorie sa wezlami `Tag`. Adapter musi te dwie reprezentacje pogodzic.
 
-## Dwa modele Event w repozytorium
+## Model Event
 
-To jest najczestsze zrodlo nieporozumien w tym module.
-
-| Typ | Rola |
-|---|---|
-| `FlowBB.Domain/Events/Event.cs` | nowy, wlasciwy model domenowy uzywany przez Events, Crew i Routing |
-| `FlowBB.Domain/Models/Event.cs` | stary rekord (`EventId`, `Title`, `EventUrl`, `DateTime`) uzywany przez `Neo4jFlowBbGraphRepository` |
-
-Branch `feature/events-domain` oznaczyl stary typ komentarzem `Superseded by ...` i zostawil go
-tylko do czasu, az adapter Neo4j przejdzie na nowy model. **Nowy kod nie powinien uzywac
-`Models/Event`.** Docelowo znika razem z zadaniem #16.
+Jedynym modelem wydarzenia jest `FlowBB.Domain/Events/Event.cs`, uzywany przez Events, Crew i Routing.
+Stary rekord `FlowBB.Domain/Models/Event.cs` (`EventId`, `Title`, `EventUrl`, `DateTime`) razem z
+`Neo4jFlowBbGraphRepository` zostal usuniety w #59.
 
 ## Warstwa Application
 
