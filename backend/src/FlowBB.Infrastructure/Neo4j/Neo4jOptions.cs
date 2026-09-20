@@ -11,13 +11,16 @@ public sealed record Neo4jOptions(
     public const string UsernameVariable = "NEO4J_USERNAME";
     public const string PasswordVariable = "NEO4J_PASSWORD";
 
+    /// <summary>Neo4j Community ma jedna baze uzytkownika o tej nazwie; inne wartosci ustawia sie jawnie (np. Aura).</summary>
+    public const string DefaultDatabase = "neo4j";
+
     public static Neo4jOptions FromEnvironment()
     {
         var fileValues = Neo4jConfigurationFile.Load();
 
         return new Neo4jOptions(
             GetValueOrDefault(UriVariable, fileValues, "neo4j://127.0.0.1:7687"),
-            GetValueOrDefault(DatabaseVariable, fileValues, "flowbb"),
+            GetValueOrDefault(DatabaseVariable, fileValues, DefaultDatabase),
             GetRequiredValue(UsernameVariable, fileValues),
             GetRequiredValue(PasswordVariable, fileValues));
     }
