@@ -1,0 +1,12 @@
+{
+  "name": "HackBB Afterparty",
+  "description": "DEMO DATA / SYMULACJA - spotkanie po wydarzeniu.",
+  "startAt": "2026-09-25T19:00:00+02:00",
+  "endAt": "2026-09-25T22:00:00+02:00",
+  "venueName": "Bielsko-Biala",
+  "category": "Community",
+  "location": {
+    "latitude": 49.82,
+    "longitude": 19.04
+  }
+}

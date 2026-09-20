@@ -2,13 +2,13 @@
 
 Status: przyjety (MVP hackathonowe)
 Data: 2026-09-19
-Wlasciciel decyzji: Core Backend (Kuba)
+Wlasciciel decyzji: Backend 1 - Core/Integration (Kuba)
 
 ## Context
 
 Poczatkowe instrukcje (`AGENTS.md`, `START_HERE.md`, `PLAN_EVENTS_LOAD.md`) zakladaly PostgreSQL + PostGIS z EF Core, migracjami i `ST_HexagonGrid`. Rownolegle w repozytorium powstaly:
 
-- implementacja Neo4j: `Neo4j.Driver`, `Neo4jFlowBbGraphRepository`, model wezlow i relacji, schemat oraz seed w `database/flowbb-queries.cypher`;
+- implementacja Neo4j: `Neo4j.Driver`, adaptery w `Infrastructure/Neo4j`, model wezlow i relacji, schemat oraz seed w `database/flowbb-queries.cypher`;
 - odseparowany PoC pipeline'u rozkladow MZK, ktory laduje odjazdy do PostGIS (`data/gtfs/mzk/`).
 
 W efekcie dokumentacja opisywala dwie rozne bazy jako glowna. Agenci (Claude Code, Codex) i czlonkowie zespolu dostawali sprzeczne instrukcje, a `AGENTS.md` jednoczesnie wskazywal PostgreSQL jako baze i Neo4j jako element poza zakresem.
@@ -21,7 +21,7 @@ Dane FlowBB maja charakter grafowy (uzytkownik -> wydarzenie -> miejsce, uzytkow
 2. **Attendance** to relacja `(User)-[:IS_GOING_TO]->(Event)` ze snapshotem `TransportMode`, `OriginLatitude`, `OriginLongitude`, `UpdatedAt`. Uzytkownik ma wewnetrzne, demonstracyjne `DefaultOriginLatitude` i `DefaultOriginLongitude`. Wspolrzedne nie sa czescia publicznego API.
 3. **PULSE** jest agregowany w backendzie C# na podstawie wspolrzednych pobranych wewnetrznie z Neo4j. Frontend dostaje tylko zagregowane komorki. Nie zwracamy `userId`, dokladnych wspolrzednych ani komorek z `count < 10`.
 4. **PostgreSQL/PostGIS pozostaje wylacznie odseparowanym PoC** w `data/gtfs/mzk/`. Nie jest baza aplikacji, nie przechowuje Events ani Attendance i nie jest zaleznoscia backendu.
-5. **Routing MVP** korzysta z deterministycznego `DemoRoutePlanner`. Obecne dane MZK to odjazdy z przystankow, bez pelnych trips, kolejnosci przystankow, kompletnego powiazania kursow i wszystkich wspolrzednych, wiec nie wystarczaja do planowania podrozy.
+5. **Routing MVP** przechodzi przez `IRoutePlanner`. Aktualny `CompositeRoutePlanner` kieruje Walking/Bike/Car do prywatnej uslugi drogowej, a PublicTransport i kontrolowany fallback do deterministycznego `DemoRoutePlanner`. Obecne dane MZK to odjazdy z przystankow, bez pelnych trips, kolejnosci przystankow, kompletnego powiazania kursow i wszystkich wspolrzednych, wiec nie wystarczaja do planowania podrozy.
 6. Na granicy Application/API identyfikatory sa typem `Guid`. Adapter Neo4j moze je przechowywac jako string i odpowiada za konwersje.
 
 ## Consequences
@@ -38,7 +38,7 @@ Negatywne i ryzyka:
 - agregacja przestrzenna (siatka heksagonalna, `count >= 10`) musi byc zaimplementowana w C#, bez gotowego `ST_HexagonGrid`;
 - Attendance wymaga transakcji obejmujacej zapis relacji i odczyt danych do `PulseUpdated`, a wiadomosc musi byc publikowana dopiero po zatwierdzeniu;
 - idempotencja opiera sie na `MERGE` i constraints wezlow. Zachowanie przy rownoleglych zadaniach trzeba zweryfikowac testem na prawdziwej instancji Neo4j;
-- pakiety EF Core i Npgsql nadal sa w `FlowBB.Infrastructure.csproj` i wymagaja usuniecia (zadanie Data/Neo4j);
+- pakiety EF Core, Npgsql i narzedzie `dotnet-ef` zostaly usuniete; jedynym pakietem persystencji runtime w Infrastructure jest `Neo4j.Driver`;
 - czesc dokumentacji historycznej (`PLAN_EVENTS_LOAD.md`, dokumentacja pipeline'u MZK) opisuje PostgreSQL. Jest oznaczona jako historyczna lub PoC.
 
 ## Rejected alternatives

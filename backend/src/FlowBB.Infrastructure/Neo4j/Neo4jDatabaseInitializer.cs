@@ -28,27 +28,29 @@ public static class Neo4jDatabaseInitializer
         ArgumentNullException.ThrowIfNull(options);
 
         await driver.VerifyConnectivityAsync();
-        await EnsureSchemaAsync(driver, options);
-        await ApplySeedAsync(driver, options);
+        await EnsureSchemaAsync(driver, options.Database);
+        await ApplySeedAsync(driver, options.Database);
     }
 
-    // Kazde polecenie schematu osobno (autocommit): Neo4j nie pozwala mieszac zmian schematu z zapisami w jednej transakcji.
-    private static async Task EnsureSchemaAsync(IDriver driver, Neo4jOptions options)
+    internal static Task ApplySeedAsync(IDriver driver, string database) =>
+        ApplyStatementsInTransactionAsync(driver, database, LoadStatements(SeedResourceName, SeedEndMarker));
+
+    private static async Task EnsureSchemaAsync(IDriver driver, string database)
     {
         foreach (var statement in LoadStatements(SchemaResourceName, endMarker: null))
         {
             await driver.ExecutableQuery(statement)
-                .WithConfig(new QueryConfig(database: options.Database))
+                .WithConfig(new QueryConfig(database: database))
                 .ExecuteAsync();
         }
     }
 
-    // Caly seed w jednej transakcji: blad wycofuje wszystko, wiec baza nie zostaje z niepelnymi danymi.
-    private static async Task ApplySeedAsync(IDriver driver, Neo4jOptions options)
+    private static async Task ApplyStatementsInTransactionAsync(
+        IDriver driver,
+        string database,
+        IReadOnlyList<string> statements)
     {
-        var statements = LoadStatements(SeedResourceName, SeedEndMarker);
-
-        await using var session = driver.AsyncSession(config => config.WithDatabase(options.Database));
+        await using var session = driver.AsyncSession(config => config.WithDatabase(database));
         await session.ExecuteWriteAsync(async transaction =>
         {
             foreach (var statement in statements)

@@ -16,7 +16,9 @@ info:
 
 servers:
   - url: http://localhost:5000
-    description: Lokalne API podczas developmentu i prezentacji
+    description: Lokalne API uruchomione przez `dotnet run`
+  - url: http://localhost:8080
+    description: API uruchomione przez Docker Compose (port hosta 8080)
 
 tags:
   - name: Health
@@ -31,20 +33,57 @@ tags:
     description: Trasy z IRoutePlanner
   - name: Pulse
     description: Zagregowane dane dla panelu miasta
+  - name: AirQuality
+    description: Jakosc powietrza dla lokalizacji wydarzenia
 
 paths:
   /health:
     get:
       tags: [Health]
-      summary: Sprawdza gotowosc API
+      summary: Sprawdza zywotnosc procesu API
+      description: |
+        Test zywotnosci (liveness): nie zalezy od bazy danych i zawsze zwraca 200,
+        dopoki proces API odpowiada. Gotowosc wraz z Neo4j sprawdza `/health/ready`.
       operationId: getHealth
       responses:
         "200":
-          description: API dziala
+          description: Proces API dziala
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
+              example:
+                status: Healthy
+                timestamp: "2026-09-19T17:20:00Z"
+
+  /health/ready:
+    get:
+      tags: [Health]
+      summary: Sprawdza gotowosc API (polaczenie z Neo4j)
+      description: |
+        Test gotowosci (readiness): 200, gdy API laczy sie z Neo4j, 503, gdy nie.
+        Odpowiedz nie zawiera szczegolow bledu (adresow, danych logowania ani
+        komunikatow wyjatkow) i nie jest cache'owana. Uzywa go healthcheck kontenera `api`.
+      operationId: getReadiness
+      responses:
+        "200":
+          description: API jest gotowe do obslugi zadan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                status: Healthy
+                timestamp: "2026-09-19T17:20:00Z"
+        "503":
+          description: Neo4j jest niedostepne albo nie odpowiada w limicie czasu
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                status: Unhealthy
+                timestamp: "2026-09-19T17:20:00Z"
 
   /api/events:
     get:
@@ -94,6 +133,47 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "500":
           $ref: "#/components/responses/InternalServerError"
+    post:
+      tags: [Events]
+      summary: Tworzy wydarzenie organizatora
+      description: |
+        Tworzy wydarzenie oraz dedykowane miejsce w Neo4j. Identyfikatory
+        wydarzenia i miejsca sa generowane przez backend, `source` ma zawsze
+        wartosc `External`, a liczba uczestnikow jest wyliczana z deklaracji
+        i poczatkowo wynosi 0.
+      operationId: createEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEventRequest"
+            example:
+              name: "HackBB Afterparty"
+              description: "Spotkanie po wydarzeniu."
+              startAt: "2026-09-20T19:00:00+02:00"
+              endAt: "2026-09-20T22:00:00+02:00"
+              venueName: "Bielsko-Biała"
+              category: Community
+              location:
+                latitude: 49.82
+                longitude: 19.04
+      responses:
+        "201":
+          description: Wydarzenie i miejsce zostaly utworzone
+          headers:
+            Location:
+              description: Adres utworzonego wydarzenia
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventDetails"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /api/events/{eventId}:
     parameters:
@@ -125,6 +205,66 @@ paths:
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalServerError"
+
+  /api/events/{eventId}/air-quality:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+    get:
+      tags: [AirQuality]
+      summary: Zwraca jakosc powietrza dla lokalizacji wydarzenia
+      description: |
+        Kontrakt planowanej operacji. Implementacja runtime nalezy do issue #97.
+        Stacja jest wybierana wzgledem wspolrzednych wydarzenia, nigdy wzgledem
+        lokalizacji mieszkanca. Awaria, timeout albo bezuzyteczna odpowiedz GIOS
+        nie powoduja publicznego 5xx: przyszla implementacja zwroci 200 ze
+        `status: Fallback` i `source: Demo`.
+      x-runtime-status: planned
+      operationId: getEventAirQuality
+      responses:
+        "200":
+          description: Dane GIOS albo deterministyczne dane demonstracyjne fallback
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AirQualityResponse"
+              example:
+                eventId: "11111111-1111-1111-1111-111111111111"
+                station:
+                  name: "Bielsko-Biała, ul. Kossak-Szczuckiej"
+                  distanceMeters: 1450
+                measuredAt: "2026-09-20T07:00:00+02:00"
+                qualityLevel: Good
+                status: Fresh
+                source: Gios
+                pm10:
+                  value: 18.4
+                  unit: "µg/m³"
+                pm25: null
+                no2:
+                  value: 12.1
+                  unit: "µg/m³"
+                o3:
+                  value: 46.8
+                  unit: "µg/m³"
+                alert: null
+        "400":
+          description: "`eventId` nie jest niepustym UUID"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+        "404":
+          description: UUID jest poprawny, ale wydarzenie nie istnieje
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+        "500":
+          description: Nieoczekiwany blad FlowBB, niezalezny od dostepnosci GIOS
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
 
   /api/events/{eventId}/attendance:
     parameters:
@@ -299,13 +439,17 @@ paths:
       summary: Zwraca proponowana trase na wydarzenie i powrot
       description: |
         Trasa zawsze jest pobierana przez `IRoutePlanner`. API zwraca
-        `plannerSource: Demo`, gdy OTP nie jest dostepny.
+        `plannerSource: RoadRouting` dla prawdziwej trasy drogowej oraz
+        `plannerSource: Demo` dla komunikacji miejskiej lub kontrolowanego fallbacku.
 
         Punkt startu i srodek transportu pochodza ze snapshotu deklaracji
         "Ide" (relacja `IS_GOING_TO`) zapisanego przez `upsertAttendance`.
-        Klient nie przesyla wspolrzednych: sa one dana wewnetrzna backendu
-        i nie opuszczaja go. Brak deklaracji dla pary uzytkownik-wydarzenie
-        oznacza 404.
+        Klient nie przesyla wspolrzednych: backend czyta punkt startu ze
+        snapshotu Attendance. Profil ani osobne pole origin nie sa ujawniane;
+        mieszkaniec moze otrzymac GeoJSON swojej wyliczonej trasy. Brak
+        deklaracji dla pary uzytkownik-wydarzenie oznacza 404. Zapisany
+        srodek transportu `Unknown` (brakujacy lub niepoprawny) oznacza 400,
+        bo nie mozna zaplanowac trasy.
       operationId: getEventRoute
       parameters:
         - $ref: "#/components/parameters/RequiredUserIdQuery"
@@ -399,6 +543,14 @@ paths:
                   - code: ReturnGap
                     severity: Warning
                     message: "21 osob nie ma dogodnego powrotu po 22:00."
+        "400":
+          description: |
+            `eventId` nie jest niepustym UUID (odrozniane od poprawnego UUID
+            nieistniejacego wydarzenia, ktore daje 404).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
@@ -496,7 +648,10 @@ components:
 
   responses:
     BadRequest:
-      description: Nieprawidlowe dane wejsciowe
+      description: |
+        Nieprawidlowe dane wejsciowe: pusty lub niepoprawny identyfikator (UUID),
+        niepoprawny albo pusty JSON, brak naglowka `Content-Type: application/json`,
+        nieznany `transportMode` lub nieprawidlowy zakres `from`/`to`.
       content:
         application/problem+json:
           schema:
@@ -524,7 +679,10 @@ components:
       properties:
         status:
           type: string
-          enum: [Healthy]
+          enum: [Healthy, Unhealthy]
+          description: |
+            `Healthy` dla `/health` (zawsze) i dla `/health/ready` z osiagalna baza,
+            `Unhealthy` tylko dla `/health/ready` z kodem 503.
         timestamp:
           type: string
           format: date-time
@@ -600,6 +758,40 @@ components:
           type: string
           enum: [Demo, City, External]
 
+    CreateEventRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - description
+        - startAt
+        - venueName
+        - category
+        - location
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        description:
+          type: string
+          maxLength: 1000
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+          nullable: true
+        venueName:
+          type: string
+          minLength: 1
+          maxLength: 160
+        category:
+          $ref: "#/components/schemas/EventCategory"
+        location:
+          $ref: "#/components/schemas/GeoPoint"
+
     EventDetails:
       allOf:
         - $ref: "#/components/schemas/EventSummary"
@@ -616,6 +808,120 @@ components:
               uniqueItems: true
               items:
                 $ref: "#/components/schemas/TransportMode"
+
+    AirQualityResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - eventId
+        - station
+        - measuredAt
+        - qualityLevel
+        - status
+        - source
+        - pm10
+        - pm25
+        - no2
+        - o3
+        - alert
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        station:
+          $ref: "#/components/schemas/AirQualityStation"
+        measuredAt:
+          type: string
+          format: date-time
+          description: ISO 8601 z jawnym offsetem Europe/Warsaw, np. `2026-09-20T07:00:00+02:00`.
+        qualityLevel:
+          $ref: "#/components/schemas/AirQualityLevel"
+        status:
+          $ref: "#/components/schemas/AirQualityStatus"
+        source:
+          $ref: "#/components/schemas/AirQualitySource"
+        pm10:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/AirQualityMeasurement"
+        pm25:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/AirQualityMeasurement"
+        no2:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/AirQualityMeasurement"
+        o3:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/AirQualityMeasurement"
+        alert:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/AirQualityAlert"
+
+    AirQualityStation:
+      type: object
+      additionalProperties: false
+      required: [name, distanceMeters]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        distanceMeters:
+          type: number
+          format: double
+          minimum: 0
+          description: Odleglosc w linii prostej od lokalizacji wydarzenia do stacji.
+
+    AirQualityMeasurement:
+      type: object
+      additionalProperties: false
+      required: [value, unit]
+      properties:
+        value:
+          type: number
+          format: double
+          minimum: 0
+        unit:
+          type: string
+          enum: ["µg/m³"]
+
+    AirQualityLevel:
+      type: string
+      description: |
+        Odwzorowanie indeksu GIOS: Bardzo dobry = VeryGood, Dobry = Good,
+        Umiarkowany = Moderate, Dostateczny = Sufficient, Zly = Bad,
+        Bardzo zly = VeryBad, Brak indeksu = Unknown.
+      enum: [VeryGood, Good, Moderate, Sufficient, Bad, VeryBad, Unknown]
+
+    AirQualityStatus:
+      type: string
+      description: |
+        Fresh: wiek pomiaru <= 90 minut. Stale: dostepny pomiar GIOS jest starszy
+        niz 90 minut. Fallback: brak uzytecznych danych zewnetrznych i uzyto
+        deterministycznych danych demonstracyjnych.
+      enum: [Fresh, Stale, Fallback]
+
+    AirQualitySource:
+      type: string
+      description: Gios oznacza dane z GIOS; Demo oznacza snapshot demonstracyjny FlowBB.
+      enum: [Gios, Demo]
+
+    AirQualityAlert:
+      type: object
+      additionalProperties: false
+      required: [severity, message]
+      properties:
+        severity:
+          type: string
+          enum: [Info, Warning]
+        message:
+          type: string
+          minLength: 1
+          maxLength: 300
 
     EventCategory:
       type: string
@@ -732,7 +1038,28 @@ components:
 
     PlannerSource:
       type: string
-      enum: [Demo, OpenTripPlanner]
+      enum: [Demo, RoadRouting, OpenTripPlanner]
+
+    RouteGeometry:
+      type: object
+      additionalProperties: false
+      required: [type, coordinates]
+      properties:
+        type:
+          type: string
+          enum: [LineString]
+        coordinates:
+          type: array
+          minItems: 2
+          items:
+            type: array
+            minItems: 2
+            maxItems: 2
+            description: Para [longitude, latitude]; zakres latitude jest dodatkowo walidowany przez aplikacje.
+            items:
+              type: number
+              minimum: -180
+              maximum: 180
 
     RouteStepType:
       type: string
@@ -764,12 +1091,20 @@ components:
         durationMinutes:
           type: integer
           minimum: 0
+        distanceMeters:
+          type: number
+          nullable: true
+          minimum: 0
         departureAt:
           type: string
           format: date-time
         arrivalAt:
           type: string
           format: date-time
+        geometry:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/RouteGeometry"
         steps:
           type: array
           minItems: 1
@@ -994,9 +1329,12 @@ components:
 
     ProblemDetails:
       type: object
-      description: Odpowiedz zgodna z RFC 7807 / ASP.NET Core ProblemDetails
+      description: |
+        Odpowiedz zgodna z RFC 7807 / ASP.NET Core ProblemDetails. Kazdy blad API
+        (400, 404, 409 i 500 z globalnego handlera) zawiera `traceId`; 500 nie ujawnia
+        szczegolow wyjatku.
       additionalProperties: true
-      required: [title, status]
+      required: [title, status, traceId]
       properties:
         type:
           type: string
@@ -1016,7 +1354,7 @@ components:
           nullable: true
         traceId:
           type: string
-          nullable: true
+          description: Identyfikator do skorelowania odpowiedzi z logami (Seq)
 
 x-signalr:
   hub: /hubs/pulse

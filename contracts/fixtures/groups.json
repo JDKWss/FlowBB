@@ -1,0 +1,36 @@
+[
+  {
+    "id": "22222222-2222-2222-2222-222222222222",
+    "eventId": "11111111-1111-1111-1111-111111111111",
+    "name": "Nowi w Bielsku",
+    "description": "DEMO DATA / SYMULACJA - grupa dla nowych mieszkancow.",
+    "currentMembers": 0,
+    "maxMembers": 6,
+    "tags": [
+      "muzyka"
+    ],
+    "meetingPoint": {
+      "name": "Plac Chrobrego",
+      "latitude": 49.82205,
+      "longitude": 19.04318
+    },
+    "joinedByCurrentUser": false
+  },
+  {
+    "id": "44444444-4444-4444-4444-444444444444",
+    "eventId": "11111111-1111-1111-1111-111111111111",
+    "name": "Rowerzysci",
+    "description": "DEMO DATA / SYMULACJA - wspolny dojazd rowerem.",
+    "currentMembers": 0,
+    "maxMembers": 6,
+    "tags": [
+      "rower"
+    ],
+    "meetingPoint": {
+      "name": "Plac Chrobrego",
+      "latitude": 49.82205,
+      "longitude": 19.04318
+    },
+    "joinedByCurrentUser": false
+  }
+]

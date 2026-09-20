@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using FlowBB.Api.IntegrationTests.Endpoints;
 using FlowBB.Api.IntegrationTests.Infrastructure;
 using FlowBB.Application.Pulse;
 using FlowBB.Domain.Common;
@@ -66,17 +67,70 @@ public class PulseEndpointsTests
         json.GetProperty("alerts").GetArrayLength().Should().Be(0);
     }
 
+    // 21:00 UTC = 23:00 w Warszawie (CEST) -> pozny koniec; 19:30 UTC = 21:30 -> wczesny koniec.
+    private static readonly DateTimeOffset LateEnd = new(2026, 9, 25, 21, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset EarlyEnd = new(2026, 9, 25, 19, 30, 0, TimeSpan.Zero);
+
+    [Fact]
+    public async Task EventPulse_ForLateEvent_ReturnsReturnGapAlertMatchingContract()
+    {
+        await using var host = await HostAsync(r => r
+            .AddEvent(EventId, "Nocny Bieg",
+                Points(21, TransportMode.PublicTransport).Concat(Points(10, TransportMode.Walking)), LateEnd));
+
+        var json = await JsonAsync(await host.Client.GetAsync($"/api/pulse/events/{EventId}"));
+
+        json.GetProperty("participantsWithoutReturn").GetInt32().Should().Be(21);
+        var alert = json.GetProperty("alerts").EnumerateArray().Should().ContainSingle().Subject;
+        alert.GetProperty("code").GetString().Should().Be("ReturnGap");
+        alert.GetProperty("severity").GetString().Should().Be("Warning");
+        alert.GetProperty("message").GetString().Should().Be("21 osob nie ma dogodnego powrotu po 22:00.");
+        alert.EnumerateObject().Should().HaveCount(3);
+    }
+
+    [Fact]
+    public async Task EventPulse_ForEarlyEvent_HasNoReturnGap()
+    {
+        await using var host = await HostAsync(r => r
+            .AddEvent(EventId, "Koncert", Points(21, TransportMode.PublicTransport), EarlyEnd));
+
+        var json = await JsonAsync(await host.Client.GetAsync($"/api/pulse/events/{EventId}"));
+
+        json.GetProperty("participantsWithoutReturn").GetInt32().Should().Be(0);
+        json.GetProperty("alerts").GetArrayLength().Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Summary_SumsParticipantsWithoutReturnOfLateEvents()
+    {
+        await using var host = await HostAsync(r => r
+            .AddEvent(EventId, "Nocny Bieg", Points(7, TransportMode.PublicTransport), LateEnd)
+            .AddEvent(OtherEventId, "Koncert", Points(5, TransportMode.PublicTransport), EarlyEnd));
+
+        var json = await JsonAsync(await host.Client.GetAsync("/api/pulse/summary"));
+
+        json.GetProperty("participantsWithoutReturn").GetInt32().Should().Be(7);
+    }
+
     [Fact]
     public async Task EventPulse_ForUnknownEvent_Returns404ProblemDetails()
     {
         await using var host = await HostAsync();
 
         var response = await host.Client.GetAsync($"/api/pulse/events/{EventId}");
-        var json = await JsonAsync(response);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.NotFound);
+    }
 
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-        response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
-        json.GetProperty("status").GetInt32().Should().Be(404);
+    [Theory]
+    [InlineData("not-a-guid")]
+    [InlineData("00000000-0000-0000-0000-000000000000")]
+    public async Task EventPulse_WithInvalidEventId_Returns400ProblemDetails(string eventId)
+    {
+        await using var host = await HostAsync();
+
+        using var response = await host.Client.GetAsync($"/api/pulse/events/{eventId}");
+
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.BadRequest);
     }
 
     [Theory]
@@ -147,7 +201,7 @@ public class PulseEndpointsTests
 
         var response = await host.Client.GetAsync($"/api/pulse/hexagons?eventId={EventId}");
 
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.NotFound);
     }
 
     [Theory]
@@ -160,6 +214,6 @@ public class PulseEndpointsTests
 
         var response = await host.Client.GetAsync(url);
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.BadRequest);
     }
 }

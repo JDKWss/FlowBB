@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using FlowBB.Api.IntegrationTests.Endpoints;
 using FlowBB.Api.IntegrationTests.Infrastructure;
 using FluentAssertions;
 
@@ -121,8 +122,7 @@ public class AttendanceEndpointsTests
         var response = await setup.Host.Client.PostAsJsonAsync(
             AttendanceUrl(eventId), new { userId, transportMode = "Walking" });
 
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-        response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.NotFound);
         setup.Notifier.Updates.Should().BeEmpty();
     }
 
@@ -133,6 +133,7 @@ public class AttendanceEndpointsTests
     [InlineData("{\"userId\":\"not-a-guid\",\"transportMode\":\"Walking\"}")]
     [InlineData("{\"transportMode\":\"Walking\"}")]
     [InlineData("{}")]
+    [InlineData("")]
     [InlineData("not json")]
     public async Task Post_WithInvalidBody_Returns400WithoutPublishing(string body)
     {
@@ -140,9 +141,24 @@ public class AttendanceEndpointsTests
 
         var response = await PostRawAsync(setup, AttendanceUrl(EventId), body);
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.BadRequest);
         setup.Notifier.Updates.Should().BeEmpty();
         setup.Repository.Count(EventId).Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData("text/plain")]
+    [InlineData(null)]
+    public async Task Post_WithoutJsonContentType_Returns400WithoutPublishing(string? contentType)
+    {
+        await using var setup = await StartAsync();
+        using var content = new StringContent("{}");
+        content.Headers.ContentType = contentType is null ? null : new(contentType);
+
+        var response = await setup.Host.Client.PostAsync(AttendanceUrl(EventId), content);
+
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.BadRequest);
+        setup.Notifier.Updates.Should().BeEmpty();
     }
 
     [Theory]
@@ -154,7 +170,7 @@ public class AttendanceEndpointsTests
 
         var response = await PostRawAsync(setup, url, "{\"userId\":\"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\"transportMode\":\"Walking\"}");
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.BadRequest);
         setup.Notifier.Updates.Should().BeEmpty();
     }
 
@@ -204,12 +220,15 @@ public class AttendanceEndpointsTests
         setup.Repository.Count(EventId).Should().Be(0);
     }
 
-    [Fact]
-    public async Task Delete_ForUnknownEvent_Returns204WithoutPublishing()
+    // deleteAttendance dokumentuje tylko 204 dla poprawnych UUID: nieznane wydarzenie, uzytkownik lub deklaracja sa no-op.
+    [Theory]
+    [InlineData("99999999-9999-9999-9999-999999999999", "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")]
+    [InlineData("11111111-1111-1111-1111-111111111111", "99999999-9999-9999-9999-999999999999")]
+    public async Task Delete_ForUnknownResource_Returns204WithoutPublishing(string eventId, string userId)
     {
         await using var setup = await StartAsync();
 
-        var response = await setup.Host.Client.DeleteAsync($"{AttendanceUrl(Guid.NewGuid())}/{UserId}");
+        var response = await setup.Host.Client.DeleteAsync($"/api/events/{eventId}/attendance/{userId}");
 
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
         setup.Notifier.Updates.Should().BeEmpty();
@@ -217,6 +236,7 @@ public class AttendanceEndpointsTests
 
     [Theory]
     [InlineData("/api/events/00000000-0000-0000-0000-000000000000/attendance/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")]
+    [InlineData("/api/events/not-a-guid/attendance/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")]
     [InlineData("/api/events/11111111-1111-1111-1111-111111111111/attendance/00000000-0000-0000-0000-000000000000")]
     [InlineData("/api/events/11111111-1111-1111-1111-111111111111/attendance/not-a-guid")]
     public async Task Delete_WithInvalidIds_Returns400(string url)
@@ -225,7 +245,7 @@ public class AttendanceEndpointsTests
 
         var response = await setup.Host.Client.DeleteAsync(url);
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.BadRequest);
         setup.Notifier.Updates.Should().BeEmpty();
     }
 }

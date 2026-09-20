@@ -65,7 +65,7 @@ Schemat i seed: [../../database/README.md](../../database/README.md). `down` zac
 
 ## Relacja do Neo4j Aura
 
-`backend/README.md` opisuje dzis uruchomienie API z Aura. Fragment jest alternatywa lokalna, na przyklad do pracy offline i do testow adapterow na prawdziwej bazie. API laczy sie z obiema tak samo (te same zmienne `NEO4J_*`); rozni sie tylko `NEO4J_URI` (`neo4j+s://...` dla Aura) i `NEO4J_DATABASE` (nazwa bazy z Aura albo `neo4j`).
+`backend/README.md` opisuje dzis uruchomienie API z Aura. Fragment jest alternatywa lokalna, na przyklad do pracy offline i do testow adapterow na prawdziwej bazie. Te same zmienne `NEO4J_*` obsluguja oba przypadki; rozni sie tylko `NEO4J_URI` (`neo4j+s://...` dla Aura) i `NEO4J_DATABASE` (nazwa bazy z Aura albo `neo4j`). Fragment zweryfikowano wylacznie na lokalnym kontenerze; polaczenie z Aura nie bylo tu sprawdzane.
 
 ## Weryfikacja (Neo4j 5.26.30 Community, Docker Compose 5.5.1)
 

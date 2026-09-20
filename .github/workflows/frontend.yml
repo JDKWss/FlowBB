@@ -1,0 +1,74 @@
+name: Frontend CI
+
+on:
+  pull_request:
+    paths:
+      - "client/**"
+      - "dashboard/**"
+      - ".github/workflows/frontend.yml"
+  push:
+    branches:
+      - develop
+      - main
+    paths:
+      - "client/**"
+      - "dashboard/**"
+      - ".github/workflows/frontend.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: ${{ matrix.app }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [client, dashboard]
+
+    defaults:
+      run:
+        working-directory: ${{ matrix.app }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: ${{ matrix.app }}/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # oxlint zwraca kod 0 dla samych ostrzezen, wiec bez --deny-warnings lint nigdy nie czerwieni CI. Obie aplikacje maja dzis
+      # 0 ostrzezen, wiec ta polityka nie psuje istniejacego kodu, a kazde nowe ostrzezenie zatrzymuje PR.
+      - name: Lint
+        run: npm run lint -- --deny-warnings
+
+      # Aplikacje nie maja jeszcze skryptu "test". Brak testow nie moze wygladac jak sukces, wiec jest jawnie raportowany
+      # jako ostrzezenie i wpis w podsumowaniu joba, a job przechodzi dopiero po lincie i buildzie.
+      - name: Tests
+        run: |
+          if node -e "process.exit(require('./package.json').scripts?.test ? 0 : 1)"; then
+            npm test
+          else
+            echo "::warning title=Tests NOT RUN (${{ matrix.app }})::package.json has no 'test' script, so no tests were run for this app."
+            {
+              echo "### :warning: ${{ matrix.app }}: tests NOT RUN"
+              echo "\`package.json\` has no \`test\` script. Lint and build ran, but no test verified behaviour."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Build
+        run: npm run build

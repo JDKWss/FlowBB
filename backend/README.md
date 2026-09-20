@@ -40,7 +40,23 @@ a Bolt na porcie `7687`. Stan API sprawdzisz poleceniem:
 Invoke-RestMethod http://localhost:8080/health
 ```
 
-Oczekiwana odpowiedz to `{"status":"ok"}`.
+Oczekiwana odpowiedz to `{"status":"Healthy","timestamp":"..."}`.
+
+### Zywotnosc i gotowosc
+
+| Endpoint | Znaczenie | Odpowiedz |
+|---|---|---|
+| `GET /health` | zywotnosc procesu, nie zalezy od bazy | zawsze `200 {"status":"Healthy",...}` |
+| `GET /health/ready` | gotowosc: API laczy sie z Neo4j | `200 {"status":"Healthy",...}` albo `503 {"status":"Unhealthy",...}` |
+
+Odpowiedz gotowosci nie zawiera szczegolow bledu (host, komunikat wyjatku, dane logowania); przyczyna trafia tylko do logu
+(ostrzezenie `Neo4j readiness check failed`). Sprawdzenie ma limit 5 s, a sterownik Neo4j limity 5 s na polaczenie, pule i ponowienia,
+wiec przy niedostepnej bazie zadanie konczy sie bledem po kilku sekundach (wczesniej po ok. 37 s). Kontener `api` w Compose ma healthcheck
+oparty na `/health/ready` (`docker compose ps` pokazuje `healthy` albo `unhealthy`).
+
+```powershell
+Invoke-WebRequest http://localhost:8080/health/ready -SkipHttpErrorCheck | Select-Object StatusCode, Content
+```
 
 ### Logi w Seq (dodatek developerski)
 

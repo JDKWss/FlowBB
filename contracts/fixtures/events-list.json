@@ -1,0 +1,32 @@
+[
+  {
+    "id": "11111111-1111-1111-1111-111111111111",
+    "name": "Koncert na Rynku",
+    "description": "DEMO DATA / SYMULACJA - wieczorny koncert w centrum Bielska-Bialej.",
+    "startAt": "2026-09-25T19:00:00+02:00",
+    "endAt": "2026-09-25T21:30:00+02:00",
+    "venueName": "Rynek w Bielsku-Bialej",
+    "category": "Culture",
+    "location": {
+      "latitude": 49.82245,
+      "longitude": 19.04431
+    },
+    "participantsCount": 82,
+    "source": "Demo"
+  },
+  {
+    "id": "22222222-2222-2222-2222-222222222222",
+    "name": "Wieczor z Planszowkami",
+    "description": "DEMO DATA / SYMULACJA",
+    "startAt": "2026-10-02T18:00:00+02:00",
+    "endAt": null,
+    "venueName": "Aquarium",
+    "category": "Community",
+    "location": {
+      "latitude": 49.8222,
+      "longitude": 19.0469
+    },
+    "participantsCount": 0,
+    "source": "City"
+  }
+]

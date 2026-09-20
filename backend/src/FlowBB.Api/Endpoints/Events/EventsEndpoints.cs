@@ -1,9 +1,13 @@
 using System.Globalization;
+using FlowBB.Api.Endpoints;
 using FlowBB.Application.Abstractions.Persistence;
 using FlowBB.Application.Events;
+using FlowBB.Application.Events.CreateEvent;
 using FlowBB.Application.Events.GetEvent;
 using FlowBB.Application.Events.GetEvents;
+using Microsoft.AspNetCore.OpenApi;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.OpenApi;
 
 namespace FlowBB.Api.Endpoints.Events;
 
@@ -13,6 +17,7 @@ public static class EventsEndpoints
     {
         services.AddScoped<GetEventsHandler>();
         services.AddScoped<GetEventHandler>();
+        services.AddScoped<CreateEventHandler>();
         services.TryAddScoped<IEventLookup, EventLookup>();
         return services;
     }
@@ -22,9 +27,28 @@ public static class EventsEndpoints
         var group = app.MapGroup("/api/events").WithTags("Events");
 
         group.MapGet("/", GetEventsAsync).WithName("getEvents");
+        group.MapPost("/", CreateEventAsync)
+            .WithName("createEvent")
+            // Bez .Accepts(): routing odrzucalby inny Content-Type kodem 415 bez ProblemDetails. Body czytamy recznie
+            // (ApiRequests), a blad zwracamy jako 400 problem+json, jak pozostale endpointy; opis body dodaje transformer.
+            .AddOpenApiOperationTransformer(DescribeCreateEventBodyAsync)
+            .Produces<EventDetailsResponse>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status500InternalServerError);
         group.MapGet("/{eventId}", GetEventAsync).WithName("getEventById");
 
         return app;
+    }
+
+    private static async Task DescribeCreateEventBodyAsync(
+        OpenApiOperation operation, OpenApiOperationTransformerContext context, CancellationToken cancellationToken)
+    {
+        var schema = await context.GetOrCreateSchemaAsync(typeof(CreateEventRequest), parameterDescription: null, cancellationToken);
+        operation.RequestBody = new OpenApiRequestBody
+        {
+            Required = true,
+            Content = new Dictionary<string, OpenApiMediaType> { ["application/json"] = new() { Schema = schema } }
+        };
     }
 
     private static async Task<IResult> GetEventsAsync(
@@ -32,30 +56,56 @@ public static class EventsEndpoints
     {
         if (!TryParseInstant(from, out var fromValue) || !TryParseInstant(to, out var toValue))
         {
-            return BadRequest("Query parameters 'from' and 'to' must be ISO 8601 date-times.");
+            return ApiProblems.BadRequest("Query parameters 'from' and 'to' must be ISO 8601 date-times.");
         }
 
         var query = new GetEventsQuery(fromValue, toValue);
         if (!query.HasValidRange())
         {
-            return BadRequest("Query parameter 'from' cannot be later than 'to'.");
+            return ApiProblems.BadRequest("Query parameter 'from' cannot be later than 'to'.");
         }
 
         var events = await handler.HandleAsync(query, cancellationToken);
         return TypedResults.Ok(events.Select(item => item.ToSummaryResponse()).ToList());
     }
 
+    private static async Task<IResult> CreateEventAsync(
+        HttpRequest request,
+        CreateEventHandler handler,
+        CancellationToken cancellationToken)
+    {
+        var body = await ApiRequests.ReadJsonAsync<CreateEventRequest>(request, cancellationToken);
+        if (body is null)
+        {
+            return ApiProblems.BadRequest("Request body must be valid JSON.");
+        }
+
+        if (!body.TryToCommand(out var command, out var requestError))
+        {
+            return ApiProblems.BadRequest(requestError);
+        }
+
+        var result = await handler.HandleAsync(command, cancellationToken);
+        if (!result.IsValid)
+        {
+            return ApiProblems.BadRequest(result.ValidationError!);
+        }
+
+        var response = result.Details!.ToResponse();
+        return TypedResults.Created($"/api/events/{response.Id:D}", response);
+    }
+
     // Nieparsowalny lub pusty id to 400, a poprawny, lecz nieznany id to 404 (getEventById w contracts/openapi.yaml).
     private static async Task<IResult> GetEventAsync(
         string eventId, GetEventHandler handler, CancellationToken cancellationToken)
     {
-        if (!Guid.TryParse(eventId, out var id) || id == Guid.Empty)
+        if (!RouteIds.TryParse(eventId, out var id))
         {
-            return BadRequest("Path parameter 'eventId' must be a non-empty UUID.");
+            return ApiProblems.BadRequest("Path parameter 'eventId' must be a non-empty UUID.");
         }
 
         var details = await handler.HandleAsync(id, cancellationToken);
-        return details is null ? EventNotFound() : TypedResults.Ok(details.ToResponse());
+        return details is null ? ApiProblems.NotFound("Event not found.") : TypedResults.Ok(details.ToResponse());
     }
 
     private static bool TryParseInstant(string? raw, out DateTimeOffset? value)
@@ -74,10 +124,4 @@ public static class EventsEndpoints
         value = parsed;
         return true;
     }
-
-    private static IResult BadRequest(string title) =>
-        TypedResults.Problem(title: title, statusCode: StatusCodes.Status400BadRequest);
-
-    private static IResult EventNotFound() =>
-        TypedResults.Problem(title: "Event not found.", statusCode: StatusCodes.Status404NotFound);
 }

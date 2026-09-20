@@ -73,7 +73,7 @@ public sealed class Neo4jFixture : IAsyncLifetime
         var id = Guid.NewGuid();
         await ExecuteAsync(
             """
-            CREATE (:User {UserId: $id, Name: 'Test User', HomeLatitude: $latitude, HomeLongitude: $longitude, TestRunId: $runId})
+            CREATE (:User {UserId: $id, Name: 'Test User', DefaultOriginLatitude: $latitude, DefaultOriginLongitude: $longitude, TestRunId: $runId})
             """,
             new { id = id.ToString("D"), latitude, longitude, runId });
         return id;
@@ -140,8 +140,8 @@ public sealed class Neo4jFixture : IAsyncLifetime
         return ExecuteAsync(
             """
             MATCH (u:User {UserId: $userId}), (e:Event {EventId: $eventId})
-            CREATE (u)-[:IS_GOING_TO {TransportMode: 'Walking', OriginLatitude: u.HomeLatitude,
-                                       OriginLongitude: u.HomeLongitude, UpdatedAt: datetime()}]->(e)
+            CREATE (u)-[:IS_GOING_TO {TransportMode: 'Walking', OriginLatitude: u.DefaultOriginLatitude,
+                                       OriginLongitude: u.DefaultOriginLongitude, UpdatedAt: datetime()}]->(e)
             """,
             new { userId = userId.ToString("D"), eventId = eventId.ToString("D") });
     }

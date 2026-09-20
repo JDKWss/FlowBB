@@ -1,5 +1,4 @@
 using FlowBB.Application.Abstractions.Persistence;
-using FlowBB.Application.Pulse.GetEventPulse;
 
 namespace FlowBB.Application.Pulse.GetPulseSummary;
 
@@ -17,9 +16,12 @@ public sealed class GetPulseSummaryHandler(IPulseDataReader reader, TimeProvider
         var events = await reader.GetEventsAsync(cancellationToken);
 
         var allPoints = new List<PulsePoint>();
+        var participantsWithoutReturn = 0;
         foreach (var info in events)
         {
-            allPoints.AddRange(await reader.GetPointsAsync(info.Id, cancellationToken));
+            var points = await reader.GetPointsAsync(info.Id, cancellationToken);
+            allPoints.AddRange(points);
+            participantsWithoutReturn += DemoReturnGapPolicy.CountParticipantsWithoutReturn(info.EndAt, ModalSplit.From(points));
         }
 
         return new PulseSummary(
@@ -27,6 +29,6 @@ public sealed class GetPulseSummaryHandler(IPulseDataReader reader, TimeProvider
             events.Count,
             allPoints.Count,
             ModalSplit.From(allPoints),
-            GetEventPulseHandler.ParticipantsWithoutReturnInMvp);
+            participantsWithoutReturn);
     }
 }

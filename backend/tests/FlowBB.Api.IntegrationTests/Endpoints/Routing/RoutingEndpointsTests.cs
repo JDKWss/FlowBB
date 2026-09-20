@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using FlowBB.Api.IntegrationTests.Endpoints;
 using FlowBB.Api.IntegrationTests.Infrastructure;
 using FlowBB.Application.Abstractions.Routing;
 using FlowBB.Application.Routing;
@@ -23,12 +24,6 @@ public class RoutingEndpointsTests
     {
         await using var stream = await response.Content.ReadAsStreamAsync();
         return await JsonDocument.ParseAsync(stream);
-    }
-
-    private static void AssertProblem(HttpResponseMessage response, HttpStatusCode expected)
-    {
-        response.StatusCode.Should().Be(expected);
-        response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
     }
 
     [Fact]
@@ -85,7 +80,7 @@ public class RoutingEndpointsTests
     }
 
     [Fact]
-    public async Task GetRoute_ForLateEventWithPublicTransport_StillReturnsStaticReturnsWithoutGap()
+    public async Task GetRoute_ForLateEventWithPublicTransport_ReturnsReturnGapWithEmptyReturns()
     {
         var lateEnd = new DateTimeOffset(2026, 9, 25, 21, 0, 0, TimeSpan.Zero); // 23:00 w Warszawie
         await using var host = await RoutingTestHost.StartAsync(RoutingTestHost.CreateEvent(lateEnd), PublicTransportFromHome);
@@ -93,8 +88,29 @@ public class RoutingEndpointsTests
         using var response = await host.Client.GetAsync(ValidUrl);
 
         using var document = await ReadJsonAsync(response);
+        document.RootElement.GetProperty("returnGap").GetBoolean().Should().BeTrue();
+        document.RootElement.GetProperty("returns").GetArrayLength().Should().Be(0);
+        document.RootElement.GetProperty("outbound").GetProperty("steps").GetArrayLength().Should().BeGreaterThan(0);
+    }
+
+    [Theory]
+    [InlineData(TransportMode.Walking, true)]
+    [InlineData(TransportMode.Bike, true)]
+    [InlineData(TransportMode.Car, true)]
+    [InlineData(TransportMode.PublicTransport, false)] // wydarzenie konczy sie o 21:30 lokalnie
+    public async Task GetRoute_WhenNoReturnGap_KeepsPlannerReturns(TransportMode mode, bool lateEvent)
+    {
+        var end = lateEvent
+            ? new DateTimeOffset(2026, 9, 25, 21, 0, 0, TimeSpan.Zero)  // 23:00 w Warszawie
+            : new DateTimeOffset(2026, 9, 25, 19, 30, 0, TimeSpan.Zero); // 21:30 w Warszawie
+        var attendance = new AttendanceOrigin(new GeoPoint(49.798, 19.08), mode);
+        await using var host = await RoutingTestHost.StartAsync(RoutingTestHost.CreateEvent(end), attendance);
+
+        using var response = await host.Client.GetAsync(ValidUrl);
+
+        using var document = await ReadJsonAsync(response);
         document.RootElement.GetProperty("returnGap").GetBoolean().Should().BeFalse();
-        document.RootElement.GetProperty("returns").GetArrayLength().Should().Be(2);
+        document.RootElement.GetProperty("returns").GetArrayLength().Should().BeGreaterThan(0);
     }
 
     [Fact]
@@ -106,7 +122,7 @@ public class RoutingEndpointsTests
 
         using var response = await host.Client.GetAsync(ValidUrl);
 
-        AssertProblem(response, HttpStatusCode.BadRequest);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.BadRequest);
         planner.Requests.Should().BeEmpty();
     }
 
@@ -130,7 +146,7 @@ public class RoutingEndpointsTests
 
         using var response = await host.Client.GetAsync(ValidUrl);
 
-        AssertProblem(response, HttpStatusCode.NotFound);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.NotFound);
     }
 
     [Fact]
@@ -140,7 +156,7 @@ public class RoutingEndpointsTests
 
         using var response = await host.Client.GetAsync(ValidUrl);
 
-        AssertProblem(response, HttpStatusCode.NotFound);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.NotFound);
     }
 
     [Theory]
@@ -153,7 +169,7 @@ public class RoutingEndpointsTests
 
         using var response = await host.Client.GetAsync(RouteUrl(RoutingTestHost.EventId.ToString(), userId));
 
-        AssertProblem(response, HttpStatusCode.BadRequest);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.BadRequest);
     }
 
     [Theory]
@@ -165,7 +181,7 @@ public class RoutingEndpointsTests
 
         using var response = await host.Client.GetAsync(RouteUrl(eventId, RoutingTestHost.AttendingUserId.ToString()));
 
-        AssertProblem(response, HttpStatusCode.BadRequest);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.BadRequest);
     }
 
     private sealed class FixedPlanner : IRoutePlanner

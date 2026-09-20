@@ -1,0 +1,50 @@
+name: Contracts CI
+
+on:
+  pull_request:
+    paths:
+      - "contracts/**"
+      - ".github/workflows/contracts.yml"
+  push:
+    branches:
+      - develop
+      - main
+    paths:
+      - "contracts/**"
+      - ".github/workflows/contracts.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: contracts-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  openapi:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12.11"
+
+      # Narzedzie wylacznie do CI (nie jest zaleznoscia produktu). Sprawdza zgodnosc ze specyfikacja OpenAPI 3.0
+      # oraz to, ze kazdy $ref wskazuje istniejacy element. Zgodnosc z runtime sprawdza OpenApiParityTests w backend.yml.
+      - name: Install validator
+        run: python -m pip install openapi-spec-validator==0.9.0
+
+      - name: Validate contracts/openapi.yaml
+        run: |
+          if ! openapi-spec-validator contracts/openapi.yaml > "$RUNNER_TEMP/openapi.txt" 2>&1; then
+            echo "::error file=contracts/openapi.yaml::OpenAPI validation failed"
+            # Walidator wypisuje caly dokument w komunikacie bledu, wiec log jest skracany.
+            cut -c1-400 "$RUNNER_TEMP/openapi.txt" | head -20
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/openapi.txt"

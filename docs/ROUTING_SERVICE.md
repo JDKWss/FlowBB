@@ -1,14 +1,13 @@
 # FlowBB road-routing service
 
-Status: **Bounded spike implemented; public activation blocked by the accepted contract**
+Status: **Integrated for the local end-to-end demo; ADR 002 remains Proposed**
 Decision record: [ADR 002](adr/002-road-routing-engine.md)
 
 Implementation status on `develop` (2026-09-20): the private FastAPI service,
-manual OSMnx artifact builder, synthetic tests, private Compose services and a
-provider-neutral ASP.NET HTTP client exist. The public `IRoutePlanner` remains
-`DemoRoutePlanner`: `PlannerSource` has no truthful road-service value and the
-accepted `RouteResponse` has no route distance or geometry. ADR 002 remains
-`Proposed`; this implementation does not change its decision status.
+OSMnx artifact builder, private Compose services, ASP.NET adapter and composite
+planner are wired. Walking/Bike/Car return `RoadRouting` with distance and
+GeoJSON; PublicTransport and controlled transient fallback use `Demo`.
+ADR 002 remains `Proposed`; integration does not change its governance status.
 
 ## 1. Purpose
 
@@ -22,8 +21,7 @@ spike uses OSMnx and NetworkX against prebuilt, mode-specific OSM graphs. A
 dedicated engine can replace that implementation later without changing the
 public FlowBB API or `IRoutePlanner`.
 
-This document is a design correction only. It does not approve production
-code, a public OpenAPI change, a Docker Compose change or new dependencies.
+This remains a hackathon/local-demo implementation, not a production routing SLO.
 
 ## 2. Architecture and trust boundaries
 
@@ -64,7 +62,7 @@ library, and it must never call FastAPI directly.
 
 `IRoutePlanner` remains the Application boundary. Domain and Application must
 not contain HTTP, FastAPI, OSMnx, NetworkX or engine-specific types. The
-conceptual `RoutingServiceRoutePlanner : IRoutePlanner` belongs in ASP.NET
+`RoutingServiceRoutePlanner : IRoutePlanner` belongs in ASP.NET
 Infrastructure and contains no pathfinding logic.
 
 ## 3. Public and internal APIs
@@ -83,9 +81,9 @@ The resident client supplies event/user identity according to that contract.
 It does not supply a routing-service URL and does not send an origin directly
 to FastAPI.
 
-The current public `RouteResponse` does not expose road geometry or total
-distance. Adding those fields is a separate, explicitly reviewed OpenAPI task.
-This document neither changes nor anticipates acceptance of that delta.
+`JourneyOption` exposes optional `distanceMeters` and a provider-neutral GeoJSON
+`LineString`. They are present for successful `RoadRouting` results and nullable
+for the current Demo/PublicTransport path.
 
 ### Internal routing API
 
@@ -164,7 +162,7 @@ remain spike decisions. They are not part of public OpenAPI.
 6. ASP.NET validates and maps the internal DTO to provider-neutral FlowBB
    models.
 7. FlowBB.Api returns the approved public `RouteResponse`.
-8. After the separate public contract change, React consumes its GeoJSON.
+8. React validates and consumes the public GeoJSON.
 9. MapLibre renders the line; it does not calculate the route.
 
 ## 5. Service responsibility
@@ -343,7 +341,7 @@ correct. Do not invent misleading turn instructions.
 
 ## 10. ASP.NET adapter and configuration
 
-Proposed Infrastructure component:
+Implemented Infrastructure component:
 
 ```text
 RoutingServiceRoutePlanner : IRoutePlanner
@@ -397,9 +395,8 @@ Fallback results must retain the existing visible demo/synthetic provenance.
 Fallback activation is logged and measurable; a fallback success must not make
 the real-routing health check green.
 
-`DemoRoutePlanner` remains deterministic, offline and mandatory. It is both the
-P0 implementation until this proposal is accepted and the controlled runtime
-fallback after integration.
+`DemoRoutePlanner` remains deterministic, offline and mandatory as the
+PublicTransport implementation and controlled transient runtime fallback.
 
 ## 12. Health and observability
 
@@ -441,8 +438,7 @@ docker compose
 |-- routing      FastAPI; private port 8000; mounted/bundled graph artifacts
 |-- routing-prepare  manual profile; populates the routing-data volume
 |-- neo4j        only application runtime database
-|-- client       resident web app
-`-- dashboard    city/admin web app
+`-- seq          local structured-log UI
 ```
 
 Only `api` calls `http://routing:8000` on the private Compose network. The
@@ -450,12 +446,16 @@ Only `api` calls `http://routing:8000` on the private Compose network. The
 override may expose one for debugging. This is one FlowBB repository and one
 deployment, not a separate routing repository.
 
-Prepare artifacts once, then start the runtime stack:
+`routing` is in the Compose profile `real-routing` and `routing-prepare` in the one-shot
+profile `routing-tools`; the default start (`ROUTING_MODE=Demo`) creates neither and the
+API uses `DemoRoutePlanner` directly. To use road routing, set `ROUTING_MODE=RoadRouting` in `.env`, prepare the
+artifacts once, then start the runtime stack with both profiles:
 
 ```bash
-docker compose -f infra/docker-compose.yml \
+docker compose -f infra/docker-compose.yml --env-file .env \
   --profile routing-tools run --rm routing-prepare
-docker compose -f infra/docker-compose.yml up --build
+docker compose -f infra/docker-compose.yml --env-file .env \
+  --profile local-db --profile real-routing up --build
 ```
 
 `routing` mounts `routing-data` read-only and has only Compose `expose: 8000`,
@@ -521,10 +521,8 @@ defer real routing.
 - worker count, given that each worker may duplicate in-memory graphs;
 - whether P0 requires maneuvers or allows `steps: []`;
 - OSM attribution presentation and artifact refresh owner;
-- the separate public OpenAPI change for geometry, distance and planner source.
+- production acceptance of ADR 002 and the operational ownership that follows.
 
-The minimum separate public-contract delta is a truthful road-service
-`PlannerSource` value plus total distance and GeoJSON LineString fields (and
-the corresponding Domain/API mapping). Until that is accepted and ADR 002 is
-accepted, the current deterministic `DemoRoutePlanner` remains the active MVP
-route planner.
+The public contract delta is implemented: `PlannerSource.RoadRouting`, total
+distance and GeoJSON LineString are mapped without exposing engine-specific
+identifiers. The resident client runs on the host and calls only ASP.NET.

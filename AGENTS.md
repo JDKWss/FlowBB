@@ -24,7 +24,7 @@ Demo musi przechodzic caly przeplyw bez recznego poprawiania danych:
 4. Backend C# przelicza agregaty na podstawie zapisanych danych.
 5. SignalR wysyla `PulseUpdated`.
 6. Dashboard bez odswiezania pokazuje zmiane licznika, np. `82 -> 83`.
-7. Uzytkownik widzi trase z `IRoutePlanner` (w MVP: deterministyczny `DemoRoutePlanner`).
+7. Uzytkownik widzi trase z `IRoutePlanner` (`RoadRouting` dla Walking/Bike/Car, deterministyczny `DemoRoutePlanner` dla PublicTransport i kontrolowanego fallbacku).
 8. Uzytkownik dolacza do mikrogrupy CREW.
 9. Dashboard pokazuje zagregowany popyt na mapie heksagonalnej (agregacja w backendzie C#).
 
@@ -38,7 +38,7 @@ Jesli zmiana nie wspiera tego scenariusza, nie jest P0.
 - `POST /api/events/{eventId}/attendance` z idempotencja dla pary user-event.
 - Aktualizacja PULSE przez SignalR.
 - Jednostronicowy dashboard: KPI, wybor wydarzenia, alert luki powrotowej, mapa heksagonow.
-- Prosta karta trasy tam i z powrotem z `DemoRoutePlanner`.
+- Prosta karta trasy tam i z powrotem przez `IRoutePlanner`, z zawsze dostepnym `DemoRoutePlanner` jako fallbackiem.
 - Lista mikrogrup oraz dolaczenie/opuszczenie grupy.
 - Seed demonstracyjny oznaczony w UI jako `DEMO DATA / SYMULACJA`.
 
@@ -65,13 +65,13 @@ Jesli zmiana nie wspiera tego scenariusza, nie jest P0.
 - Baza runtime: Neo4j, sterownik `Neo4j.Driver`. Polaczenie przez zmienne `NEO4J_URI`, `NEO4J_DATABASE`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`.
 - Client: React, Vite, TypeScript; mobile-first aplikacja webowa.
 - Dashboard: React, Vite, TypeScript.
-- Routing: `IRoutePlanner` z `DemoRoutePlanner` jako zawsze dzialajacym fallbackiem; proponowany realny routing Walking/Bike/Car dziala w prywatnej usludze Python/FastAPI wywolywanej przez adapter Infrastructure. PublicTransport pozostaje osobnym problemem (OTP 2 jako ewentualne P1).
+- Routing: `CompositeRoutePlanner` przez `IRoutePlanner`; Walking/Bike/Car korzystaja z prywatnej uslugi Python/FastAPI, a PublicTransport i kontrolowany fallback z deterministycznego `DemoRoutePlanner`. OTP 2 pozostaje ewentualnym P1.
 - Kontenery: Docker Compose.
 - Demo: `/client` w mobilnym rozmiarze viewportu przegladarki, `/dashboard` w przegladarce desktopowej; cloudflared tylko jako awaryjny tunel do API.
 
-Pakiety EF Core i Npgsql, ktore nadal sa w `FlowBB.Infrastructure.csproj`, sa pozostaloscia po wczesniejszym planie i nie naleza do stacku. Ich usuniecie to osobny maly task porzadkowy, wykonywany po potwierdzeniu, ze kod runtime ich nie uzywa (patrz `docs/MVP_WORK_PLAN.md`); do tego czasu nie korzystaj z nich w nowym kodzie.
+Nieuzywane pakiety dawnego stacku relacyjnego zostaly usuniete z `FlowBB.Infrastructure.csproj`, poniewaz nie naleza do stacku. Nie dodawaj ich ponownie bez nowej decyzji architektonicznej i zgody Backend 1 (Kuby).
 
-Nie dodawaj produkcyjnej zaleznosci, frameworka, bazy ani zewnetrznej uslugi bez zgody Backend/Core Leada.
+Nie dodawaj produkcyjnej zaleznosci, frameworka, bazy ani zewnetrznej uslugi bez zgody Backend 1 - Core/Integration (Kuby).
 
 ## 5. Struktura repozytorium
 
@@ -117,78 +117,32 @@ Nie tworz dodatkowych projektow `.csproj`, warstw ani mikroserwisow bez konkretn
 
 ## 6. Wlasciciele i granice pracy
 
-| Rola | Osoba | Odpowiedzialnosc |
+| Rola | Odpowiedzialnosc | Wylaczna wlasnosc |
 |---|---|---|
-| Core Backend Owner | Kuba | integracja backendu, `Program.cs`, SignalR, Attendance Application/API, PULSE API, `DemoRoutePlanner`, Docker Compose calej aplikacji, kontrakty, przeglad zmian |
-| Backend Events | programista modulu Events | domena, Application i endpointy Events oraz implementacja `IEventLookup` |
-| Data/Neo4j Owner | programista bazy danych | usluga Neo4j do Docker Compose, schemat, constraints, seed, Cypher, implementacje repozytoriow `Infrastructure/Neo4j` |
-| Frontend | programista frontend | aplikacja kliencka, widoki, dashboard, klient REST i SignalR |
+| Frontend Owner | Client i Dashboard | `client/**`, `dashboard/**` |
+| Backend 1 - Core/Integration (Kuba) | PULSE, Routing, SignalR, konfiguracja aplikacji i Compose | `Program.cs`, PULSE, Routing, SignalR, `infra/docker-compose.yml` |
+| Backend 2 - Features/Quality | Events, Crew, OpenAPI, CI, testy black-box i dokumentacja | Events, Crew, `contracts/openapi.yaml`, `.github/workflows/**`, runbook |
+| Data/Neo4j Owner | model grafu, adaptery, Cypher, seed i testy na prawdziwym Neo4j | `backend/src/FlowBB.Infrastructure/Neo4j/**`, `database/**`, `docs/NEO4J_CONTRACT.md` |
 
-Rola integracyjna (routing i infrastruktura calej aplikacji) nalezy do Core Backend Ownera. Szczegoly podzialu: `docs/MVP_WORK_PLAN.md`.
+Wylaczna wlasnosc oznacza, ze pozostale role nie edytuja tych plikow bez przekazania zadania przez wlasciciela. Obszary niewymienione w tabeli sa przydzielane w issue, ale przydzial nie moze naruszac wylacznej wlasnosci.
 
-### Core Backend Owner - wlasciciel: Kuba
+Kuba pozostaje liderem projektu. Zatwierdza wspolne kontrakty i nowe zaleznosci, integruje walking skeleton i pilnuje, aby `develop` oraz `main` pozostawaly demonstracyjne i uruchamialne.
 
-Kuba specjalizuje sie w C# i ASP.NET Core. Odpowiada za:
-
-- architekture lekkiego backendu i kontrakty API;
-- akceptacje zmian w `contracts/` i nowych zaleznosci;
-- integracje backendu, w tym `Program.cs` i walking skeleton;
-- Attendance: warstwa Application i endpointy `POST`/`DELETE` Attendance;
-- SignalR `PulseHub`, zdarzenie `PulseUpdated`, PULSE API i agregacje PULSE po stronie C#;
-- `IRoutePlanner` i `DemoRoutePlanner` (routing MVP), w tym CORS i health check;
-- Docker Compose na poziomie calej aplikacji oraz `.env.example` (wspolnie z Data/Neo4j w czesci Neo4j);
-- Crew (domena i endpointy) do czasu wskazania innego wlasciciela;
-- przeglad zmian innych obszarow;
-- pilnowanie, aby `main` byl demonstracyjny i uruchamialny.
-
-Kuba nie bierze na siebie budowania obu interfejsow. Pomaga frontendowi kontraktami, fixture'ami i klientem SignalR, ale nie przejmuje calego dashboardu.
-
-### Backend Events
-
-Odpowiada za:
-
-- domene, warstwe Application i endpointy Events (`GET /api/events`, `GET /api/events/{eventId}`);
-- implementacje `IEventLookup`, z ktorej korzysta Attendance;
-- testy kontraktowe Events (na wlasnym branchu, do czasu gdy przechodza).
-
-### Data/Neo4j Owner
-
-Odpowiada za:
-
-- przygotowanie uslugi Neo4j do Docker Compose (wlaczenie do calego Compose robi Core Backend Owner);
-- schemat Neo4j, constraints i indeksy;
-- seed kontrolowany, powtarzalny i oznaczony jako syntetyczny;
-- zapytania Cypher oraz implementacje repozytoriow w `Infrastructure/Neo4j`;
-- gesty seed uzytkownikow ze wspolrzednymi domowymi w 3-4 obszarach, aby mapa demo nie byla pusta;
-- konsultacje konfiguracji Neo4j (`NEO4J_*`, wersja, wolumeny) i wspolprace z Core Backend Ownerem przy odczytach potrzebnych PULSE.
-
-Data/Neo4j Owner nie odpowiada za logike routingu, API ani agregacje PULSE.
-
-### Frontend - wlasciciel: programista frontend
-
-Odpowiada za:
-
-- `/client`: Events -> Event -> Ide -> Route -> Crew;
-- `/dashboard`: KPI + SignalR + mapa + wybor wydarzenia + alerty transportowe i luki powrotowej;
-- wspolny, spojny wyglad klienta i dashboardu;
-- stany loading/error/empty potrzebne w demo;
-- prace na fixture'ach od poczatku, bez czekania na gotowe API.
-
-Najpierw dzialajacy dashboard i prosty `/client`, potem animacje i dopracowanie.
+Frontend Owner odpowiada za caly kod obu interfejsow. Backend 1 odpowiada za integracje backendu oraz uruchamianie calego stosu. Backend 2 rozwija funkcje Events i Crew oraz utrzymuje jakosc kontraktu, CI, testow black-box i dokumentacji. Data/Neo4j Owner samodzielnie utrzymuje model i implementacje persystencji grafowej; pozostale role definiuja wymagane porty i konsultuja odczyty, ale nie pisza Cypher ani seedu.
 
 ### Agenci AI
 
 Claude i Codex wspieraja wlasciciela danego obszaru, ale nie przejmuja odpowiedzialnosci innej osoby bez wyraznego polecenia. W szczegolnosci:
 
-- agent pracujacy nad Attendance nie implementuje Events;
+- agent nie przejmuje plikow nalezacych wylacznie do innej roli;
 - agent backendowy nie projektuje samodzielnie schematu Neo4j;
 - agent nie dodaje EF Core ani drugiej bazy;
-- agent nie zmienia kontraktu OpenAPI bez uzgodnienia z Core Backend.
+- agent nie zmienia kontraktu OpenAPI poza zadaniem Backend 2 zaakceptowanym przez Backend 1.
 
 ## 7. Kontrakty sa zrodlem prawdy
 
 - `contracts/openapi.yaml` i `contracts/fixtures/` definiuja endpointy, DTO, enumy i przykladowe odpowiedzi.
-- Tylko Core Backend akceptuje zmiane kontraktu.
+- `contracts/openapi.yaml` edytuje wylacznie Backend 2 po akceptacji Backend 1 (Kuby).
 - Agent nie zmienia nazw pol, sciezek ani enumow tylko po to, aby ulatwic lokalna implementacje.
 - Gdy kontrakt jest niekompletny, zatrzymaj prace i opisz brak oraz najmniejsza proponowana zmiane.
 - Frontend importuje lub odwzorowuje typy z kontraktu; nie tworzy drugiego, rozbieznego modelu domeny.
@@ -246,8 +200,8 @@ EVENT  PulseUpdated
 ### Dane MZK i routing
 
 - Obecne dane MZK (`data/gtfs/mzk/parsed/`) to odjazdy z przystankow. Nie zawieraja jeszcze pelnych kursow (trips), kolejnosci przystankow, kompletnego powiazania kursow ani wspolrzednych wszystkich przystankow.
-- Nie opisuj ich jako kompletnego systemu routingu. MVP uzywa deterministycznego `DemoRoutePlanner` jako rozwiazania zastepczego. Dane MZK moga pozniej wzbogacac informacje transportowe.
-- Proponowany realny routing drogowy jest prywatna usluga Python/FastAPI w tym samym Docker Compose. Tylko ASP.NET komunikuje sie z nia przez wewnetrzny REST; przegladarka nigdy nie wywoluje jej bezposrednio. Szczegoly: `docs/ROUTING_SERVICE.md` i proponowany ADR 002.
+- Nie opisuj ich jako kompletnego systemu routingu. Dane MZK moga pozniej wzbogacac informacje transportowe, ale nie zasilaja obecnego planera.
+- Routing drogowy Walking/Bike/Car dziala przez prywatna usluge Python/FastAPI w tym samym Docker Compose. Tylko ASP.NET komunikuje sie z nia przez wewnetrzny REST; przegladarka nigdy nie wywoluje jej bezposrednio. PublicTransport i kontrolowany fallback obsluguje `DemoRoutePlanner`. Szczegoly: `docs/ROUTING_SERVICE.md` i ADR 002 o statusie `Proposed`.
 
 ### Ogolne
 
@@ -270,7 +224,9 @@ Przed edycja:
 Podczas pracy:
 
 - Realizuj jedno male zadanie naraz.
+- Jedno issue obejmuje implementacje i testy wymagane do jego ukonczenia; testow nie wydzielaj automatycznie do osobnego zadania.
 - Edytuj tylko przypisany folder oraz uzgodnione pliki wspolne.
+- Przed rozpoczeciem potwierdz wlasciciela plikow z sekcji 6. `Program.cs` edytuje tylko Backend 1, `contracts/openapi.yaml` tylko Backend 2 po akceptacji Backend 1, Neo4j/Cypher/seed tylko Data, a frontend tylko Frontend Owner.
 - Nie wykonuj `git commit`, `git push`, merge ani rebase bez wyraznego polecenia czlowieka.
 - Nie uruchamiaj destrukcyjnych komend ani masowych zmian formatowania.
 - Nie zmieniaj architektury przy okazji naprawy lokalnego bledu.
@@ -299,7 +255,10 @@ Nie instaluj globalnych narzedzi ani nie aktualizuj lockfile bez potrzeby zadani
 ## 11. Git i integracja
 
 - `main` ma zawsze dzialac. Integracja odbywa sie przez `develop`; `develop` ma byc zielony (build i testy przechodza).
+- Jedno issue = jeden branch = jeden PR. Jedna osoba moze miec najwyzej jedno aktywne issue.
 - Jeden czlowiek/agent pracuje w jednym worktree i na jednym branchu. Nie uruchamiaj dwoch piszacych agentow w tym samym katalogu.
+- Dwa rownolegle zadania nie moga modyfikowac tych samych plikow.
+- Zmiana wspolnego kontraktu powstaje i jest scalana przed rozpoczeciem zaleznych taskow implementacyjnych.
 - Nowy worktree: `git worktree add -b <branch> <katalog-obok-repo> origin/develop`. Nie usuwaj cudzych worktree ani branchy i nie uzywaj `--force`.
 - Zalecane galezie: `feature/<obszar>-<temat>`, np. `feature/attendance-pulse`, `feature/routing-mzk`, `chore/<temat>` dla dokumentacji.
 - Czerwone testy (np. testy kontraktowe Events) zostaja na branchu wlasciciela obszaru, nie trafiaja osobno na `develop`.
@@ -312,12 +271,12 @@ Nie instaluj globalnych narzedzi ani nie aktualizuj lockfile bez potrzeby zadani
 Szczegolowe bramki, zaleznosci i kryteria akceptacji: [docs/MVP_WORK_PLAN.md](docs/MVP_WORK_PLAN.md).
 
 1. Dokumentacja i architektura spojne, `develop` zielony.
-2. Crew Domain scalone po przejsciu testow.
+2. Crew jest zarejestrowane z adapterem Neo4j i przechodzi testy.
 3. Schemat Neo4j ma pola wymagane przez Events i Attendance.
 4. Events dziala i udostepnia stabilny kontrakt (`IEventLookup`) dla Attendance.
 5. Attendance jest idempotentne i integruje sie z SignalR (walking skeleton `Ide -> Neo4j -> SignalR -> +1`).
 6. Frontend obsluguje dashboard oraz aktualizacje `count + 1`.
-7. Routing MVP korzysta z `DemoRoutePlanner`; realny routing drogowy wymaga osobnego spike'a uslugi FastAPI. PublicTransport/OTP pozostaje osobnym P1, a po przekroczeniu limitu prac wracamy do `DemoRoutePlanner`.
+7. Routing MVP korzysta z `CompositeRoutePlanner`: RoadRouting dla Walking/Bike/Car oraz `DemoRoutePlanner` dla PublicTransport i kontrolowanego fallbacku.
 8. PULSE spelnia regule prywatnosci `count >= 10`.
 9. Najpozniej 3,5 godziny przed prezentacja: feature freeze.
 10. Po freeze: tylko bugfixy, backup demo, pitch i dwie proby z timerem.
@@ -424,7 +383,7 @@ serializacja, retry, obsluga GeoJSON, walidacja UUID, obsluga HTTP,
 logowanie, mapowanie geometrii lub klient SignalR, jezeli zapewnia je
 framework albo zatwierdzona biblioteka.
 
-Nie dodawaj nowego NuGeta bez zgody Backend/Core Leada. Przed dodaniem podaj:
+Nie dodawaj nowego NuGeta bez zgody Backend 1 (Kuby). Przed dodaniem podaj:
 
 - nazwe i wersje pakietu;
 - problem, ktory rozwiazuje;

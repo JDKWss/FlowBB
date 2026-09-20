@@ -9,19 +9,44 @@ services:
       NEO4J_DATABASE: ${NEO4J_DATABASE:?Set NEO4J_DATABASE in .env}
       NEO4J_USERNAME: ${NEO4J_USERNAME:?Set NEO4J_USERNAME in .env}
       NEO4J_PASSWORD: ${NEO4J_PASSWORD:?Set NEO4J_PASSWORD in .env}
+      # true: przy starcie API wykonuje constraints i idempotentny seed demo (bez tego lista wydarzen jest pusta).
+      NEO4J_SEED_ON_STARTUP: ${NEO4J_SEED_ON_STARTUP:-false}
       Cors__AllowedOrigins__0: ${Cors__AllowedOrigins__0:?Set the client origin in .env}
       Cors__AllowedOrigins__1: ${Cors__AllowedOrigins__1:?Set the dashboard origin in .env}
+      # Demo (domyslnie): DemoRoutePlanner w procesie API, bez wywolan uslugi drogowej. RoadRouting wymaga profilu
+      # real-routing (kontener routing z grafami) i wlacza usluge drogowa z fallbackiem do DemoRoutePlanner.
+      Routing__Mode: ${ROUTING_MODE:-Demo}
       Routing__ServiceUrl: ${ROUTING_SERVICE_URL:-http://routing:8000}
       Routing__TimeoutSeconds: ${ROUTING_TIMEOUT_SECONDS:-3}
       Routing__DemoFallbackEnabled: ${ROUTING_DEMO_FALLBACK_ENABLED:-true}
       # Logi do Seq z kontenera. localhost w kontenerze API to nie kontener Seq, wiec adres z appsettings.json jest nadpisywany.
       # Indeks 1 wskazuje wpis "Seq" w Serilog:WriteTo (0 = Console); zmiana kolejnosci w appsettings.json wymaga zmiany tutaj.
       Serilog__WriteTo__1__Args__serverUrl: ${SEQ_SERVER_URL:-http://seq:5341}
-    # Celowo brak depends_on: routing i Seq nie moga blokowac startu API.
+    # Seed przy starcie nie ma ponowien, wiec API czeka na lokalny Neo4j (profil local-db). required: false pomija to
+    # czekanie z Aura, gdzie usluga neo4j nie istnieje. Celowo brak zaleznosci od routing i Seq: nie moga blokowac startu API.
+    depends_on:
+      neo4j:
+        condition: service_healthy
+        required: false
     ports:
       - "8080:8080"
+    # Gotowosc (issue #55): 200 gdy API laczy sie z Neo4j, 503 gdy nie. Obraz aspnet nie ma curl ani wget,
+    # wiec zapytanie HTTP idzie przez bash i /dev/tcp (bash, grep i head sa w obrazie).
+    healthcheck:
+      test:
+        - CMD
+        - bash
+        - -c
+        - "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /health/ready HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3 && head -n 1 <&3 | grep -q ' 200 '"
+      interval: 15s
+      timeout: 8s
+      retries: 5
+      start_period: 20s
 
+  # Profil real-routing: prywatna usluga routingu drogowego. Bez profilu nie powstaje kontener, ktory bylby unhealthy
+  # (brak grafow do czasu routing-prepare). Uzycie: patrz docs/DEMO_RUNBOOK.md, sekcja 3.
   routing:
+    profiles: ["real-routing"]
     build:
       context: ../routing-service
     environment:
@@ -44,6 +69,9 @@ services:
       retries: 6
       start_period: 30s
 
+  # Jednorazowe narzedzie (docker compose --profile routing-tools run --rm routing-prepare). Celowo w osobnym profilu niz
+  # routing: przy profilu real-routing "up" uruchomilby tez routing-prepare, czyli ponownie pobieral OSM z Overpass i
+  # przebudowywal grafy, gdy routing je czyta.
   routing-prepare:
     profiles: ["routing-tools"]
     build:

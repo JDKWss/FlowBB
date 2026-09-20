@@ -72,7 +72,7 @@ export interface GroupSummary {
   joinedByCurrentUser: boolean
 }
 
-export type PlannerSource = 'Demo' | 'OpenTripPlanner'
+export type PlannerSource = 'Demo' | 'RoadRouting' | 'OpenTripPlanner'
 export type RouteStepType = 'Walk' | 'Transit' | 'Bike' | 'Car' | 'Wait'
 
 export interface RouteStep {
@@ -84,9 +84,16 @@ export interface RouteStep {
 
 export interface JourneyOption {
   durationMinutes: number
+  distanceMeters?: number | null
   departureAt: string
   arrivalAt: string
+  geometry?: RouteGeometry | null
   steps: RouteStep[]
+}
+
+export interface RouteGeometry {
+  type: 'LineString'
+  coordinates: Array<[number, number]>
 }
 
 export interface RouteResponse {

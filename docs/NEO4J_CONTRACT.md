@@ -25,8 +25,8 @@ Wlasciciele: **Data/Neo4j** (schemat, constraints, seed, Cypher, adaptery), **Co
 |---|---|---|---|---|
 | `UserId` | string (Guid) | tak | jest | unikalne |
 | `Name` | string | tak | jest | |
-| `HomeLatitude` | float | tak | jest w schemacie, seedzie `flowbb-queries.cypher` i adapterach | wewnetrzny domyslny punkt rozpoczecia podrozy, `[-90, 90]`. Nazwa docelowa (ADR 001, AGENTS.md sekcja 8). Adaptery czytaja tez zamiennik `DefaultOriginLatitude` (patrz [NEO4J_ADAPTER_RECONCILIATION.md](NEO4J_ADAPTER_RECONCILIATION.md)) |
-| `HomeLongitude` | float | tak | jak wyzej | wewnetrzny domyslny punkt rozpoczecia podrozy, `[-180, 180]`. Zamiennik: `DefaultOriginLongitude` |
+| `DefaultOriginLatitude` | float | tak | jest w seedach, kodzie i adapterze Attendance | wewnetrzny domyslny punkt rozpoczecia podrozy, `[-90, 90]`; nazwa jest spojna z `AGENTS.md` i ADR 001 |
+| `DefaultOriginLongitude` | float | tak | jak wyzej | wewnetrzny domyslny punkt rozpoczecia podrozy, `[-180, 180]` |
 | `Email`, `PasswordHash` | string | nie | sa | pozostalosc po wczesniejszym modelu. Logowanie jest poza zakresem MVP; pola nie moga byc uzywane do uwierzytelniania ani zwracane przez API. |
 
 Dokladny punkt startowy jest danymi wewnetrznymi i nie moze byc zwracany przez publiczne API.
@@ -89,8 +89,8 @@ nie zmienia to odpowiedzialnosci relacji za dane wejsciowe.
 | Pole relacji | Typ | Wymagane | Stan w repo | Uwagi |
 |---|---|---|---|---|
 | `TransportMode` | string | tak | jest w obu seedach i w adapterze Attendance | dokladna nazwa enuma: `Walking`, `PublicTransport`, `Bike`, `Car`, `Unknown` |
-| `OriginLatitude` | float | tak | jak wyzej | snapshot `User.HomeLatitude` (lub zamiennika `DefaultOriginLatitude`), `[-90, 90]` |
-| `OriginLongitude` | float | tak | jak wyzej | snapshot `User.HomeLongitude` (lub zamiennika `DefaultOriginLongitude`), `[-180, 180]` |
+| `OriginLatitude` | float | tak | jak wyzej | snapshot `User.DefaultOriginLatitude`, `[-90, 90]` |
+| `OriginLongitude` | float | tak | jak wyzej | snapshot `User.DefaultOriginLongitude`, `[-180, 180]` |
 | `UpdatedAt` | datetime z offsetem | tak | jak wyzej | czas ostatniego zapisu deklaracji, UTC |
 
 Reguly:
@@ -120,11 +120,13 @@ Definicja: `database/schema.cypher` (idempotentny, uruchomienie: [database/READM
 
 Neo4j Community nie obsluguje constraintow istnienia (`IS NOT NULL`), wiec schemat ich nie zawiera. Kolumna „Wymagane” oznacza, ze pole musi zapisac adapter lub seed; baza tego nie wymusza, wymusza tylko unikalnosc identyfikatorow.
 
-Unikalnosc relacji `IS_GOING_TO` zapewnia `MERGE`. Test na docelowej instancji Aura potwierdzil, ze 10 rownoleglych zapisow tej samej pary tworzy jedna relacje i nie zwieksza licznika wielokrotnie.
+Unikalnosc relacji `IS_GOING_TO` zapewnia `MERGE` (blokuje oba wezly). Potwierdzone testem na prawdziwym Neo4j 5.26 Community: 25 rownoleglych zapisow tej samej pary daje jedna relacje i dokladnie jedno `IsNew` (`Neo4jAttendanceRepositoryTests`). Na Aurze nie sprawdzano.
 
 ## Odczyty PULSE
 
 Adapter `IPulseDataReader` odczytuje z Neo4j wyłącznie współrzędne i `TransportMode` snapshotów, bez identyfikatorów użytkowników. Backend C# wylicza z nich liczniki, modal split i komórki heksagonalne. Publiczne API nie zwraca surowych punktów i ukrywa komórki z `count < 10`.
+
+Odczyt wydarzenia (`GetEventAsync`, `GetEventsAsync`) zwraca dodatkowo `Id`, `Name` i opcjonalne `EndAt` (pole `EndAt` węzła `Event`, `null` gdy go brak). `EndAt` jest czytane z zachowaniem offsetu (`datetime` z Neo4j -> `DateTimeOffset`) i jest jedynym wejściem reguły luki powrotowej: regułę liczy backend C# (`DemoReturnGapPolicy`, patrz [MODULE_PULSE.md](code/MODULE_PULSE.md)), Cypher nie zawiera żadnej logiki ReturnGap. Seed demo ma wydarzenie kończące się po 22:00 (`Nocny Bieg`, 23:15) oraz wcześniejsze (`Koncert na Rynku`, 21:30; warsztaty 12:30; piknik 18:00). Test `Neo4jDemoSeedTests` na prawdziwej instancji sprawdza, że seed wykonany dwa razy daje ten sam stan.
 
 PULSE nie przechowuje niezależnych liczników. Po zatwierdzeniu transakcji Attendance API publikuje przez SignalR zdarzenie `PulseUpdated` zawierające wyłącznie agregaty.
 
@@ -134,7 +136,8 @@ PULSE nie przechowuje niezależnych liczników. Po zatwierdzeniu transakcji Atte
 |---|---|---|
 | 1 | Rozbudowa seedu po otrzymaniu realnych danych ze scrapera | Data/Neo4j |
 | 2 | Idempotentny importer realnych wydarzen | Data/Neo4j + Backend Events |
-| 3 | Interfejsy repozytoriow z Domain do `Application/Abstractions`: decyzja po MVP albo przy pierwszej implementacji repozytorium, nie blokuje MVP | Core Backend Owner + Data/Neo4j |
-| 4 | Usuniecie pakietow EF Core/Npgsql z Infrastructure: osobny maly task porzadkowy po potwierdzeniu, ze kod runtime ich nie uzywa | Data/Neo4j (zgoda Core Backend Owner) |
-| 5 | Ujednolicenie nazw wspolrzednych uzytkownika (`Home*` docelowo, `DefaultOrigin*` w seedzie demonstracyjnym). Do tego czasu adaptery czytaja obie nazwy; plan: [NEO4J_ADAPTER_RECONCILIATION.md](NEO4J_ADAPTER_RECONCILIATION.md) | Data/Neo4j + Core Backend Owner |
+| 3 | Interfejsy repozytoriow z Domain do `Application/Abstractions`: zrobione (#59) - stary `IFlowBbGraphRepository` usuniety, porty MVP leza w `Application/Abstractions/Persistence` | Core Backend Owner + Data/Neo4j |
+| 4 | Pakiety EF Core/Npgsql usuniete z Infrastructure (#58); Neo4j pozostaje jedyna persystencja runtime | Data/Neo4j + Core Backend Owner |
+| 5 | Nazwy wspolrzednych ujednolicone jako `DefaultOriginLatitude/DefaultOriginLongitude` w kodzie, seedach, `AGENTS.md` i ADR 001 | Data/Neo4j + Core Backend Owner |
 | 6 | Adaptery Neo4j (Events, Attendance, PULSE, Crew): zrobione, testy na prawdziwej instancji w `FlowBB.Infrastructure.Tests` | Data/Neo4j |
+| 7 | Initializer bez starego grafu: wspolny `Neo4jDriverFactory`, osadzony `database/schema.cypher` i idempotentny seed demo | Data/Neo4j |

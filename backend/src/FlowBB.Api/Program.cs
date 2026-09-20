@@ -1,7 +1,10 @@
 using FlowBB.Api.ExceptionHandling;
+using FlowBB.Api.Endpoints.Crews;
 using FlowBB.Api.Endpoints.Events;
 using FlowBB.Api.Endpoints.Pulse;
 using FlowBB.Api.Endpoints.Routing;
+using FlowBB.Api.Extensions;
+using FlowBB.Api.Health;
 using FlowBB.Api.Hubs;
 using FlowBB.Api.Logging;
 using FlowBB.Infrastructure.Neo4j;
@@ -26,10 +29,12 @@ builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddPulseHub();
 builder.Services.AddNeo4jPersistence();
+builder.Services.AddNeo4jReadiness();
 builder.Services.AddEventsModule();
 builder.Services.AddAttendanceModule();
 builder.Services.AddPulseModule();
-builder.Services.AddRoutingModule();
+builder.Services.AddRoutingModule(builder.Configuration.GetRoutingMode());
+builder.Services.AddCrewModule();
 
 var routingServiceUrl = builder.Configuration["Routing:ServiceUrl"] ?? "http://routing:8000";
 if (!Uri.TryCreate(routingServiceUrl, UriKind.Absolute, out var routingServiceUri))
@@ -97,9 +102,10 @@ app.MapEventsEndpoints();
 app.MapAttendanceEndpoints();
 app.MapPulseEndpoints();
 app.MapRoutingEndpoints();
-// TODO(#54): AddCrewModule()/MapCrewEndpoints() po adapterze ICrewRepository (issue #18).
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }))
+app.MapCrewEndpoints();
+app.MapGet("/health", (TimeProvider clock) => Results.Ok(new HealthResponse("Healthy", clock.GetUtcNow())))
     .WithName("getHealth");
+app.MapReadinessEndpoint();
 
 app.Run();
 

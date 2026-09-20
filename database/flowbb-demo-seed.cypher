@@ -3,10 +3,11 @@
 // Category i Source sa kanonicznymi stringami zgodnymi z enumami backendu.
 // Model nie zawiera pola DemoData. Syntetycznosc wynika z kontrolowanych identyfikatorow i domeny .invalid.
 
-// 1. UZYTKOWNICY (82)
-// Pierwszy identyfikator odpowiada DEMO_USER_ID z klienta. Pozostale sa deterministyczne.
+// 1. UZYTKOWNICY (84: 82 uczestnikow seedu + 2 wolnych uzytkownikow demo)
+// Identyfikator aaaaaaaa... pozostaje dla kompatybilnosci ze smoke testem.
+// Klient uzywa dddddddd...; oba konta poczatkowo nie maja deklaracji ani czlonkostwa w Crew.
 
-UNWIND range(1, 82) AS i
+UNWIND range(1, 83) AS i
 WITH i,
      CASE WHEN i = 1
        THEN 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
@@ -26,11 +27,19 @@ SET u.Name = 'Uzytkownik ' + right('000' + toString(i), 3),
     u.DefaultOriginLongitude = origin[1] + ((i - 1) % 5) * 0.00008
 RETURN count(u) AS UsersCreatedOrUpdated;
 
-// Przywraca dokladny punkt startowy glownego uzytkownika z golden-event.json.
+// Przywraca dokladny punkt startowy istniejacego uzytkownika fixture.
 MATCH (u:User {UserId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'})
 SET u.DefaultOriginLatitude = 49.81272,
     u.DefaultOriginLongitude = 19.03384
 RETURN count(u) AS PrimaryUserUpdated;
+
+MERGE (u:User {UserId: 'dddddddd-dddd-dddd-dddd-dddddddddddd'})
+SET u.Name = 'Dawid Demo',
+    u.Email = 'dawid.demo@flowbb.invalid',
+    u.PasswordHash = 'SYNTHETIC_ACCOUNT_NOT_FOR_LOGIN',
+    u.DefaultOriginLatitude = 49.81272,
+    u.DefaultOriginLongitude = 19.03384
+RETURN count(u) AS DedicatedDemoUserUpdated;
 
 // 2. MIEJSCA (4)
 
@@ -154,7 +163,13 @@ MERGE (e)-[:HAS_TAG]->(t)
 RETURN count(*) AS HasTagRelationships;
 
 // 11. USER -[:IS_GOING_TO]-> EVENT
-// Zakresy odtwarzaja participantsCount 82, 46, 28 i 64 z mocka.
+// Zakresy od uzytkownika nr 2 odtwarzaja participantsCount 82, 46, 28 i 64 z mocka.
+// Uzytkownicy demo aaaaaaaa-... i dddddddd-... nie uczestnicza w zadnym wydarzeniu.
+
+MATCH (demo:User {UserId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'})
+OPTIONAL MATCH (demo)-[old:IS_GOING_TO]->(:Event)
+DELETE old
+RETURN count(old) AS DemoAttendanceRemoved;
 
 UNWIND [
   {Count: 82, E: '11111111-1111-1111-1111-111111111111', Updated: '2026-09-19T12:00:00Z'},
@@ -166,12 +181,9 @@ MATCH (e:Event {EventId: batch.E})
 OPTIONAL MATCH (:User)-[old:IS_GOING_TO]->(e)
 DELETE old
 WITH DISTINCT batch, e
-UNWIND range(1, batch.Count) AS i
+UNWIND range(2, batch.Count + 1) AS i
 WITH e, batch, i,
-     CASE WHEN i = 1
-       THEN 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
-       ELSE 'd1000000-0000-0000-0000-' + right('000000000000' + toString(i), 12)
-     END AS userId
+     'd1000000-0000-0000-0000-' + right('000000000000' + toString(i), 12) AS userId
 MATCH (u:User {UserId: userId})
 MERGE (u)-[attendance:IS_GOING_TO]->(e)
 SET attendance.TransportMode = ['Walking', 'PublicTransport', 'Bike', 'Car', 'Unknown'][(i - 1) % 5],
@@ -209,7 +221,12 @@ MERGE (c)-[:FOR_EVENT]->(e)
 RETURN count(*) AS ForEventRelationships;
 
 // 14. USER -[:MEMBER_OF]-> CREW
-// Glowny uzytkownik nie nalezy do zadnej z grup. Liczniki grup wynosza 4 i 6 jak w mocku.
+// Uzytkownicy demo nie naleza do zadnej grupy. Liczniki grup wynosza 4 i 6 jak w mocku.
+
+MATCH (demo:User {UserId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'})
+OPTIONAL MATCH (demo)-[old:MEMBER_OF]->(:Crew)
+DELETE old
+RETURN count(old) AS DemoCrewMembershipsRemoved;
 
 UNWIND [
   {C: '22222222-2222-2222-2222-222222222222', From: 2, To: 5},
@@ -237,10 +254,10 @@ RETURN count(*) AS OrganizationMemberships;
 // Zapytania ponizej sa kontrolne i nie sa wykonywane automatycznie przez backend.
 
 // 16. KONTROLA LICZBY WEZLOW SEEDU
-// Oczekiwane: User=82, Event=4, Venue=4, BusinessOwner=1, Tag=4, Crew=2.
+// Oczekiwane: User=84, Event=4, Venue=4, BusinessOwner=1, Tag=4, Crew=2.
 
 MATCH (n)
-WHERE (n:User AND (n.UserId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' OR n.UserId STARTS WITH 'd1000000-'))
+WHERE (n:User AND (n.UserId IN ['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'dddddddd-dddd-dddd-dddd-dddddddddddd'] OR n.UserId STARTS WITH 'd1000000-'))
    OR (n:Event AND n.EventId IN [
         '11111111-1111-1111-1111-111111111111',
         '33333333-3333-3333-3333-333333333333',
@@ -287,7 +304,7 @@ RETURN e.EventId AS InvalidEventId, venueCount;
 // Oczekiwane: InvalidCoordinates=0.
 
 MATCH (n)
-WHERE (n:User AND (n.UserId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' OR n.UserId STARTS WITH 'd1000000-') AND
+WHERE (n:User AND (n.UserId IN ['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'dddddddd-dddd-dddd-dddd-dddddddddddd'] OR n.UserId STARTS WITH 'd1000000-') AND
       (n.DefaultOriginLatitude < -90 OR n.DefaultOriginLatitude > 90 OR
        n.DefaultOriginLongitude < -180 OR n.DefaultOriginLongitude > 180))
    OR (n:Venue AND n.VenueId STARTS WITH 'seed-venue-' AND
@@ -334,3 +351,17 @@ RETURN InvalidEvents,
            OR attendance.UpdatedAt IS NULL
          THEN 1
        END) AS InvalidAttendanceSnapshots;
+
+// 22. KONTROLA WOLNYCH UZYTKOWNIKOW DEMO
+// Oczekiwane dla obu wierszy: DemoAttendance=0, DemoCrewMemberships=0.
+
+MATCH (demo:User)
+WHERE demo.UserId IN [
+  'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+  'dddddddd-dddd-dddd-dddd-dddddddddddd'
+]
+OPTIONAL MATCH (demo)-[attendance:IS_GOING_TO]->(:Event)
+WITH demo, count(attendance) AS DemoAttendance
+OPTIONAL MATCH (demo)-[membership:MEMBER_OF]->(:Crew)
+RETURN demo.UserId AS UserId, DemoAttendance, count(membership) AS DemoCrewMemberships
+ORDER BY UserId;

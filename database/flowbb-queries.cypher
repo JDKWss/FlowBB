@@ -8,18 +8,18 @@
 // 2. UŻYTKOWNICY — zaznacz od UNWIND do średnika i uruchom
 
 UNWIND [
-  {UserId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', Email: 'ania.demo@flowbb.local', Name: 'Ania Nowak', HomeLatitude: 49.8225, HomeLongitude: 19.0444},
-  {UserId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', Email: 'bartek.demo@flowbb.local', Name: 'Bartek Kowalski', HomeLatitude: 49.8155, HomeLongitude: 19.0340},
-  {UserId: 'cccccccc-cccc-cccc-cccc-cccccccccccc', Email: 'celina.demo@flowbb.local', Name: 'Celina Wiśniewska', HomeLatitude: 49.8330, HomeLongitude: 19.0520},
-  {UserId: 'dddddddd-dddd-dddd-dddd-dddddddddddd', Email: 'dawid.demo@flowbb.local', Name: 'Dawid Pietrzyk', HomeLatitude: 49.8050, HomeLongitude: 19.0340}
+  {UserId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', Email: 'ania.demo@flowbb.local', Name: 'Ania Nowak', DefaultOriginLatitude: 49.8225, DefaultOriginLongitude: 19.0444},
+  {UserId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', Email: 'bartek.demo@flowbb.local', Name: 'Bartek Kowalski', DefaultOriginLatitude: 49.8155, DefaultOriginLongitude: 19.0340},
+  {UserId: 'cccccccc-cccc-cccc-cccc-cccccccccccc', Email: 'celina.demo@flowbb.local', Name: 'Celina Wiśniewska', DefaultOriginLatitude: 49.8330, DefaultOriginLongitude: 19.0520},
+  {UserId: 'dddddddd-dddd-dddd-dddd-dddddddddddd', Email: 'dawid.demo@flowbb.local', Name: 'Dawid Pietrzyk', DefaultOriginLatitude: 49.81272, DefaultOriginLongitude: 19.03384}
 ] AS row
 MERGE (u:User {UserId: row.UserId})
 SET u.Email = row.Email,
     u.PasswordHash = 'DEMO_HASH_NOT_FOR_AUTHENTICATION',
     u.Name = row.Name,
-    u.HomeLatitude = row.HomeLatitude,
-    u.HomeLongitude = row.HomeLongitude
-REMOVE u.DefaultOriginLatitude, u.DefaultOriginLongitude, u.DemoData
+    u.DefaultOriginLatitude = row.DefaultOriginLatitude,
+    u.DefaultOriginLongitude = row.DefaultOriginLongitude
+REMOVE u.HomeLatitude, u.HomeLongitude, u.DemoData
 RETURN count(u) AS UsersCreatedOrUpdated;
 
 // 3. MIEJSCA
@@ -150,7 +150,7 @@ MERGE (u)-[:LIKES_TAG]->(t)
 RETURN count(*) AS LikesTagRelationships;
 
 // 12. USER -[:IS_GOING_TO]-> EVENT — ze snapshotem (TransportMode, OriginLatitude/Longitude, UpdatedAt)
-// Punkt startu to kopia HomeLatitude/HomeLongitude użytkownika z chwili deklaracji.
+// Punkt startu to kopia DefaultOriginLatitude/DefaultOriginLongitude użytkownika z chwili deklaracji.
 
 UNWIND [
   {UserId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', EventId: '11111111-1111-1111-1111-111111111111', TransportMode: 'PublicTransport'},
@@ -163,8 +163,8 @@ MATCH (u:User {UserId: row.UserId})
 MATCH (e:Event {EventId: row.EventId})
 MERGE (u)-[r:IS_GOING_TO]->(e)
 SET r.TransportMode = row.TransportMode,
-    r.OriginLatitude = u.HomeLatitude,
-    r.OriginLongitude = u.HomeLongitude,
+    r.OriginLatitude = u.DefaultOriginLatitude,
+    r.OriginLongitude = u.DefaultOriginLongitude,
     r.UpdatedAt = datetime('2026-09-20T08:00:00Z')
 RETURN count(*) AS GoingToRelationships;
 

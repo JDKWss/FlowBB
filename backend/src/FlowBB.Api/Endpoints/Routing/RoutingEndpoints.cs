@@ -1,3 +1,4 @@
+using FlowBB.Api.Endpoints;
 using FlowBB.Application.Abstractions.Routing;
 using FlowBB.Application.Routing.GetEventRoute;
 using FlowBB.Infrastructure.Routing;
@@ -7,9 +8,28 @@ namespace FlowBB.Api.Endpoints.Routing;
 
 public static class RoutingEndpoints
 {
+    /// <summary>
+    /// Rejestruje modul trasy dla wybranego trybu. W trybie <see cref="RoutingMode.Demo"/> <c>IRoutePlanner</c> to
+    /// <c>DemoRoutePlanner</c> (bez wywolan uslugi drogowej); w <see cref="RoutingMode.RoadRouting"/> planer zlozony z fallbackiem.
+    /// </summary>
+    public static IServiceCollection AddRoutingModule(this IServiceCollection services, RoutingMode mode)
+    {
+        if (mode == RoutingMode.Demo)
+        {
+            // Musi byc przed AddRoutingModule(): TryAdd zachowuje pierwsza rejestracje IRoutePlanner.
+            services.TryAddSingleton<DemoRoutePlanner>();
+            services.TryAddTransient<IRoutePlanner>(provider => provider.GetRequiredService<DemoRoutePlanner>());
+        }
+
+        return services.AddRoutingModule();
+    }
+
     public static IServiceCollection AddRoutingModule(this IServiceCollection services)
     {
-        services.TryAddSingleton<IRoutePlanner, DemoRoutePlanner>();
+        services.TryAddSingleton<DemoRoutePlanner>();
+        services.TryAddTransient<RoutingServiceRoutePlanner>();
+        services.TryAddTransient<CompositeRoutePlanner>();
+        services.TryAddTransient<IRoutePlanner>(provider => provider.GetRequiredService<CompositeRoutePlanner>());
         services.AddScoped<GetEventRouteHandler>();
         return services;
     }
@@ -26,32 +46,24 @@ public static class RoutingEndpoints
     private static async Task<IResult> GetEventRouteAsync(
         string eventId, string? userId, GetEventRouteHandler handler, CancellationToken cancellationToken)
     {
-        if (!TryParseId(eventId, out var eventGuid))
+        if (!RouteIds.TryParse(eventId, out var eventGuid))
         {
-            return BadRequest("Path parameter 'eventId' must be a non-empty UUID.");
+            return ApiProblems.BadRequest("Path parameter 'eventId' must be a non-empty UUID.");
         }
 
-        if (!TryParseId(userId, out var userGuid))
+        if (!RouteIds.TryParse(userId, out var userGuid))
         {
-            return BadRequest("Query parameter 'userId' is required and must be a non-empty UUID.");
+            return ApiProblems.BadRequest("Query parameter 'userId' is required and must be a non-empty UUID.");
         }
 
         var result = await handler.HandleAsync(eventGuid, userGuid, cancellationToken);
         return result.Status switch
         {
-            GetEventRouteStatus.EventNotFound => NotFound("Event not found."),
-            GetEventRouteStatus.AttendanceNotFound => NotFound("The user has not declared attendance for this event."),
+            GetEventRouteStatus.EventNotFound => ApiProblems.NotFound("Event not found."),
+            GetEventRouteStatus.AttendanceNotFound => ApiProblems.NotFound("The user has not declared attendance for this event."),
             GetEventRouteStatus.InvalidTransportMode =>
-                BadRequest("The declared transport mode is missing or invalid, so no route can be planned."),
+                ApiProblems.BadRequest("The declared transport mode is missing or invalid, so no route can be planned."),
             _ => TypedResults.Ok(result.Plan!.ToResponse(eventGuid, userGuid))
         };
     }
-
-    private static bool TryParseId(string? raw, out Guid id) => Guid.TryParse(raw, out id) && id != Guid.Empty;
-
-    private static IResult BadRequest(string title) =>
-        TypedResults.Problem(title: title, statusCode: StatusCodes.Status400BadRequest);
-
-    private static IResult NotFound(string title) =>
-        TypedResults.Problem(title: title, statusCode: StatusCodes.Status404NotFound);
 }

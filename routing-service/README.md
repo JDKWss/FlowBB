@@ -13,9 +13,16 @@ demo route, and writes `walk.graphml`, `bike.graphml`, `drive.graphml` and a
 checksummed `manifest.json` into the `routing-data` volume.
 
 ```bash
-docker compose -f infra/docker-compose.yml \
+docker compose -f infra/docker-compose.yml --env-file .env \
   --profile routing-tools run --rm routing-prepare
 ```
+
+The `routing` service belongs to the Compose profile `real-routing` and
+`routing-prepare` to the one-shot profile `routing-tools` (so `up` never rebuilds
+the graphs), so a default `docker compose up` starts neither (the API then
+uses `Routing__Mode=Demo`, the deterministic `DemoRoutePlanner`, with no calls to
+this service). To use it, set `ROUTING_MODE=RoadRouting` in `.env` and add
+`--profile real-routing` to `up`.
 
 The ordinary `routing` service only reads those local artifacts and never
 downloads or rebuilds OSM data while handling `/route`.
@@ -23,8 +30,8 @@ downloads or rebuilds OSM data while handling `/route`.
 ## Run and verify
 
 ```bash
-docker compose -f infra/docker-compose.yml up --build routing
-docker compose -f infra/docker-compose.yml exec routing \
+docker compose -f infra/docker-compose.yml --env-file .env --profile real-routing up --build routing
+docker compose -f infra/docker-compose.yml --env-file .env --profile real-routing exec routing \
   python -c 'import json,urllib.request; print(json.load(urllib.request.urlopen("http://localhost:8000/health")))'
 ```
 

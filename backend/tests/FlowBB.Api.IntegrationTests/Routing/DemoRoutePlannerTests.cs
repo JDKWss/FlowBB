@@ -165,9 +165,9 @@ public class DemoRoutePlannerTests
     }
 
     [Fact]
-    public void Planner_HasNoDependencies()
+    public void Planner_PreservesParameterlessConstruction()
     {
-        typeof(DemoRoutePlanner).GetConstructors().Should().ContainSingle()
-            .Which.GetParameters().Should().BeEmpty();
+        typeof(DemoRoutePlanner).GetConstructors()
+            .Should().Contain(constructor => constructor.GetParameters().Length == 0);
     }
 }

@@ -21,7 +21,7 @@ public sealed class DeleteAttendanceHandlerTests
             .SetupSequence(x => x.DeleteAsync(command.EventId, command.UserId, cancellation.Token))
             .ReturnsAsync(new AttendanceDeletePersistenceResult(true, 82, modalSplit))
             .ReturnsAsync(new AttendanceDeletePersistenceResult(false, 82, modalSplit));
-        var handler = new DeleteAttendanceHandler(repository.Object, new FixedTimeProvider(Now));
+        var handler = new DeleteAttendanceHandler(repository.Object, Mock.Of<IPulseDataReader>(), new FixedTimeProvider(Now));
 
         var first = await handler.HandleAsync(command, cancellation.Token);
         var repeated = await handler.HandleAsync(command, cancellation.Token);
@@ -43,12 +43,46 @@ public sealed class DeleteAttendanceHandlerTests
             emptyEventId ? Guid.Empty : Guid.NewGuid(),
             emptyEventId ? Guid.NewGuid() : Guid.Empty);
         var repository = new Mock<IAttendanceRepository>(MockBehavior.Strict);
-        var handler = new DeleteAttendanceHandler(repository.Object, new FixedTimeProvider(Now));
+        var handler = new DeleteAttendanceHandler(repository.Object, Mock.Of<IPulseDataReader>(), new FixedTimeProvider(Now));
 
         var action = () => handler.HandleAsync(command);
 
         await action.Should().ThrowAsync<ArgumentException>();
         repository.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task HandleAsync_ForLateEvent_ReportsParticipantsWithoutReturnFromPublicTransport()
+    {
+        var command = new DeleteAttendanceCommand(Guid.NewGuid(), Guid.NewGuid());
+        var repository = new Mock<IAttendanceRepository>();
+        repository
+            .Setup(x => x.DeleteAsync(command.EventId, command.UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AttendanceDeletePersistenceResult(true, 82, CreateModalSplit()));
+        var reader = new Mock<IPulseDataReader>();
+        reader
+            .Setup(x => x.GetEventAsync(command.EventId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PulseEventInfo(command.EventId, "Nocny Bieg", new DateTimeOffset(2026, 9, 25, 21, 15, 0, TimeSpan.Zero)));
+        var handler = new DeleteAttendanceHandler(repository.Object, reader.Object, new FixedTimeProvider(Now));
+
+        var result = await handler.HandleAsync(command);
+
+        result.ParticipantsWithoutReturn.Should().Be(48); // 23:15 w Warszawie, PublicTransport = 48
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenEventHasNoEnd_ReportsNoReturnGap()
+    {
+        var command = new DeleteAttendanceCommand(Guid.NewGuid(), Guid.NewGuid());
+        var repository = new Mock<IAttendanceRepository>();
+        repository
+            .Setup(x => x.DeleteAsync(command.EventId, command.UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AttendanceDeletePersistenceResult(true, 82, CreateModalSplit()));
+        var handler = new DeleteAttendanceHandler(repository.Object, Mock.Of<IPulseDataReader>(), new FixedTimeProvider(Now));
+
+        var result = await handler.HandleAsync(command);
+
+        result.ParticipantsWithoutReturn.Should().Be(0);
     }
 
     private static ModalSplit CreateModalSplit() =>

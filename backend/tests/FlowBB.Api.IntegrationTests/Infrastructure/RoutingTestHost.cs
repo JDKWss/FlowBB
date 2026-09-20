@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using FlowBB.Infrastructure.Routing;
 
 namespace FlowBB.Api.IntegrationTests.Infrastructure;
 
@@ -49,12 +50,10 @@ public sealed class RoutingTestHost : IAsyncDisposable
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseTestServer();
         builder.Logging.ClearProviders();
+        builder.Services.AddProblemDetails();
         builder.Services.AddSingleton<IEventLookup>(new FakeEventLookup(existingEvent));
         builder.Services.AddSingleton<IAttendanceOriginLookup>(new FakeAttendanceOriginLookup(attendance));
-        if (planner is not null)
-        {
-            builder.Services.AddSingleton(planner);
-        }
+        builder.Services.AddSingleton<IRoutePlanner>(planner ?? new DemoRoutePlanner());
 
         builder.Services.AddRoutingModule();
 

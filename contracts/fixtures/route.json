@@ -1,0 +1,107 @@
+{
+  "eventId": "11111111-1111-1111-1111-111111111111",
+  "userId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "plannerSource": "Demo",
+  "outbound": {
+    "durationMinutes": 24,
+    "distanceMeters": null,
+    "departureAt": "2026-09-25T18:26:00+02:00",
+    "arrivalAt": "2026-09-25T18:50:00+02:00",
+    "geometry": null,
+    "steps": [
+      {
+        "type": "Walk",
+        "instruction": "Idz 6 min do przystanku.",
+        "durationMinutes": 6,
+        "line": null
+      },
+      {
+        "type": "Wait",
+        "instruction": "Poczekaj 5 min na autobus.",
+        "durationMinutes": 5,
+        "line": null
+      },
+      {
+        "type": "Transit",
+        "instruction": "Jedz autobusem linii 7 (demo).",
+        "durationMinutes": 9,
+        "line": "7 (demo)"
+      },
+      {
+        "type": "Walk",
+        "instruction": "Idz 4 min na miejsce wydarzenia.",
+        "durationMinutes": 4,
+        "line": null
+      }
+    ]
+  },
+  "returns": [
+    {
+      "durationMinutes": 24,
+      "distanceMeters": null,
+      "departureAt": "2026-09-25T21:40:00+02:00",
+      "arrivalAt": "2026-09-25T22:04:00+02:00",
+      "geometry": null,
+      "steps": [
+        {
+          "type": "Walk",
+          "instruction": "Idz 4 min do przystanku.",
+          "durationMinutes": 4,
+          "line": null
+        },
+        {
+          "type": "Wait",
+          "instruction": "Poczekaj 5 min na autobus.",
+          "durationMinutes": 5,
+          "line": null
+        },
+        {
+          "type": "Transit",
+          "instruction": "Jedz autobusem linii 7 (demo).",
+          "durationMinutes": 9,
+          "line": "7 (demo)"
+        },
+        {
+          "type": "Walk",
+          "instruction": "Idz 6 min do punktu startu.",
+          "durationMinutes": 6,
+          "line": null
+        }
+      ]
+    },
+    {
+      "durationMinutes": 24,
+      "distanceMeters": null,
+      "departureAt": "2026-09-25T22:10:00+02:00",
+      "arrivalAt": "2026-09-25T22:34:00+02:00",
+      "geometry": null,
+      "steps": [
+        {
+          "type": "Walk",
+          "instruction": "Idz 4 min do przystanku.",
+          "durationMinutes": 4,
+          "line": null
+        },
+        {
+          "type": "Wait",
+          "instruction": "Poczekaj 5 min na autobus.",
+          "durationMinutes": 5,
+          "line": null
+        },
+        {
+          "type": "Transit",
+          "instruction": "Jedz autobusem linii 7 (demo).",
+          "durationMinutes": 9,
+          "line": "7 (demo)"
+        },
+        {
+          "type": "Walk",
+          "instruction": "Idz 6 min do punktu startu.",
+          "durationMinutes": 6,
+          "line": null
+        }
+      ]
+    }
+  ],
+  "returnGap": false
+}

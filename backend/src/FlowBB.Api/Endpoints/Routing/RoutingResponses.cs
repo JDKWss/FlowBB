@@ -3,13 +3,18 @@ using FlowBB.Domain.Routing;
 namespace FlowBB.Api.Endpoints.Routing;
 
 // DTO odpowiadaja schematom RouteStep, JourneyOption i RouteResponse z contracts/openapi.yaml. Enumy sa zwracane jako
-// nazwy (string), a czas w strefie Europe/Warsaw. Odpowiedz nie zawiera wspolrzednych uzytkownika ani punktu startu.
+// nazwy (string), a czas w strefie Europe/Warsaw. Profil uzytkownika ani osobne pole origin nie sa ujawniane;
+// mieszkaniec otrzymuje jedynie geometrie swojej wyliczonej trasy.
 public sealed record RouteStepResponse(string Type, string Instruction, int DurationMinutes, string? Line);
+
+public sealed record RouteGeometryResponse(string Type, IReadOnlyList<IReadOnlyList<double>> Coordinates);
 
 public sealed record JourneyOptionResponse(
     int DurationMinutes,
+    double? DistanceMeters,
     DateTimeOffset DepartureAt,
     DateTimeOffset ArrivalAt,
+    RouteGeometryResponse? Geometry,
     IReadOnlyList<RouteStepResponse> Steps);
 
 public sealed record RouteResponse(
@@ -36,8 +41,16 @@ public static class RouteResponseMapping
     private static JourneyOptionResponse ToResponse(this JourneyOption option) =>
         new(
             option.DurationMinutes,
+            option.DistanceMeters,
             InWarsaw(option.DepartureAt),
             InWarsaw(option.ArrivalAt),
+            option.Geometry is null
+                ? null
+                : new RouteGeometryResponse(
+                    option.Geometry.Type,
+                    option.Geometry.Coordinates
+                        .Select(coordinate => (IReadOnlyList<double>)[coordinate.Longitude, coordinate.Latitude])
+                        .ToList()),
             option.Steps.Select(step => new RouteStepResponse(
                 step.Type.ToString(), step.Instruction, step.DurationMinutes, step.Line)).ToList());
 

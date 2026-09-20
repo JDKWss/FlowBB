@@ -1,0 +1,83 @@
+name: Backend CI
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - "contracts/**"
+      # database/ jest osadzane w buildzie jako zasob (seed), infra/ steruje uruchomieniem API w Compose.
+      - "database/**"
+      - "infra/**"
+      - ".github/workflows/backend.yml"
+  push:
+    branches:
+      - develop
+      - main
+    paths:
+      - "backend/**"
+      - "contracts/**"
+      # database/ jest osadzane w buildzie jako zasob (seed), infra/ steruje uruchomieniem API w Compose.
+      - "database/**"
+      - "infra/**"
+      - ".github/workflows/backend.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('backend/**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        run: dotnet restore backend/FlowBB.sln
+
+      - name: Build
+        run: dotnet build backend/FlowBB.sln --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test backend/FlowBB.sln --no-build --configuration Release
+
+      - name: Verify formatting
+        run: dotnet format backend/FlowBB.sln --verify-no-changes
+
+    # TODO(#45): Add a separate job with a Neo4j service for database integration tests.
+
+  docker-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Wykrywa m.in. brak plikow w kontekscie budowania (np. database/ osadzane jako zasob).
+      - name: Build API image
+        run: docker build --file backend/Dockerfile --tag flowbb-api:ci .
+
+      # .env.example zawiera tylko wartosci przykladowe, wiec nie sa potrzebne zadne sekrety.
+      - name: Validate Compose configuration
+        run: |
+          docker compose -f infra/docker-compose.yml --env-file .env.example config --quiet
+          docker compose -f infra/docker-compose.yml --env-file .env.example --profile local-db config --quiet

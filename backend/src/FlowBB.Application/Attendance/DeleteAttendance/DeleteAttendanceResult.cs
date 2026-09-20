@@ -8,4 +8,5 @@ public sealed record DeleteAttendanceResult(
     bool WasDeleted,
     int ParticipantsCount,
     ModalSplit ModalSplit,
+    int ParticipantsWithoutReturn,
     DateTimeOffset ChangedAt);
