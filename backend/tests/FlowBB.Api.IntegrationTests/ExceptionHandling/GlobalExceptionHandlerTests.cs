@@ -31,7 +31,7 @@ public sealed class GlobalExceptionHandlerTests
     private static async Task<string> BodyAsync(HttpContext context)
     {
         context.Response.Body.Position = 0;
-        return await new StreamReader(context.Response.Body).ReadToEndAsync();
+        return await new StreamReader(context.Response.Body).ReadToEndAsync(CancellationToken.None);
     }
 
     [Fact]

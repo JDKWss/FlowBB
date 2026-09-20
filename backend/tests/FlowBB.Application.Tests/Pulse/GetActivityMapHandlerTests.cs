@@ -11,6 +11,7 @@ public class GetActivityMapHandlerTests
 {
     private const double RynekLatitude = 49.8225;
     private const double RynekLongitude = 19.0444;
+    private const double CoordinateTolerance = 1e-9;
     private const double FarLatitude = 49.7800;
     private const double FarLongitude = 19.1200;
 
@@ -114,7 +115,8 @@ public class GetActivityMapHandlerTests
             .Select(property => property.Name);
 
         exposed.Should().NotContain(["UserId", "Latitude", "Longitude", "Points"]);
-        map.Cells.Single().Vertices.Should().NotContain(v => v.Latitude == RynekLatitude && v.Longitude == RynekLongitude);
+        map.Cells.Single().Vertices.Should().NotContain(v =>
+            Math.Abs(v.Latitude - RynekLatitude) < CoordinateTolerance && Math.Abs(v.Longitude - RynekLongitude) < CoordinateTolerance);
     }
 
     [Fact]
