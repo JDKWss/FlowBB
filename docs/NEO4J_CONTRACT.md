@@ -25,8 +25,8 @@ Wlasciciele: **Data/Neo4j** (schemat, constraints, seed, Cypher, adaptery), **Co
 |---|---|---|---|---|
 | `UserId` | string (Guid) | tak | jest | unikalne |
 | `Name` | string | tak | jest | |
-| `HomeLatitude` | float | tak | brak pod ta nazwa; kod i seed maja `DefaultOriginLatitude` | wewnetrzny domyslny punkt rozpoczecia podrozy, `[-90, 90]` |
-| `HomeLongitude` | float | tak | brak pod ta nazwa; kod i seed maja `DefaultOriginLongitude` | wewnetrzny domyslny punkt rozpoczecia podrozy, `[-180, 180]` |
+| `HomeLatitude` | float | tak | jest w schemacie i seedzie (`database/`); `Domain/Models/User.cs` i stary adapter grafu nadal uzywaja `DefaultOriginLatitude` | wewnetrzny domyslny punkt rozpoczecia podrozy, `[-90, 90]` |
+| `HomeLongitude` | float | tak | jest w schemacie i seedzie (`database/`); `Domain/Models/User.cs` i stary adapter grafu nadal uzywaja `DefaultOriginLongitude` | wewnetrzny domyslny punkt rozpoczecia podrozy, `[-180, 180]` |
 | `Email`, `PasswordHash` | string | nie | sa | pozostalosc po wczesniejszym modelu. Logowanie jest poza zakresem MVP; pola nie moga byc uzywane do uwierzytelniania ani zwracane przez API. |
 
 Dokladny punkt startowy jest danymi wewnetrznymi i nie moze byc zwracany przez publiczne API.
@@ -41,10 +41,12 @@ Dokladny punkt startowy jest danymi wewnetrznymi i nie moze byc zwracany przez p
 | `StartAt` | datetime | tak | jest | |
 | `EndAt` | datetime | nie | jest | opcjonalne |
 | `EventUrl` | string | tak | jest | link do strony zrodlowej wydarzenia |
+| `Category` | string | tak | jest w seedzie | nazwa wartosci `EventCategory` z domeny: `Culture`, `Sport`, `Education`, `Community`, `Other` |
+| `Source` | string | tak | jest w seedzie | nazwa wartosci `EventSource` z domeny: `Demo`, `City`, `External` |
 
 Powiazanie z miejscem: relacja `(Event)-[:HOSTED_AT]->(Venue)` (jest). Kazde wydarzenie ma dokladnie jedno miejsce.
 
-Kategorie wydarzenia sa reprezentowane przez wezly `Tag` i relacje `(Event)-[:HAS_TAG]->(Tag)`. Pola `Category` i `Source` nie wystepuja w modelu.
+`Category` i `Source` to pola wezla `Event` (1:1 z enumami domeny `Event`), a nie wezly `Tag`. Wezly `Tag` i relacja `(Event)-[:HAS_TAG]->(Tag)` pozostaja w seedzie, ale sa poza P0 i adapter Events ich nie czyta. `VenueName` i `Location` wydarzenia adapter odczytuje z wezla `Venue` przez `HOSTED_AT`.
 
 ### `Venue`
 
@@ -74,6 +76,8 @@ Mikrogrupa zgodna z `GroupSummary` z OpenAPI.
 
 Relacje: `(Crew)-[:FOR_EVENT]->(Event)` oraz `(User)-[:MEMBER_OF]->(Crew)`.
 
+Relacja `MEMBER_OF` ma wlasciwosc `JoinedAt` (datetime z offsetem, UTC), ustawiana przy pierwszym dolaczeniu. Ponowne dolaczenie jej nie zmienia (port `ICrewRepository.TryJoinAsync`).
+
 ## Relacje
 
 ### `(User)-[:IS_GOING_TO]->(Event)` - Attendance
@@ -84,10 +88,10 @@ nie zmienia to odpowiedzialnosci relacji za dane wejsciowe.
 
 | Pole relacji | Typ | Wymagane | Stan w repo |
 |---|---|---|---|
-| `TransportMode` | string | tak | brak w ogolnym adapterze grafu i seedzie |
-| `OriginLatitude` | float | tak | brak w ogolnym adapterze grafu i seedzie |
-| `OriginLongitude` | float | tak | brak w ogolnym adapterze grafu i seedzie |
-| `UpdatedAt` | datetime z offsetem | tak | brak w ogolnym adapterze grafu i seedzie |
+| `TransportMode` | string | tak | jest w seedzie; zapis przez adapter: issue #17 |
+| `OriginLatitude` | float | tak | jest w seedzie; zapis przez adapter: issue #17 |
+| `OriginLongitude` | float | tak | jest w seedzie; zapis przez adapter: issue #17 |
+| `UpdatedAt` | datetime z offsetem | tak | jest w seedzie; zapis przez adapter: issue #17 |
 
 Reguly:
 
@@ -106,11 +110,15 @@ Reguly:
 
 ## Constraints i indeksy
 
-| Constraint | Stan |
+Definicja: `database/schema.cypher` (idempotentny, uruchomienie: [database/README.md](../database/README.md)).
+
+| Constraint / indeks | Stan |
 |---|---|
-| `User.UserId`, `Event.EventId`, `Venue.VenueId` - unikalne | jest |
-| `Crew.CrewId` - unikalne | jest |
-| Indeks na `Event.StartAt` | opcjonalnie |
+| `User.UserId`, `Event.EventId`, `Venue.VenueId`, `Crew.CrewId` - unikalne | jest |
+| `Tag.TagId` - unikalne | jest (poza P0) |
+| Indeks zakresu na `Event.StartAt` | jest |
+
+Neo4j Community nie obsluguje constraintow istnienia (`IS NOT NULL`), wiec schemat ich nie zawiera. Kolumna „Wymagane” oznacza, ze pole musi zapisac adapter lub seed; baza tego nie wymusza, wymusza tylko unikalnosc identyfikatorow.
 
 Unikalnosc relacji `IS_GOING_TO` zapewnia `MERGE`. Zachowanie przy rownoleglych zadaniach dla tej samej pary trzeba potwierdzic testem na prawdziwej instancji Neo4j; jesli `MERGE` nie wystarcza, dodaje sie blokade lub constraint na relacji (o ile dostepny w uzywanej edycji).
 
@@ -129,5 +137,5 @@ surowych punktow ani komorek z `count < 10`.
 | 2 | Idempotentny importer realnych wydarzen | Data/Neo4j + Backend Events |
 | 3 | Interfejsy repozytoriow z Domain do `Application/Abstractions`: decyzja po MVP albo przy pierwszej implementacji repozytorium, nie blokuje MVP | Core Backend Owner + Data/Neo4j |
 | 4 | Usuniecie pakietow EF Core/Npgsql z Infrastructure: osobny maly task porzadkowy po potwierdzeniu, ze kod runtime ich nie uzywa | Data/Neo4j (zgoda Core Backend Owner) |
-| 5 | Ujednolicenie `DefaultOrigin*` do zaakceptowanych `Home*` oraz zapis snapshotu `IS_GOING_TO` | Data/Neo4j + Core Backend Owner |
+| 5 | Ujednolicenie `DefaultOrigin*` do zaakceptowanych `Home*` oraz zapis snapshotu `IS_GOING_TO`. Schemat i seed zrobione (issue #6); pozostaje `Domain/Models/User.cs` i stary adapter grafu | Data/Neo4j + Core Backend Owner |
 | 6 | Implementacja adapterow `IAttendanceRepository` i `IPulseDataReader` dla Neo4j | Data/Neo4j |
