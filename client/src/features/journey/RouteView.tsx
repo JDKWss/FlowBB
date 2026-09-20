@@ -8,7 +8,6 @@ import {
   Footprints,
   MapPin,
   Route,
-  Sparkles,
   Timer,
   TriangleAlert,
 } from 'lucide-react'
@@ -18,7 +17,6 @@ import {
   Alert,
   AlertDescription,
   AlertTitle,
-  Badge,
   Button,
   Card,
   Separator,
@@ -58,8 +56,28 @@ const dateFormatter = new Intl.DateTimeFormat('en-GB', {
   month: 'short',
 })
 
+const fullDateFormatter = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Europe/Warsaw',
+  weekday: 'short',
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+})
+
+const calendarDayFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Europe/Warsaw',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+
 function formatTime(value: string) {
   return timeFormatter.format(new Date(value))
+}
+
+function spansCalendarDays(journey: JourneyOption) {
+  return calendarDayFormatter.format(new Date(journey.departureAt))
+    !== calendarDayFormatter.format(new Date(journey.arrivalAt))
 }
 
 function StepIcon({ type }: Pick<RouteStep, 'type'>) {
@@ -112,13 +130,17 @@ function JourneyTimeline({ journey }: { journey: JourneyOption }) {
 }
 
 function JourneyTimes({ journey }: { journey: JourneyOption }) {
+  const showDates = spansCalendarDays(journey)
+
   return (
     <div className="flex items-center gap-3">
       <div>
         <p className="text-2xl font-bold tracking-tight text-white">
           {formatTime(journey.departureAt)}
         </p>
-        <p className="text-xs text-slate-500">Departure</p>
+        <p className="text-xs text-slate-500">
+          Departure{showDates ? ` · ${fullDateFormatter.format(new Date(journey.departureAt))}` : ''}
+        </p>
       </div>
       <div className="flex flex-1 items-center gap-2" aria-hidden="true">
         <Circle className="size-2 shrink-0 fill-primary text-primary" strokeWidth={0} />
@@ -129,7 +151,9 @@ function JourneyTimes({ journey }: { journey: JourneyOption }) {
         <p className="text-2xl font-bold tracking-tight text-white">
           {formatTime(journey.arrivalAt)}
         </p>
-        <p className="text-xs text-slate-500">Arrival</p>
+        <p className="text-xs text-slate-500">
+          Arrival{showDates ? ` · ${fullDateFormatter.format(new Date(journey.arrivalAt))}` : ''}
+        </p>
       </div>
     </div>
   )
@@ -149,10 +173,6 @@ export function RouteView({
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm text-slate-400">{event.name}</p>
         </div>
-        <Badge variant="secondary" className="h-auto bg-white/[0.06] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-neutral-300">
-          <Sparkles aria-hidden="true" size={11} />
-          {route.plannerSource}
-        </Badge>
       </header>
 
       {supportsRouteMap(selectedMode) && route.outbound.geometry && route.outbound.distanceMeters != null && (
@@ -232,6 +252,13 @@ export function RouteView({
                     <p className="font-bold text-white">
                       {formatTime(journey.departureAt)} → {formatTime(journey.arrivalAt)}
                     </p>
+                    {spansCalendarDays(journey) && (
+                      <p className="mt-1 text-xs leading-5 text-slate-400">
+                        {fullDateFormatter.format(new Date(journey.departureAt))}
+                        {' → '}
+                        {fullDateFormatter.format(new Date(journey.arrivalAt))}
+                      </p>
+                    )}
                     <p className="text-xs text-slate-500">
                       {journey.durationMinutes} min · {journey.steps.length}{' '}
                       {journey.steps.length === 1 ? 'step' : 'steps'}

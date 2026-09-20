@@ -111,7 +111,7 @@ export function CreateEventView({
               id="event-name"
               value={form.name}
               maxLength={160}
-              placeholder="FlowBB Demo Event"
+              placeholder="FlowBB Event"
               onChange={event => update('name', event.target.value)}
               required
             />

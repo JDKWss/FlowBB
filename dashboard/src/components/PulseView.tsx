@@ -118,7 +118,6 @@ export function PulseView({
               : ''}
           </p>
         </div>
-        <span className="demo-badge">DEMO DATA / SYMULACJA</span>
       </section>
 
       <section className="pulse-grid">
