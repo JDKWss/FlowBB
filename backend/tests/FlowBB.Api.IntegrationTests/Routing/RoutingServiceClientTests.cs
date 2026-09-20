@@ -108,8 +108,8 @@ public sealed class RoutingServiceClientTests
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken) => Task.FromResult(new HttpResponseMessage(statusCode)
-        {
-            Content = new StringContent(json, Encoding.UTF8, "application/json")
-        });
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
+            });
     }
 }
