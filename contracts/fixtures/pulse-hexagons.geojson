@@ -1,0 +1,30 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "hex-demo-001",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [19.035, 49.818],
+            [19.046, 49.818],
+            [19.052, 49.825],
+            [19.046, 49.832],
+            [19.035, 49.832],
+            [19.029, 49.825],
+            [19.035, 49.818]
+          ]
+        ]
+      },
+      "properties": {
+        "participants": 10,
+        "publicTransport": 6,
+        "walking": 0,
+        "bike": 4,
+        "car": 0
+      }
+    }
+  ]
+}
