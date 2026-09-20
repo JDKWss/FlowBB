@@ -30,12 +30,10 @@ public static class ReadinessExtensions
         {
             Predicate = registration => registration.Tags.Contains(ReadyTag),
             ResponseWriter = WriteAsync
-        });
+        }).WithName("getReadiness");
         return app;
     }
 
     private static Task WriteAsync(HttpContext context, HealthReport report) =>
-        context.Response.WriteAsJsonAsync(new ReadinessResponse(report.Status.ToString(), DateTimeOffset.UtcNow));
-
-    private sealed record ReadinessResponse(string Status, DateTimeOffset Timestamp);
+        context.Response.WriteAsJsonAsync(new HealthResponse(report.Status.ToString(), DateTimeOffset.UtcNow));
 }

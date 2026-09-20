@@ -4,6 +4,7 @@ using FlowBB.Api.Endpoints.Events;
 using FlowBB.Api.Endpoints.Pulse;
 using FlowBB.Api.Endpoints.Routing;
 using FlowBB.Api.Extensions;
+using FlowBB.Api.Health;
 using FlowBB.Api.Hubs;
 using FlowBB.Api.Logging;
 using FlowBB.Infrastructure.Neo4j;
@@ -102,7 +103,7 @@ app.MapAttendanceEndpoints();
 app.MapPulseEndpoints();
 app.MapRoutingEndpoints();
 app.MapCrewEndpoints();
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }))
+app.MapGet("/health", (TimeProvider clock) => Results.Ok(new HealthResponse("Healthy", clock.GetUtcNow())))
     .WithName("getHealth");
 app.MapReadinessEndpoint();
 
