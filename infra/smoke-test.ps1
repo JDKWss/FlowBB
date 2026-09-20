@@ -19,12 +19,9 @@
 [CmdletBinding()]
 param(
     [string]$BaseUrl = 'http://localhost:8080',
-    # Wydarzenie i uzytkownik dla kroku Attendance. Seed demo (database/flowbb-demo-seed.cypher) zapisuje wszystkich
-    # uzytkownikow na "Koncert na Rynku" (1111...), wiec smoke uzywa "Nocnego Biegu" (3333..., 46 uczestnikow) i
-    # uzytkownika nr 82, ktory na nim nie jest. Dzieki temu test tworzy i usuwa wlasna deklaracje bez zmiany danych seedu.
-    [Guid]$EventId = '33333333-3333-3333-3333-333333333333',
-    [Guid]$UserId = 'd1000000-0000-0000-0000-000000000082',
-    # Wydarzenie z mikrogrupami (w seedzie tylko 1111...); uzytkownik nr 82 nie nalezy do zadnej grupy.
+    [Guid]$EventId = '11111111-1111-1111-1111-111111111111',
+    [Guid]$UserId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    # Wydarzenie z mikrogrupami (w seedzie tylko 1111...); uzytkownik demo nie nalezy do zadnej grupy.
     [Guid]$CrewEventId = '11111111-1111-1111-1111-111111111111',
     [ValidateSet('Walking', 'PublicTransport', 'Bike', 'Car', 'Unknown')]
     [string]$TransportMode = 'PublicTransport',
@@ -130,9 +127,9 @@ Test-Step 'POST attendance (pierwszy zapis)' {
     Assert-That ($r.Status -eq 200) "oczekiwano 200, jest $($r.Status): $($r.Raw)"
     Assert-That ($r.Json.transportMode -eq $TransportMode) "tryb w odpowiedzi: $($r.Json.transportMode)"
     Assert-That ($r.Json.participantsCount -ge 1) 'participantsCount < 1'
+    Assert-That ([bool]$r.Json.isNew) 'uzytkownik demo ma juz deklaracje w seedzie (oczekiwano isNew=true)'
     $script:FirstCount = [int]$r.Json.participantsCount
     $script:CreatedByThisRun = [bool]$r.Json.isNew
-    if (-not $r.Json.isNew) { Write-Host '  uwaga: uzytkownik juz deklarowal udzial (isNew=false); sprzatanie zostanie pominiete' -ForegroundColor Yellow }
     "isNew=$($r.Json.isNew), participantsCount=$($r.Json.participantsCount)"
 }
 
@@ -198,7 +195,7 @@ Test-Step 'GET /api/pulse/hexagons (GeoJSON, prywatnosc count >= 10)' {
     }
     Assert-That ($r.Raw -notmatch '(?i)userid') 'odpowiedz zawiera userId'
     $shown = @($r.Json.features).Count
-    if ($shown -eq 0) { Write-Host '  uwaga: brak komorek >= 10 osob (za maly seed?) - mapa demo bedzie pusta' -ForegroundColor Yellow }
+    Assert-That ($shown -gt 0) 'brak komorek >= 10 osob - mapa demo jest pusta'
     "$shown komorek, wszystkie >= 10 osob, bez userId"
 }
 
