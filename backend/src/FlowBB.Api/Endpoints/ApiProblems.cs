@@ -23,6 +23,12 @@ internal static class ApiRequests
 {
     public static async ValueTask<T?> ReadJsonAsync<T>(HttpRequest request, CancellationToken cancellationToken)
     {
+        // Bez naglowka application/json ReadFromJsonAsync rzuca InvalidOperationException (co konczylo sie 500).
+        if (!request.HasJsonContentType())
+        {
+            return default;
+        }
+
         try
         {
             return await request.ReadFromJsonAsync<T>(cancellationToken);
