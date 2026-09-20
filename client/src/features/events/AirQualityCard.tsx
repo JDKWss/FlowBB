@@ -1,4 +1,15 @@
-import { RefreshCw, TriangleAlert, Wind } from 'lucide-react'
+import {
+  IconAlertTriangle,
+  IconCircleCheck,
+  IconClock,
+  IconCloudFog,
+  IconDatabase,
+  IconInfoCircle,
+  IconMapPin,
+  IconMist,
+  IconRefresh,
+  IconWind,
+} from '@tabler/icons-react'
 import { Button, Card } from '../../components/ui'
 import type {
   AirQualityLevel,
@@ -17,10 +28,70 @@ const levelLabels: Record<AirQualityLevel, string> = {
   Unknown: 'Unknown',
 }
 
+const levelHelpers: Record<AirQualityLevel, string> = {
+  VeryGood: 'Excellent air conditions.',
+  Good: 'Fresh air for outdoor activity.',
+  Moderate: 'Air is acceptable for most people.',
+  Sufficient: 'Conditions are fair, but not ideal.',
+  Bad: 'Poor air quality. Limit longer outdoor activity.',
+  VeryBad: 'Very poor air quality. Avoid outdoor exertion.',
+  Unknown: 'Air quality data is currently unavailable.',
+}
+
+const levelVisuals = {
+  VeryGood: {
+    icon: IconWind,
+    accent: 'text-emerald-200',
+    iconClass: 'bg-emerald-300/12 text-emerald-200',
+    gradient: 'rgb(110 231 183 / .12)',
+  },
+  Good: {
+    icon: IconCircleCheck,
+    accent: 'text-emerald-200',
+    iconClass: 'bg-emerald-300/12 text-emerald-200',
+    gradient: 'rgb(110 231 183 / .12)',
+  },
+  Moderate: {
+    icon: IconMist,
+    accent: 'text-amber-200',
+    iconClass: 'bg-amber-300/12 text-amber-200',
+    gradient: 'rgb(252 211 77 / .12)',
+  },
+  Sufficient: {
+    icon: IconCloudFog,
+    accent: 'text-amber-200',
+    iconClass: 'bg-amber-300/12 text-amber-200',
+    gradient: 'rgb(252 211 77 / .12)',
+  },
+  Bad: {
+    icon: IconAlertTriangle,
+    accent: 'text-orange-200',
+    iconClass: 'bg-orange-400/12 text-orange-200',
+    gradient: 'rgb(251 146 60 / .13)',
+  },
+  VeryBad: {
+    icon: IconAlertTriangle,
+    accent: 'text-red-200',
+    iconClass: 'bg-red-400/12 text-red-200',
+    gradient: 'rgb(248 113 113 / .14)',
+  },
+  Unknown: {
+    icon: IconInfoCircle,
+    accent: 'text-zinc-300',
+    iconClass: 'bg-white/[0.06] text-zinc-300',
+    gradient: 'rgb(163 163 163 / .1)',
+  },
+} satisfies Record<AirQualityLevel, {
+  icon: typeof IconWind
+  accent: string
+  iconClass: string
+  gradient: string
+}>
+
 const statusLabels: Record<AirQualityStatus, string> = {
   Fresh: 'Current measurement',
   Stale: 'Older measurement',
-  Fallback: 'Demo fallback',
+  Fallback: 'Fallback measurement',
 }
 
 const formatMeasurement = (measurement: AirQualityMeasurement | null) =>
@@ -48,7 +119,7 @@ export function AirQualityCard({
     return (
       <Card className="p-5" aria-busy="true">
         <p className="flex items-center gap-3 text-sm text-zinc-300">
-          <RefreshCw aria-hidden="true" className="size-5 animate-spin text-primary" />
+          <IconRefresh aria-hidden="true" className="size-5 animate-spin text-primary" />
           Checking air quality…
         </p>
       </Card>
@@ -59,7 +130,7 @@ export function AirQualityCard({
     return (
       <Card className="p-5">
         <div className="flex items-start gap-3">
-          <TriangleAlert aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-amber-300" />
+          <IconAlertTriangle aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-amber-300" />
           <div>
             <p className="font-semibold text-white">Air quality unavailable</p>
             <p className="mt-1 text-sm leading-6 text-zinc-400">
@@ -75,36 +146,44 @@ export function AirQualityCard({
   }
 
   const source = airQuality.source === 'Gios'
-    ? 'Źródło danych: GIOŚ - EKOINFONET'
-    : 'Źródło: dane demonstracyjne FlowBB'
+    ? 'GIOŚ / EKOINFONET'
+    : 'FlowBB fallback snapshot'
+  const visual = levelVisuals[airQuality.qualityLevel]
+  const QualityIcon = visual.icon
 
   return (
-    <Card className="p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground">
-            <Wind aria-hidden="true" className="size-5" />
-          </span>
-          <div>
-            <h2 className="font-semibold text-white">Air quality</h2>
-            <p className="mt-1 text-sm text-zinc-400">{airQuality.station.name}</p>
-          </div>
-        </div>
-        <span className="rounded-full bg-white/[0.07] px-3 py-1 text-xs text-zinc-200">
-          {levelLabels[airQuality.qualityLevel]}
+    <Card
+      className="p-5"
+      style={{
+        background: `radial-gradient(circle at 92% 4%, ${visual.gradient}, transparent 52%), var(--card)`,
+      }}
+    >
+      <h2 className="text-base font-semibold text-white">Air quality</h2>
+
+      <div className="mt-[15px] flex items-center gap-[13px]">
+        <span className={`grid size-[54px] shrink-0 place-items-center rounded-2xl ${visual.iconClass}`}>
+          <QualityIcon aria-hidden="true" className="size-8" stroke={1.7} />
         </span>
+        <div className="min-w-0">
+          <p className={`text-base font-semibold ${visual.accent}`}>
+            {levelLabels[airQuality.qualityLevel]}
+          </p>
+          <p className="mt-1 text-xs leading-[1.45] text-zinc-300">
+            {levelHelpers[airQuality.qualityLevel]}
+          </p>
+        </div>
       </div>
 
-      <dl className="mt-5 grid grid-cols-2 gap-2">
+      <dl className="mt-4 grid grid-cols-2 gap-[7px]">
         {([
           ['PM10', airQuality.pm10],
           ['PM2.5', airQuality.pm25],
           ['NO₂', airQuality.no2],
           ['O₃', airQuality.o3],
         ] as const).map(([label, measurement]) => (
-          <div key={label} className="rounded-2xl bg-white/[0.04] p-3">
-            <dt className="text-xs text-zinc-500">{label}</dt>
-            <dd className="mt-1 text-sm font-semibold text-zinc-100">
+          <div key={label} className="min-w-0 rounded-xl bg-white/[0.04] p-2.5">
+            <dt className="text-[.65rem] text-zinc-500">{label}</dt>
+            <dd className="mt-1 truncate text-xs font-semibold text-zinc-100" title={formatMeasurement(measurement)}>
               {formatMeasurement(measurement)}
             </dd>
           </div>
@@ -113,14 +192,24 @@ export function AirQualityCard({
 
       {airQuality.alert ? (
         <p className="mt-4 flex gap-2 rounded-2xl bg-amber-400/10 p-3 text-sm leading-6 text-amber-100">
-          <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          <IconAlertTriangle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
           {airQuality.alert.message}
         </p>
       ) : null}
 
-      <div className="mt-4 text-xs leading-5 text-zinc-500">
-        <p>{statusLabels[airQuality.status]} · {formatMeasuredAt(airQuality.measuredAt)}</p>
-        <p>{source}</p>
+      <div className="mt-[13px] grid gap-[3px] text-[.65rem] leading-[1.4] text-zinc-500">
+        <p className="flex items-start gap-2">
+          <IconMapPin aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          <span>{airQuality.station.name}</span>
+        </p>
+        <p className="flex items-center gap-2">
+          <IconClock aria-hidden="true" className="size-4 shrink-0" />
+          <span>{statusLabels[airQuality.status]} · {formatMeasuredAt(airQuality.measuredAt)}</span>
+        </p>
+        <p className="flex items-center gap-2">
+          <IconDatabase aria-hidden="true" className="size-4 shrink-0" />
+          <span>{source}</span>
+        </p>
       </div>
     </Card>
   )
