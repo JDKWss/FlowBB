@@ -449,14 +449,13 @@ deployment, not a separate routing repository.
 
 `routing` is in the Compose profile `real-routing` and `routing-prepare` in the one-shot
 profile `routing-tools`; the default start (`ROUTING_MODE=Demo`) creates neither and the
-API uses `DemoRoutePlanner` directly. To use road routing, set `ROUTING_MODE=RoadRouting` in `.env`, prepare the
-artifacts once, then start the runtime stack with both profiles:
+API uses `DemoRoutePlanner` directly. To use road routing, prepare the artifacts once,
+then deliberately enable `RoadRouting` with the optional profile:
 
 ```bash
-docker compose -f infra/docker-compose.yml --env-file .env \
-  --profile routing-tools run --rm routing-prepare
-docker compose -f infra/docker-compose.yml --env-file .env \
-  --profile local-db --profile real-routing up --build
+cd infra
+docker compose --profile routing-tools run --rm routing-prepare
+ROUTING_MODE=RoadRouting docker compose --profile real-routing up --build -d
 ```
 
 `routing` mounts `routing-data` read-only and has only Compose `expose: 8000`,

@@ -14,6 +14,7 @@
     "@hookform/resolvers": "^5.9.1",
     "@microsoft/signalr": "^10.0.11",
     "@mockifydev/react": "^0.1.0",
+    "@tabler/icons-react": "^3.47.0",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-query": "^5.103.1",
     "class-variance-authority": "^0.7.1",

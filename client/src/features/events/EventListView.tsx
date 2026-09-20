@@ -6,7 +6,6 @@ import {
 } from 'lucide-react'
 import type { EventSummary } from '../../types/contracts'
 import { motion, useReducedMotion } from 'motion/react'
-import { DemoBadge } from '../../components/DemoBadge'
 import { Badge, Card, Skeleton, StatePanel } from '../../components/ui'
 import {
   formatEventDate,
@@ -44,9 +43,6 @@ function EventCard({
             <Badge variant="secondary" className="h-auto bg-white/[0.06] px-3 py-1 text-[0.68rem] font-bold uppercase tracking-[0.18em] text-neutral-300">
               {getCategoryLabel(event.category)}
             </Badge>
-            {event.source === 'Demo' && (
-              <DemoBadge compact />
-            )}
           </span>
 
           <span className="flex items-start justify-between gap-4">

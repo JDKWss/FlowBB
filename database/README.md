@@ -12,15 +12,16 @@ Migracje stosuje sie w kolejnosci numerow. Kazda konczy sie aktualizacja pojedyn
 
 ## Uruchomienie na lokalnym kontenerze
 
-Przy kontenerze `neo4j` z profilu `local-db` (`infra/docker-compose.yml`), z katalogu glownego repozytorium i z wczytanym `.env`:
+Domyslny start API wykonuje schemat i seed automatycznie. Ponizsze komendy sa
+potrzebne tylko do ich recznego uruchomienia na dzialajacym lokalnym stacku:
 
 ```bash
-docker compose --profile local-db exec -T neo4j \
-  cypher-shell -u "$NEO4J_USERNAME" -p "$NEO4J_PASSWORD" < database/migrations/001_constraints.cypher
-docker compose --profile local-db exec -T neo4j \
-  cypher-shell -u "$NEO4J_USERNAME" -p "$NEO4J_PASSWORD" < database/migrations/002_event_start_at_index.cypher
-docker compose --profile local-db exec -T neo4j \
-  cypher-shell -u "$NEO4J_USERNAME" -p "$NEO4J_PASSWORD" < database/flowbb-queries.cypher
+docker compose -f infra/docker-compose.yml exec -T neo4j \
+  cypher-shell < database/migrations/001_constraints.cypher
+docker compose -f infra/docker-compose.yml exec -T neo4j \
+  cypher-shell < database/migrations/002_event_start_at_index.cypher
+docker compose -f infra/docker-compose.yml exec -T neo4j \
+  cypher-shell < database/flowbb-queries.cypher
 ```
 
 Wynik kontrolny: `SHOW CONSTRAINTS` pokazuje 9 constraintow `UNIQUENESS`, a `MATCH (version:SchemaVersion {Key: 'flowbb'}) RETURN version.Version, version.Name` zwraca `2` i `002_event_start_at_index`. Wynik seedu obejmuje dodatkowy wezel znacznika schematu.

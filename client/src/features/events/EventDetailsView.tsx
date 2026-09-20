@@ -12,7 +12,6 @@ import {
   MapPin,
   UsersRound,
 } from 'lucide-react'
-import { DemoBadge } from '../../components/DemoBadge'
 import { FlowBackButton } from '../../components/FlowBackButton'
 import { Badge, Button, Card } from '../../components/ui'
 import type { AirQualityResponse, EventDetails } from '../../types/contracts'
@@ -72,9 +71,6 @@ export function EventDetailsView({
             <Badge variant="secondary" className="h-auto bg-white/[0.06] px-3 py-1 text-[0.68rem] font-bold uppercase tracking-[0.18em] text-neutral-300">
               {getCategoryLabel(event.category)}
             </Badge>
-            {event.source === 'Demo' && (
-              <DemoBadge />
-            )}
           </div>
 
           <h1 id="event-title" className="mt-5 text-4xl font-bold leading-[1.05] tracking-[-0.045em] text-white">
@@ -115,21 +111,33 @@ export function EventDetailsView({
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <Card className="p-4">
-            <UsersRound aria-hidden="true" className="size-5 text-primary" />
-            <p className="mt-4 text-2xl font-bold tracking-tight text-white">{event.participantsCount}</p>
-            <p className="mt-1 text-xs leading-5 text-zinc-400">people are already going</p>
+          <Card className="min-h-44 justify-between p-4">
+            <div className="flex items-center gap-2.5">
+              <UsersRound aria-hidden="true" className="size-5 text-primary" />
+              <p className="text-sm font-medium text-zinc-300">Attendees</p>
+            </div>
+            <div className="flex flex-col items-end text-right">
+              <p className="text-xs leading-5 text-zinc-400">people are already going</p>
+              <p className="mt-2 text-[64px] font-bold leading-none tracking-tight text-white tabular-nums">
+                {event.participantsCount}
+              </p>
+            </div>
           </Card>
-          <Card className="p-4">
-            <span className="inline-flex size-5 items-center justify-center rounded-full bg-primary text-xs font-black text-primary-foreground">
-              {event.crewAvailable ? <CircleCheck aria-hidden="true" className="size-5" /> : <CircleMinus aria-hidden="true" className="size-5" />}
-            </span>
-            <p className="mt-4 text-base font-bold text-white">
-              {event.crewAvailable ? 'CREW available' : 'No crews yet'}
-            </p>
-            <p className="mt-1 text-xs leading-5 text-zinc-400">
-              {event.crewAvailable ? 'Join after confirming attendance' : 'Groups are not available yet'}
-            </p>
+          <Card className="min-h-44 justify-between p-4">
+            <div className="flex items-center gap-2.5">
+              <span className="inline-flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                {event.crewAvailable ? <CircleCheck aria-hidden="true" className="size-5" /> : <CircleMinus aria-hidden="true" className="size-5" />}
+              </span>
+              <p className="text-sm font-medium text-zinc-300">Crew</p>
+            </div>
+            <div className="flex flex-col items-end text-right">
+              <p className="text-xs leading-5 text-zinc-400">
+                {event.crewAvailable ? 'Join after confirming attendance' : 'Groups are not available yet'}
+              </p>
+              <p className="mt-2 text-[32px] font-bold leading-[1.05] tracking-tight text-white">
+                {event.crewAvailable ? 'CREW available' : 'No crews yet'}
+              </p>
+            </div>
           </Card>
         </div>
 

@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MotionConfig } from "motion/react";
 import { DeviceMockup, iPhone16 } from "@mockifydev/react";
 
+import "./config/maplibre";
 import App from "./App";
 import "./index.css";
 

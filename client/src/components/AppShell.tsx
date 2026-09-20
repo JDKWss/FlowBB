@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 import { ArrowLeft, Route } from 'lucide-react'
-import { DemoBadge } from './DemoBadge'
 import { Button } from './ui/button'
 import { TooltipProvider } from './ui/tooltip'
 import { StepProgress } from './ui/StepProgress'
@@ -39,7 +38,6 @@ export function AppShell({
         {bare && <header className="shrink-0 bg-background px-5 pb-4 pt-[var(--phone-safe-top,1.25rem)]">
           <div className="mb-5 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5"><Route aria-hidden="true" className="size-7 text-primary" /><span className="text-xl font-extrabold tracking-tight">FlowBB<span className="text-primary">.</span></span></div>
-            <DemoBadge compact />
           </div>
           {currentStep !== undefined && <StepProgress currentStep={currentStep} totalSteps={totalSteps} label={stepLabel} />}
         </header>}

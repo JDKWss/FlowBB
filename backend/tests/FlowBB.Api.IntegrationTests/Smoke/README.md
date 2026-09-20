@@ -9,7 +9,9 @@ Bez zmiennej `FLOWBB_SMOKE_BASE_URL` testy sa **pomijane**, wiec zwykle `dotnet 
 
 ```powershell
 # 1. Stos (patrz docs/DEMO_RUNBOOK.md, sekcja 3). Wlasna nazwa projektu chroni przed kolizja woluminow miedzy worktree.
-docker compose -p flowbb-smoke -f infra/docker-compose.yml --env-file .env --profile local-db up --build -d
+cd infra
+docker compose -p flowbb-smoke up --build -d
+cd ..
 
 # 2. Testy (po tym, jak kontener api jest healthy)
 $env:FLOWBB_SMOKE_BASE_URL = 'http://localhost:8080'
