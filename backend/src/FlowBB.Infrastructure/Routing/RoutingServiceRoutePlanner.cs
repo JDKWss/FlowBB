@@ -17,12 +17,13 @@ public sealed class RoutingServiceRoutePlanner(RoutingServiceClient client) : IR
         }
 
         var outboundCalculation = await client.CalculateAsync(request, cancellationToken);
+        // Powrot jedzie w druga strone: konstruktor RouteRequest przyjmuje (destination, origin), wiec punkty sa tu zamienione.
         var returnRequest = new RouteRequest(
             request.EventId,
             request.EventStartAt,
             request.EventEndAt,
-            request.Origin,
-            request.Destination,
+            destination: request.Origin,
+            origin: request.Destination,
             request.Mode);
         var returnCalculation = await client.CalculateAsync(returnRequest, cancellationToken);
 
