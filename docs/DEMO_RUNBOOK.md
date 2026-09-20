@@ -103,7 +103,8 @@ fallback opisany w sekcji 8.
 | Awaria | Objaw | Co robisz |
 |---|---|---|
 | Neo4j niedostepne | `/health` 200, ale Attendance/PULSE zwracaja 500 | Przelacz na lokalny kontener (`--profile local-db`) i zaladuj seed ponownie; ostatecznie pokaz nagranie z backupu |
-| Brak internetu | Aura nieosiagalna | Lokalny kontener Neo4j; po wdrozeniu routing ma korzystac z offline'owego `DemoRoutePlanner`, bez OTP |
+| Brak internetu | Aura lub kafle mapy nieosiagalne | Lokalny kontener Neo4j; `DemoRoutePlanner` dziala offline. Proponowana prywatna usluga FastAPI ma korzystac z wczesniej przygotowanego lokalnego grafu, ale OpenFreeMap wymaga sieci, dopoki kafle/style nie sa osobno cache'owane |
+| Usluga routingu niedostepna lub graf niezaladowany | Health uslugi nie jest ready albo ASP.NET przekracza timeout | W trybie demo uzyj jawnie skonfigurowanego `DemoRoutePlanner`; nie ukrywaj w ten sposob blednego trybu, nieprawidlowych danych ani rzeczywistego `route_not_found` |
 | SignalR nie laczy sie | Licznik nie zmienia sie na zywo | Odswiez dashboard (odpowiedz REST zawiera aktualny licznik); sprawdz CORS i adres API w `.env` |
 | Telefon nie widzi API | `/client` bez danych | Uzyj mobilnego viewportu w przegladarce na laptopie; awaryjnie tunel `cloudflared` do API |
 | Mapa pusta | Brak komorek na `/api/pulse/hexagons` | Za malo osob w jednej komorce (prog 10): dosiej dane demo lub zmniejsz rozmiar siatki (obecnie 900 m) - to decyzja Core Ownera |
@@ -120,7 +121,12 @@ Backup: nagraj przebieg scenariusza (sekcja 4) i zapisz zrzuty ekranu dashboardu
   `GET /api/events/{eventId}/route?userId={userId}`. Punkt startu i tryb maja
   pochodzic ze snapshotu Attendance, a nie z body zadania. `IRoutePlanner` i
   deterministyczny `DemoRoutePlanner` sa zaimplementowane i podlaczone.
-  Dane MZK sa niekompletne i nie stanowia grafu routingu.
+  Dane MZK sa niekompletne i nie stanowia grafu routingu. Proponowany realny
+  routing Walking/Bike/Car to prywatna usluga Python/FastAPI wywolywana tylko
+  przez adapter ASP.NET `RoutingServiceRoutePlanner`; przegladarka nigdy nie
+  wywoluje jej bezposrednio. Szczegoly opisuje `docs/ROUTING_SERVICE.md`.
+  Geometria i dystans pozostaja wyraznie niezaakceptowana zmiana publicznego
+  kontraktu. PublicTransport nie jest obslugiwany przez te usluge drogowa.
 - PostgreSQL/PostGIS w `data/gtfs/mzk/` to odseparowany PoC, nie baza aplikacji (patrz `docs/adr/001-runtime-persistence.md`).
 - Relacja `IS_GOING_TO` przechowuje `TransportMode`, `OriginLatitude`,
   `OriginLongitude` i `UpdatedAt`. Modal split i mapa PULSE sa wyliczane w C#

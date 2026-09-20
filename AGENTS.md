@@ -65,7 +65,7 @@ Jesli zmiana nie wspiera tego scenariusza, nie jest P0.
 - Baza runtime: Neo4j, sterownik `Neo4j.Driver`. Polaczenie przez zmienne `NEO4J_URI`, `NEO4J_DATABASE`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`.
 - Client: React, Vite, TypeScript; mobile-first aplikacja webowa.
 - Dashboard: React, Vite, TypeScript.
-- Routing: `IRoutePlanner` z `DemoRoutePlanner` jako zawsze dzialajacym fallbackiem; OTP 2 jako P1.
+- Routing: `IRoutePlanner` z `DemoRoutePlanner` jako zawsze dzialajacym fallbackiem; proponowany realny routing Walking/Bike/Car dziala w prywatnej usludze Python/FastAPI wywolywanej przez adapter Infrastructure. PublicTransport pozostaje osobnym problemem (OTP 2 jako ewentualne P1).
 - Kontenery: Docker Compose.
 - Demo: `/client` w mobilnym rozmiarze viewportu przegladarki, `/dashboard` w przegladarce desktopowej; cloudflared tylko jako awaryjny tunel do API.
 
@@ -247,11 +247,12 @@ EVENT  PulseUpdated
 
 - Obecne dane MZK (`data/gtfs/mzk/parsed/`) to odjazdy z przystankow. Nie zawieraja jeszcze pelnych kursow (trips), kolejnosci przystankow, kompletnego powiazania kursow ani wspolrzednych wszystkich przystankow.
 - Nie opisuj ich jako kompletnego systemu routingu. MVP uzywa deterministycznego `DemoRoutePlanner` jako rozwiazania zastepczego. Dane MZK moga pozniej wzbogacac informacje transportowe.
+- Proponowany realny routing drogowy jest prywatna usluga Python/FastAPI w tym samym Docker Compose. Tylko ASP.NET komunikuje sie z nia przez wewnetrzny REST; przegladarka nigdy nie wywoluje jej bezposrednio. Szczegoly: `docs/ROUTING_SERVICE.md` i proponowany ADR 002.
 
 ### Ogolne
 
-- Routing zawsze przechodzi przez `IRoutePlanner`; kod domenowy nie zalezy bezposrednio od OTP.
-- `DemoRoutePlanner` musi dzialac bez internetu i pozostaje dostepny nawet po dodaniu OTP.
+- Routing zawsze przechodzi przez `IRoutePlanner`; Domain i Application nie zaleza od FastAPI, biblioteki grafowej ani OTP.
+- `DemoRoutePlanner` musi dzialac bez internetu i pozostaje dostepny jako kontrolowany fallback. Bledow logicznych, takich jak nieprawidlowy tryb lub brak trasy, nie wolno ukrywac jako danych demo.
 - Operacje join/leave maja byc bezpieczne przy ponowieniu i nie moga podwajac licznikow.
 - Daty przesylaj jako ISO 8601; strefe demo ustal jawnie dla Bielska-Bialej.
 - Sekretow, hasel i kluczy nie zapisuj w repo (w tym `NEO4J_PASSWORD`). Aktualizuj `.env.example`, nigdy `.env`.
@@ -316,7 +317,7 @@ Szczegolowe bramki, zaleznosci i kryteria akceptacji: [docs/MVP_WORK_PLAN.md](do
 4. Events dziala i udostepnia stabilny kontrakt (`IEventLookup`) dla Attendance.
 5. Attendance jest idempotentne i integruje sie z SignalR (walking skeleton `Ide -> Neo4j -> SignalR -> +1`).
 6. Frontend obsluguje dashboard oraz aktualizacje `count + 1`.
-7. Routing MVP korzysta z `DemoRoutePlanner`; OTP ma limit 2 godzin, po nim wracamy do `DemoRoutePlanner`.
+7. Routing MVP korzysta z `DemoRoutePlanner`; realny routing drogowy wymaga osobnego spike'a uslugi FastAPI. PublicTransport/OTP pozostaje osobnym P1, a po przekroczeniu limitu prac wracamy do `DemoRoutePlanner`.
 8. PULSE spelnia regule prywatnosci `count >= 10`.
 9. Najpozniej 3,5 godziny przed prezentacja: feature freeze.
 10. Po freeze: tylko bugfixy, backup demo, pitch i dwie proby z timerem.

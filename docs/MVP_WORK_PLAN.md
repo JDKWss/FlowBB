@@ -10,7 +10,7 @@ Uzupelnia `AGENTS.md` (zasady) i [ADR 001](adr/001-runtime-persistence.md) (baza
 
 | Osoba | Odpowiedzialnosc | Nie robi |
 |---|---|---|
-| Core Backend Owner (Kuba) | integracja backendu, `Program.cs`, SignalR, Attendance Application/API, PULSE API, `DemoRoutePlanner`, Docker Compose calej aplikacji, kontrakty, przeglad zmian | Events, schemat Neo4j, frontend |
+| Core Backend Owner (Kuba) | integracja backendu, `Program.cs`, SignalR, Attendance Application/API, PULSE API, `IRoutePlanner` i `DemoRoutePlanner`, integracja proponowanej prywatnej uslugi routingu, Docker Compose calej aplikacji, kontrakty, przeglad zmian | Events, schemat Neo4j, frontend |
 | Backend Events | domena, Application i endpointy Events, implementacja `IEventLookup`, testy kontraktowe Events | Attendance, Neo4j schema |
 | Data/Neo4j Owner | usluga Neo4j do Docker Compose, schemat, constraints, seed, Cypher, implementacje repozytoriow `Infrastructure/Neo4j`, konsultacje konfiguracji Neo4j | logika routingu, API, agregacja PULSE |
 | Frontend | `/client`, `/dashboard`, klient REST i SignalR | zmiany kontraktu |
@@ -25,7 +25,7 @@ Rola integracyjna nalezy do Core Backend Ownera: integracja backendu, `Program.c
 | Attendance | Application, Api, SignalR (`Hubs`) | encja, handlery, endpointy, testy i adapter `IAttendanceRepository` dla Neo4j sa zaimplementowane | tak |
 | Crew | Domain (`Crews`), Application (`Crews/*`), Api | istnieje model grafu `Crew` i operacje ogolnego repozytorium; brak modulu Application/API | nie |
 | PULSE | Application (`Pulse/*`), Api, `Hubs` | handlery agregacji, endpointy, testy i adapter `IPulseDataReader` dla Neo4j sa zaimplementowane | tak |
-| Routing | Application (`Abstractions/Routing`), Infrastructure (`Routing`) | `IRoutePlanner`, `DemoRoutePlanner`, handler i endpoint sa zaimplementowane | tak |
+| Routing | Domain (`Routing`), Application (`Abstractions/Routing`, `Routing`), Infrastructure (`Routing`), Api (`Endpoints/Routing`); proponowana prywatna usluga Python/FastAPI | `IRoutePlanner`, `DemoRoutePlanner`, handler i endpoint sa zaimplementowane i podlaczone; `RoutingServiceRoutePlanner` i usluga FastAPI sa tylko projektem | tak |
 | SignalR | Api (`Hubs`) | hub i notifier istnieja; `/hubs/pulse` jest mapowany | tak |
 
 Uruchamiany host mapuje `/health`, Events, Attendance, PULSE, Routing,
@@ -42,6 +42,12 @@ Dokumentacja (ta zmiana) --> Crew Domain (merge)
                                  +--> Events --> IEventLookup --> Attendance --> SignalR/PULSE --> Frontend dashboard (count + 1)
 Routing (DemoRoutePlanner) ---------------------------------------> Frontend /client (trasa)
 ```
+
+Docelowy realny routing drogowy zachowuje te sama granice Application:
+`IRoutePlanner -> RoutingServiceRoutePlanner -> prywatny REST -> FastAPI ->
+graf OSM`. Przegladarka nadal wywoluje tylko FlowBB.Api. PublicTransport nie
+wchodzi do tej uslugi. Projekt i bramka spike'a sa w
+[`ROUTING_SERVICE.md`](ROUTING_SERVICE.md) oraz proponowanym ADR 002.
 
 ## 4. Kolejnosc integracji i bramki
 
