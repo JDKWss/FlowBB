@@ -11,8 +11,25 @@ services:
       NEO4J_PASSWORD: ${NEO4J_PASSWORD:?Set NEO4J_PASSWORD in .env}
       Cors__AllowedOrigins__0: ${Cors__AllowedOrigins__0:?Set the client origin in .env}
       Cors__AllowedOrigins__1: ${Cors__AllowedOrigins__1:?Set the dashboard origin in .env}
+      # Logi do Seq z kontenera. localhost w kontenerze API to nie kontener Seq, wiec adres z appsettings.json jest nadpisywany.
+      # Indeks 1 wskazuje wpis "Seq" w Serilog:WriteTo (0 = Console); zmiana kolejnosci w appsettings.json wymaga zmiany tutaj.
+      Serilog__WriteTo__1__Args__serverUrl: ${SEQ_SERVER_URL:-http://seq:5341}
+    # Celowo brak depends_on: Seq to dodatek developerski i jego brak nie moze blokowac startu API.
     ports:
       - "8080:8080"
+
+  # Dodatek developerski (issue #49): podglad logow strukturalnych. Adres UI: http://localhost:${SEQ_HOST_PORT:-5341} (tylko z tego komputera).
+  seq:
+    image: datalust/seq:2026.1.17114
+    environment:
+      ACCEPT_EULA: "Y"
+      # Dziala tylko przy pierwszym uruchomieniu z pustym wolumenem. Bezpieczne, bo UI jest publikowane wylacznie na 127.0.0.1.
+      # Na wspolnej maszynie ustaw SEQ_FIRSTRUN_NOAUTHENTICATION=false i skonfiguruj haslo w UI Seq (patrz .env.example).
+      SEQ_FIRSTRUN_NOAUTHENTICATION: ${SEQ_FIRSTRUN_NOAUTHENTICATION:-true}
+    ports:
+      - "127.0.0.1:${SEQ_HOST_PORT:-5341}:80"
+    volumes:
+      - seq-data:/data
 
   # Tymczasowy szkic; docelowa konfiguracja Neo4j pochodzi z issue #8 (Data/Neo4j Owner).
   neo4j:
@@ -36,3 +53,4 @@ services:
 
 volumes:
   neo4j-data:
+  seq-data:
