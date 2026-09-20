@@ -3,6 +3,7 @@ using FlowBB.Api.Endpoints.Crews;
 using FlowBB.Api.Endpoints.Events;
 using FlowBB.Api.Endpoints.Pulse;
 using FlowBB.Api.Endpoints.Routing;
+using FlowBB.Api.Extensions;
 using FlowBB.Api.Hubs;
 using FlowBB.Api.Logging;
 using FlowBB.Infrastructure.Neo4j;
@@ -27,6 +28,7 @@ builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddPulseHub();
 builder.Services.AddNeo4jPersistence();
+builder.Services.AddNeo4jReadiness();
 builder.Services.AddEventsModule();
 builder.Services.AddAttendanceModule();
 builder.Services.AddPulseModule();
@@ -102,6 +104,7 @@ app.MapRoutingEndpoints();
 app.MapCrewEndpoints();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }))
     .WithName("getHealth");
+app.MapReadinessEndpoint();
 
 app.Run();
 
