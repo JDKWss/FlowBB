@@ -139,7 +139,7 @@ public sealed class Neo4jAttendanceRepository(IDriver driver, Neo4jOptions optio
         var rows = await cursor.ToListAsync(cancellationToken);
 
         var counts = rows.ToDictionary(
-            row => ToTransportModeOrUnknown(row["Mode"].As<string?>()),
+            row => Neo4jValueConversions.ToTransportModeOrUnknown(row["Mode"]),
             row => Convert.ToInt32(row["Total"].As<long>()));
 
         int Count(TransportMode mode) => counts.GetValueOrDefault(mode);
@@ -151,13 +151,5 @@ public sealed class Neo4jAttendanceRepository(IDriver driver, Neo4jOptions optio
             Count(TransportMode.Unknown));
 
         return (counts.Values.Sum(), split);
-    }
-
-    /// <summary>Nieznana lub pusta wartosc trybu liczy sie jako <see cref="TransportMode.Unknown"/>, zeby suma modal splitu zgadzala sie z liczba uczestnikow.</summary>
-    private static TransportMode ToTransportModeOrUnknown(string? name)
-    {
-        return name is not null && Enum.GetNames<TransportMode>().Contains(name, StringComparer.Ordinal)
-            ? Enum.Parse<TransportMode>(name)
-            : TransportMode.Unknown;
     }
 }

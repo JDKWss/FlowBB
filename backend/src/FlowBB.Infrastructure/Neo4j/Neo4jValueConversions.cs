@@ -1,3 +1,4 @@
+using FlowBB.Domain.Common;
 using Neo4j.Driver;
 
 namespace FlowBB.Infrastructure.Neo4j;
@@ -40,5 +41,16 @@ internal static class Neo4jValueConversions
         }
 
         throw new InvalidCastException($"Field {fieldName} does not contain a known {typeof(TEnum).Name} name.");
+    }
+
+    /// <summary>
+    /// Nieznana lub pusta wartosc trybu liczy sie jako <see cref="TransportMode.Unknown"/>, zeby suma modal splitu
+    /// zgadzala sie z liczba uczestnikow niezaleznie od sciezki odczytu.
+    /// </summary>
+    public static TransportMode ToTransportModeOrUnknown(object? value)
+    {
+        return value is string text && Enum.GetNames<TransportMode>().Contains(text, StringComparer.Ordinal)
+            ? Enum.Parse<TransportMode>(text)
+            : TransportMode.Unknown;
     }
 }
