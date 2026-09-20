@@ -39,7 +39,7 @@ Aura nie daje dostepu do powloki kontenera, wiec sa dwie drogi:
 
 - Schemat uzywa wylacznie constraintow unikalnosci i indeksow zakresu. Constraint istnienia (`IS NOT NULL`) i klucz wezla wymagaja edycji Enterprise (sprawdzone na Neo4j 5.26 Community: `Property existence constraint requires Neo4j Enterprise Edition`), wiec nie sa czescia schematu.
 - Konsekwencja: baza przyjmie wezel `Event` bez `Name`. Kompletnosc pol wymaganych pilnuja adaptery w `Infrastructure/Neo4j`, a nie schemat. Unikalnosc `EventId`, `UserId`, `VenueId`, `CrewId` jest wymuszana przez baze (duplikat konczy sie bledem).
-- Edycja Community obsluguje jedna baze uzytkownika, o nazwie `neo4j`. Dla lokalnego kontenera ustaw `NEO4J_DATABASE=neo4j`. Kod ma domyslnie `flowbb`, wiec bez tej zmiennej polaczenie z Community sie nie uda.
+- Edycja Community obsluguje jedna baze uzytkownika, o nazwie `neo4j` (`CREATE DATABASE` jest tam nieobslugiwane). Gdy `NEO4J_DATABASE` nie jest ustawione, backend uzywa wlasnie `neo4j`; dla Aury podaj nazwe bazy z konsoli.
 - Unikalnosci relacji `IS_GOING_TO` nie wymusza constraint: ma ja gwarantowac `MERGE` na parze wezlow. Do potwierdzenia testem rownoleglych zapisow na prawdziwej instancji w issue #17.
 - Zachowania na Aura nie sprawdzano. Schemat jest zgodny z Aura, bo nie uzywa constraintow Enterprise.
 
