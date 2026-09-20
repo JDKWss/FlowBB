@@ -89,7 +89,7 @@ public sealed class AirQualityTestHost : IAsyncDisposable
     {
         public Task<T> GetOrCreateAsync<T>(
             Guid eventId,
-            TimeSpan lifetime,
+            Func<T, TimeSpan> lifetimeFor,
             Func<CancellationToken, Task<T>> factory,
             CancellationToken cancellationToken = default)
             where T : class => factory(cancellationToken);
