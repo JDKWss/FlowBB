@@ -84,15 +84,15 @@ Tej zmiany nie robi sie w ramach dokumentacji. Kazda pozycja wymaga osobnego zad
 
 | # | Problem | Priorytet | Wlasciciel |
 |---|---|---|---|
-| 1 | `FlowBB.Infrastructure.csproj` nadal zawiera `Npgsql.EntityFrameworkCore.PostgreSQL`, `...NetTopologySuite` i `Microsoft.EntityFrameworkCore.*`. Osobny maly task porzadkowy po potwierdzeniu, ze kod runtime ich nie uzywa | Porzadki | Data/Neo4j (zgoda Core Backend Owner) |
-| 2 | `IFlowBbGraphRepository` i modele w `FlowBB.Domain/Repositories` i `Models`: interfejs powinien docelowo trafic do `Application/Abstractions/Persistence`. Decyzja po MVP albo przy pierwszej implementacji repozytorium; nie blokuje MVP | Po MVP | Core Backend Owner + Data/Neo4j |
-| 3 | Stary model `FlowBB.Domain.Models.Event` pozostaje do posprzatania po MVP | Porzadki | Data/Neo4j + Backend Events |
-| 4 | `PLAN_EVENTS_LOAD.md` zachowuje historyczny plan PostGIS/EF Core; aktualny importer wydarzen do Neo4j nie istnieje | MVP | Backend Events + Data/Neo4j |
-| 5 | Dane MZK nie maja pelnych trips, kolejnosci przystankow, powiazania kursow i wszystkich wspolrzednych; nie sa grafem routingu | Po MVP | Core Backend Owner |
-| 6 | Kontener `routing` jest `unhealthy` bez recznego `routing-prepare` (brak grafow). Nie blokuje API; do decyzji, czy Compose ma go pomijac w trybie demo | Porzadki | Core Backend Owner |
+| 1 | `IFlowBbGraphRepository` i modele w `FlowBB.Domain/Repositories` i `Models`: interfejs powinien docelowo trafic do `Application/Abstractions/Persistence`. Decyzja po MVP albo przy pierwszej implementacji repozytorium; nie blokuje MVP | Po MVP | Core Backend Owner + Data/Neo4j |
+| 2 | Stary model `FlowBB.Domain.Models.Event` pozostaje do posprzatania po MVP | Porzadki | Data/Neo4j + Backend Events |
+| 3 | `PLAN_EVENTS_LOAD.md` zachowuje historyczny plan PostGIS/EF Core; aktualny importer wydarzen do Neo4j nie istnieje | MVP | Backend Events + Data/Neo4j |
+| 4 | Dane MZK nie maja pelnych trips, kolejnosci przystankow, powiazania kursow i wszystkich wspolrzednych; nie sa grafem routingu | Po MVP | Core Backend Owner |
+| 5 | Kontener `routing` jest `unhealthy` bez recznego `routing-prepare` (brak grafow). Nie blokuje API; do decyzji, czy Compose ma go pomijac w trybie demo | Porzadki | Core Backend Owner |
 
 ### Rozwiazane od utworzenia planu
 
+- Nieuzywane zaleznosci dawnego stacku relacyjnego i jego lokalne narzedzie CLI zostaly usuniete; Neo4j pozostaje jedyna persystencja runtime.
 - Crew: domena, Application, endpointy i adapter Neo4j sa zarejestrowane w API (#54).
 - `/health` i `/health/ready` (Neo4j) zgodne z `HealthResponse` z OpenAPI (#55, #52).
 - Compose przekazuje `NEO4J_SEED_ON_STARTUP` do `api`, a API czeka na zdrowy lokalny Neo4j (#57).

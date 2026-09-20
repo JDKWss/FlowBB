@@ -38,7 +38,7 @@ Negatywne i ryzyka:
 - agregacja przestrzenna (siatka heksagonalna, `count >= 10`) musi byc zaimplementowana w C#, bez gotowego `ST_HexagonGrid`;
 - Attendance wymaga transakcji obejmujacej zapis relacji i odczyt danych do `PulseUpdated`, a wiadomosc musi byc publikowana dopiero po zatwierdzeniu;
 - idempotencja opiera sie na `MERGE` i constraints wezlow. Zachowanie przy rownoleglych zadaniach trzeba zweryfikowac testem na prawdziwej instancji Neo4j;
-- pakiety EF Core i Npgsql nadal sa w `FlowBB.Infrastructure.csproj` i wymagaja usuniecia (zadanie Data/Neo4j);
+- pakiety EF Core, Npgsql i narzedzie `dotnet-ef` zostaly usuniete; jedynym pakietem persystencji runtime w Infrastructure jest `Neo4j.Driver`;
 - czesc dokumentacji historycznej (`PLAN_EVENTS_LOAD.md`, dokumentacja pipeline'u MZK) opisuje PostgreSQL. Jest oznaczona jako historyczna lub PoC.
 
 ## Rejected alternatives
