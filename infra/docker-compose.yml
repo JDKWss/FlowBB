@@ -1,33 +1,59 @@
 services:
+  client:
+    build:
+      context: ../client
+      args:
+        VITE_API_URL: http://localhost:8080
+    environment:
+      VITE_API_URL: http://localhost:8080
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "5173:8080"
+
+  dashboard:
+    build:
+      context: ../dashboard
+      args:
+        VITE_API_URL: http://localhost:8080
+    environment:
+      VITE_API_URL: http://localhost:8080
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "5174:8080"
+
   api:
     build:
       context: ..
       dockerfile: backend/Dockerfile
     environment:
-      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:?Set ASPNETCORE_ENVIRONMENT in .env}
-      NEO4J_URI: ${NEO4J_URI:?Set NEO4J_URI in .env}
-      NEO4J_DATABASE: ${NEO4J_DATABASE:?Set NEO4J_DATABASE in .env}
-      NEO4J_USERNAME: ${NEO4J_USERNAME:?Set NEO4J_USERNAME in .env}
-      NEO4J_PASSWORD: ${NEO4J_PASSWORD:?Set NEO4J_PASSWORD in .env}
-      # true: przy starcie API wykonuje constraints i idempotentny seed demo (bez tego lista wydarzen jest pusta).
-      NEO4J_SEED_ON_STARTUP: ${NEO4J_SEED_ON_STARTUP:-false}
-      Cors__AllowedOrigins__0: ${Cors__AllowedOrigins__0:?Set the client origin in .env}
-      Cors__AllowedOrigins__1: ${Cors__AllowedOrigins__1:?Set the dashboard origin in .env}
+      ASPNETCORE_ENVIRONMENT: Development
+      NEO4J_URI: neo4j://neo4j:7687
+      NEO4J_DATABASE: neo4j
+      NEO4J_USERNAME: neo4j
+      # Neo4j ma lokalnie wylaczone auth; niepusta wartosc jest wymagana przez walidacje opcji backendu, ale nie jest haslem.
+      NEO4J_PASSWORD: unused-with-auth-disabled
+      # Lokalny stack zawsze odtwarza constraints i idempotentny seed demonstracyjny przy starcie API.
+      NEO4J_SEED_ON_STARTUP: "true"
+      Cors__AllowedOrigins__0: http://localhost:5173
+      Cors__AllowedOrigins__1: http://localhost:5174
       # Demo (domyslnie): DemoRoutePlanner w procesie API, bez wywolan uslugi drogowej. RoadRouting wymaga profilu
       # real-routing (kontener routing z grafami) i wlacza usluge drogowa z fallbackiem do DemoRoutePlanner.
       Routing__Mode: ${ROUTING_MODE:-Demo}
-      Routing__ServiceUrl: ${ROUTING_SERVICE_URL:-http://routing:8000}
-      Routing__TimeoutSeconds: ${ROUTING_TIMEOUT_SECONDS:-3}
-      Routing__DemoFallbackEnabled: ${ROUTING_DEMO_FALLBACK_ENABLED:-true}
+      Routing__ServiceUrl: http://routing:8000
+      Routing__TimeoutSeconds: "3"
+      Routing__DemoFallbackEnabled: "true"
       # Logi do Seq z kontenera. localhost w kontenerze API to nie kontener Seq, wiec adres z appsettings.json jest nadpisywany.
       # Indeks 1 wskazuje wpis "Seq" w Serilog:WriteTo (0 = Console); zmiana kolejnosci w appsettings.json wymaga zmiany tutaj.
-      Serilog__WriteTo__1__Args__serverUrl: ${SEQ_SERVER_URL:-http://seq:5341}
-    # Seed przy starcie nie ma ponowien, wiec API czeka na lokalny Neo4j (profil local-db). required: false pomija to
-    # czekanie z Aura, gdzie usluga neo4j nie istnieje. Celowo brak zaleznosci od routing i Seq: nie moga blokowac startu API.
+      Serilog__WriteTo__1__Args__serverUrl: http://seq:5341
+    # Inicjalizacja nie ma ponowien, dlatego API startuje dopiero po uzyskaniu gotowosci Neo4j.
+    # Brak zaleznosci od routing i Seq jest celowy: te uslugi nie moga blokowac poprawnej sciezki Demo.
     depends_on:
       neo4j:
         condition: service_healthy
-        required: false
     ports:
       - "8080:8080"
     # Gotowosc (issue #55): 200 gdy API laczy sie z Neo4j, 503 gdy nie. Obraz aspnet nie ma curl ani wget,
@@ -81,34 +107,32 @@ services:
     volumes:
       - routing-data:/app/data
 
-  # Dodatek developerski (issue #49): podglad logow strukturalnych. Adres UI: http://localhost:${SEQ_HOST_PORT:-5341} (tylko z tego komputera).
+  # Lokalny podglad logow strukturalnych, dostepny tylko z hosta pod http://localhost:5341.
   seq:
     image: datalust/seq:2026.1.17114
     environment:
       ACCEPT_EULA: "Y"
-      # Dziala tylko przy pierwszym uruchomieniu z pustym wolumenem. Bezpieczne, bo UI jest publikowane wylacznie na 127.0.0.1.
-      # Na wspolnej maszynie ustaw SEQ_FIRSTRUN_NOAUTHENTICATION=false i skonfiguruj haslo w UI Seq (patrz .env.example).
-      SEQ_FIRSTRUN_NOAUTHENTICATION: ${SEQ_FIRSTRUN_NOAUTHENTICATION:-true}
+      # Lokalny tryb bez logowania jest bezpieczny tylko dlatego, ze port nie jest publikowany poza localhost.
+      SEQ_FIRSTRUN_NOAUTHENTICATION: "true"
     ports:
-      - "127.0.0.1:${SEQ_HOST_PORT:-5341}:80"
+      - "127.0.0.1:5341:80"
     volumes:
       - seq-data:/data
 
-  # Tymczasowy szkic; docelowa konfiguracja Neo4j pochodzi z issue #8 (Data/Neo4j Owner).
+  # Jedyna baza runtime aplikacji w lokalnym development; startuje bez profilu i bez konfiguracji uzytkownika.
   neo4j:
-    profiles: ["local-db"]
     image: neo4j:5.26.30-community
     environment:
-      NEO4J_AUTH: ${NEO4J_USERNAME:?Set NEO4J_USERNAME in .env}/${NEO4J_PASSWORD:?Set NEO4J_PASSWORD in .env}
+      NEO4J_AUTH: none
     ports:
-      - "7474:7474"
-      - "7687:7687"
+      - "127.0.0.1:7474:7474"
+      - "127.0.0.1:7687:7687"
     volumes:
       - neo4j-data:/data
     healthcheck:
       test:
         - CMD-SHELL
-        - 'username="$${NEO4J_AUTH%%/*}"; password="$${NEO4J_AUTH#*/}"; cypher-shell -a neo4j://localhost:7687 -u "$$username" -p "$$password" "RETURN 1"'
+        - 'cypher-shell -a neo4j://localhost:7687 "RETURN 1"'
       interval: 10s
       timeout: 5s
       retries: 10

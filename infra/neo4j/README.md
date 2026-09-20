@@ -1,6 +1,9 @@
 # Neo4j w Docker Compose
 
-Fragment [compose.neo4j.yml](compose.neo4j.yml) definiuje lokalna usluge Neo4j: obraz `neo4j:5.26.30-community`, health check, trwaly wolumen `neo4j-data` i konfiguracje wylacznie ze zmiennych `NEO4J_*`. Nie zawiera sekretow. Glowny `infra/docker-compose.yml` nalezy do Core Backend Ownera i nie zostal zmieniony.
+Fragment [compose.neo4j.yml](compose.neo4j.yml) jest starszym, samodzielnym
+wariantem uruchamiania samego Neo4j. Domyslny stack korzysta bezposrednio z
+`infra/docker-compose.yml`, uruchamia Neo4j bez profilu i nie wymaga tych
+zmiennych.
 
 ## Zmienne (`.env`)
 
@@ -12,7 +15,7 @@ Fragment [compose.neo4j.yml](compose.neo4j.yml) definiuje lokalna usluge Neo4j: 
 | `NEO4J_URI` | dla API | z kontenera API: `neo4j://neo4j:7687`; z hosta: `neo4j://127.0.0.1:7687` |
 | `NEO4J_HTTP_PORT`, `NEO4J_BOLT_PORT` | nie | porty na `127.0.0.1` hosta, domyslnie 7474 i 7687 |
 
-Przyklad dla `.env.example` (do przekazania Core Backendowi, ten plik nie jest zmieniany tutaj):
+Przyklad jawnej konfiguracji wymaganej tylko przez samodzielny fragment:
 
 ```env
 # Lokalny kontener Neo4j (Community): uzytkownik i baza to zawsze neo4j.
@@ -23,31 +26,6 @@ Przyklad dla `.env.example` (do przekazania Core Backendowi, ten plik nie jest z
 # NEO4J_HTTP_PORT=7474
 # NEO4J_BOLT_PORT=7687
 ```
-
-## Jak wlaczyc do glownego Compose (Core Backend)
-
-Obie metody sprawdzono poleceniem `docker compose config`.
-
-**A. `extends` z profilem `local-db`** (zachowuje dzisiejsze zachowanie: bez profilu startuje tylko API i laczy sie z Aura). Zastapic w `infra/docker-compose.yml` szkic usluge `neo4j`:
-
-```yaml
-  neo4j:
-    extends:
-      file: neo4j/compose.neo4j.yml
-      service: neo4j
-    profiles: ["local-db"]
-```
-
-`extends` nie przenosi wolumenow, wiec sekcja `volumes: neo4j-data:` zostaje w glownym pliku.
-
-**B. `include`** (Compose 2.20+): usluga startuje zawsze, bez profilu. Na gorze pliku:
-
-```yaml
-include:
-  - path: neo4j/compose.neo4j.yml
-```
-
-W obu wariantach API moze czekac na gotowa baze: `depends_on: { neo4j: { condition: service_healthy } }`. Przy profilu `local-db` (wariant A) `depends_on` bez profilu zepsuje uruchomienie z Aura, wiec wymaga wtedy `required: false`.
 
 ## Uruchomienie samodzielne
 
@@ -62,10 +40,6 @@ docker compose -f infra/neo4j/compose.neo4j.yml exec -T neo4j \
 ```
 
 Schemat i seed: [../../database/README.md](../../database/README.md). `down` zachowuje dane, `down -v` kasuje wolumen.
-
-## Relacja do Neo4j Aura
-
-`backend/README.md` opisuje dzis uruchomienie API z Aura. Fragment jest alternatywa lokalna, na przyklad do pracy offline i do testow adapterow na prawdziwej bazie. Te same zmienne `NEO4J_*` obsluguja oba przypadki; rozni sie tylko `NEO4J_URI` (`neo4j+s://...` dla Aura) i `NEO4J_DATABASE` (nazwa bazy z Aura albo `neo4j`). Fragment zweryfikowano wylacznie na lokalnym kontenerze; polaczenie z Aura nie bylo tu sprawdzane.
 
 ## Weryfikacja (Neo4j 5.26.30 Community, Docker Compose 5.5.1)
 
