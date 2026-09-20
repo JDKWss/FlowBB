@@ -173,6 +173,44 @@ public sealed class ContractFixturesTests
         action.Should().Throw<InvalidDataException>().WithMessage("*qualityLevel*");
     }
 
+    [Theory]
+    [InlineData("air-quality.json")]
+    [InlineData("air-quality-fallback.json")]
+    public async Task AirQualityFixtures_MatchTheCanonicalContract(string fixtureName)
+    {
+        var rules = ReadAirQualityRules(await ReadContractAsync());
+        using var fixture = JsonDocument.Parse(await File.ReadAllTextAsync(FixturePath(fixtureName)));
+
+        var action = () => ValidateAirQualityFixture(fixture.RootElement, rules);
+
+        action.Should().NotThrow();
+    }
+
+    [Fact]
+    public async Task AirQualityFallbackFixture_IsTheDemoSnapshotFormat()
+    {
+        using var fixture = JsonDocument.Parse(await File.ReadAllTextAsync(FixturePath("air-quality-fallback.json")));
+
+        fixture.RootElement.GetProperty("status").GetString().Should().Be("Fallback");
+        fixture.RootElement.GetProperty("source").GetString().Should().Be("Demo");
+    }
+
+    [Theory]
+    [InlineData("air-quality.json", "\"source\": \"Gios\"", "\"source\": \"Demo\"")]
+    [InlineData("air-quality-fallback.json", "\"source\": \"Demo\"", "\"source\": \"Gios\"")]
+    public async Task AirQualityFixture_WithInconsistentStatusAndSource_FailsContractValidation(
+        string fixtureName, string original, string replacement)
+    {
+        var rules = ReadAirQualityRules(await ReadContractAsync());
+        var json = await File.ReadAllTextAsync(FixturePath(fixtureName));
+        json.Should().Contain(original, "the mutation must change the fixture");
+        using var fixture = JsonDocument.Parse(json.Replace(original, replacement, StringComparison.Ordinal));
+
+        var action = () => ValidateAirQualityFixture(fixture.RootElement, rules);
+
+        action.Should().Throw<InvalidDataException>().WithMessage("*status and source*");
+    }
+
     [Fact]
     public async Task ProblemFixtures_MatchRuntimeShapes()
     {
@@ -326,6 +364,7 @@ public sealed class ContractFixturesTests
         ValidateEnum(root, "qualityLevel", rules.QualityLevels);
         ValidateEnum(root, "status", rules.Statuses);
         ValidateEnum(root, "source", rules.Sources);
+        ValidateStatusMatchesSource(root);
 
         var pollutants = new[] { "pm10", "pm25", "no2", "o3" };
         foreach (var pollutant in pollutants)
@@ -379,6 +418,14 @@ public sealed class ContractFixturesTests
         RequireExactProperties(alert, rules.AlertProperties, "alert");
         ValidateEnum(alert, "severity", rules.AlertSeverities);
         Require(!string.IsNullOrWhiteSpace(alert.GetProperty("message").GetString()), "alert.message is required");
+    }
+
+    // Fresh i Stale opisuja dane z GIOS, Fallback wylacznie snapshot demonstracyjny (docs/AIR_QUALITY.md).
+    private static void ValidateStatusMatchesSource(JsonElement root)
+    {
+        var isFallback = root.GetProperty("status").GetString() == "Fallback";
+        var isDemo = root.GetProperty("source").GetString() == "Demo";
+        Require(isFallback == isDemo, "status and source are inconsistent: Fresh and Stale require Gios, Fallback requires Demo");
     }
 
     private static void ValidateEnum(JsonElement parent, string propertyName, IReadOnlyList<string> allowedValues)
