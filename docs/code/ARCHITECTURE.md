@@ -19,9 +19,8 @@ FlowBB.Api  --->  FlowBB.Application  --->  FlowBB.Domain
 Wzorzec w calym backendzie: **port w `Application/Abstractions`, adapter w `Infrastructure` lub `Api`**.
 Handler nigdy nie wie, ze pod spodem jest Neo4j, a kod domenowy nigdy nie wie, ze pod spodem jest OpenTripPlanner.
 
-Wyjatek do uporzadkowania: `FlowBB.Domain/Repositories/IFlowBbGraphRepository.cs` jest portem
-persystencji lezacym w Domain, czyli odwrotnie niz reszta. To pozostalosc po wczesniejszym modelu,
-opisana jako pozycja 2 w [MVP_WORK_PLAN.md](../MVP_WORK_PLAN.md#6-problemy-znalezione-w-kodzie-zadania-dla-wlascicieli).
+`FlowBB.Domain` nie zawiera interfejsow repozytoriow: dawny `IFlowBbGraphRepository` i modele
+`Domain/Models/*` zostaly usuniete (#59).
 
 ## Konwencje, ktore powtarzaja sie w kazdym module
 
