@@ -12,6 +12,8 @@ popytu transportowego dla miasta (PULSE).
 - [docs/MVP_WORK_PLAN.md](docs/MVP_WORK_PLAN.md) — plan MVP oraz datowany status implementacji.
 - [docs/DEMO_RUNBOOK.md](docs/DEMO_RUNBOOK.md) — biezacy stan uruchomienia i scenariusz demo.
 - [ADR 001](docs/adr/001-runtime-persistence.md) — przyjeta decyzja o Neo4j jako jedynej bazie runtime; PostGIS pozostaje odseparowanym PoC MZK.
+- [docs/ROUTING_SERVICE.md](docs/ROUTING_SERVICE.md) — proponowana specyfikacja realnego routingu drogowego; nie opisuje jeszcze wdrozonego kontraktu.
+- [ADR 002](docs/adr/002-road-routing-engine.md) — propozycja prywatnej uslugi Python/FastAPI dla routingu Walking/Bike/Car; status `Proposed`.
 
 Dokumenty planistyczne i ADR-y moga zachowywac kontekst historyczny. Biezacy
 stan implementacji zawsze nalezy weryfikowac w kodzie na `develop`.

@@ -25,8 +25,8 @@ Wlasciciele: **Data/Neo4j** (schemat, constraints, seed, Cypher, adaptery), **Co
 |---|---|---|---|---|
 | `UserId` | string (Guid) | tak | jest | unikalne |
 | `Name` | string | tak | jest | |
-| `HomeLatitude` | float | tak | jest w schemacie i seedzie (`database/`); `Domain/Models/User.cs` i stary adapter grafu nadal uzywaja `DefaultOriginLatitude` | wewnetrzny domyslny punkt rozpoczecia podrozy, `[-90, 90]` |
-| `HomeLongitude` | float | tak | jest w schemacie i seedzie (`database/`); `Domain/Models/User.cs` i stary adapter grafu nadal uzywaja `DefaultOriginLongitude` | wewnetrzny domyslny punkt rozpoczecia podrozy, `[-180, 180]` |
+| `HomeLatitude` | float | tak | jest w schemacie, seedzie `flowbb-queries.cypher` i adapterach | wewnetrzny domyslny punkt rozpoczecia podrozy, `[-90, 90]`. Nazwa docelowa (ADR 001, AGENTS.md sekcja 8). Adaptery czytaja tez zamiennik `DefaultOriginLatitude` (patrz [NEO4J_ADAPTER_RECONCILIATION.md](NEO4J_ADAPTER_RECONCILIATION.md)) |
+| `HomeLongitude` | float | tak | jak wyzej | wewnetrzny domyslny punkt rozpoczecia podrozy, `[-180, 180]`. Zamiennik: `DefaultOriginLongitude` |
 | `Email`, `PasswordHash` | string | nie | sa | pozostalosc po wczesniejszym modelu. Logowanie jest poza zakresem MVP; pola nie moga byc uzywane do uwierzytelniania ani zwracane przez API. |
 
 Dokladny punkt startowy jest danymi wewnetrznymi i nie moze byc zwracany przez publiczne API.
@@ -58,7 +58,7 @@ Powiazanie z miejscem: relacja `(Event)-[:HOSTED_AT]->(Venue)` (jest). Kazde wyd
 | `Latitude` | float | tak | jest |
 | `Longitude` | float | tak | jest |
 
-Uwaga: jesli kontrakt API bedzie wymagal `Guid` dla miejsca, `VenueId` trzeba ujednolicic. Decyzja: Core Backend.
+`VenueId` pozostaje tekstowym slugiem, np. `venue-rynek-bb`. Adapter Events zwraca dane miejsca wymagane przez domenę: nazwę i współrzędne.
 
 ### `Crew`
 
@@ -86,17 +86,17 @@ Relacja oznacza deklaracje udzialu i przechowuje snapshot wymagany przez
 Attendance, PULSE i Routing. Samo planowanie trasy nalezy do `IRoutePlanner`;
 nie zmienia to odpowiedzialnosci relacji za dane wejsciowe.
 
-| Pole relacji | Typ | Wymagane | Stan w repo |
-|---|---|---|---|
-| `TransportMode` | string | tak | jest w seedzie; zapis przez adapter: issue #17 |
-| `OriginLatitude` | float | tak | jest w seedzie; zapis przez adapter: issue #17 |
-| `OriginLongitude` | float | tak | jest w seedzie; zapis przez adapter: issue #17 |
-| `UpdatedAt` | datetime z offsetem | tak | jest w seedzie; zapis przez adapter: issue #17 |
+| Pole relacji | Typ | Wymagane | Stan w repo | Uwagi |
+|---|---|---|---|---|
+| `TransportMode` | string | tak | jest w obu seedach i w adapterze Attendance | dokladna nazwa enuma: `Walking`, `PublicTransport`, `Bike`, `Car`, `Unknown` |
+| `OriginLatitude` | float | tak | jak wyzej | snapshot `User.HomeLatitude` (lub zamiennika `DefaultOriginLatitude`), `[-90, 90]` |
+| `OriginLongitude` | float | tak | jak wyzej | snapshot `User.HomeLongitude` (lub zamiennika `DefaultOriginLongitude`), `[-180, 180]` |
+| `UpdatedAt` | datetime z offsetem | tak | jak wyzej | czas ostatniego zapisu deklaracji, UTC |
 
 Reguly:
 
 - Para `(User, Event)` ma co najwyzej jedna relacje: zapis przez `MERGE` na relacji nie zwieksza licznika przy ponowieniu.
-- Ponowny zapis aktualizuje snapshot, ale nie zwieksza liczby uczestnikow.
+- Ponowny zapis aktualizuje snapshot i `UpdatedAt`, ale nie zwiększa liczby uczestników.
 - `DELETE Attendance` usuwa relacje; brak relacji nie jest bledem.
 - Wspolrzedne nie sa zwracane przez publiczne API ani logowane.
 
@@ -120,14 +120,13 @@ Definicja: `database/schema.cypher` (idempotentny, uruchomienie: [database/READM
 
 Neo4j Community nie obsluguje constraintow istnienia (`IS NOT NULL`), wiec schemat ich nie zawiera. Kolumna „Wymagane” oznacza, ze pole musi zapisac adapter lub seed; baza tego nie wymusza, wymusza tylko unikalnosc identyfikatorow.
 
-Unikalnosc relacji `IS_GOING_TO` zapewnia `MERGE`. Zachowanie przy rownoleglych zadaniach dla tej samej pary trzeba potwierdzic testem na prawdziwej instancji Neo4j; jesli `MERGE` nie wystarcza, dodaje sie blokade lub constraint na relacji (o ile dostepny w uzywanej edycji).
+Unikalnosc relacji `IS_GOING_TO` zapewnia `MERGE`. Test na docelowej instancji Aura potwierdzil, ze 10 rownoleglych zapisow tej samej pary tworzy jedna relacje i nie zwieksza licznika wielokrotnie.
 
-## Odczyty potrzebne PULSE
+## Odczyty PULSE
 
-Adapter `IPulseDataReader` odczytuje wewnetrznie tryb transportu i punkt
-startu ze snapshotu `IS_GOING_TO`. Agregacja licznika, modal split i siatki
-heksagonalnej odbywa sie w C#. Publiczne odpowiedzi nie zawieraja `userId`,
-surowych punktow ani komorek z `count < 10`.
+Adapter `IPulseDataReader` odczytuje z Neo4j wyłącznie współrzędne i `TransportMode` snapshotów, bez identyfikatorów użytkowników. Backend C# wylicza z nich liczniki, modal split i komórki heksagonalne. Publiczne API nie zwraca surowych punktów i ukrywa komórki z `count < 10`.
+
+PULSE nie przechowuje niezależnych liczników. Po zatwierdzeniu transakcji Attendance API publikuje przez SignalR zdarzenie `PulseUpdated` zawierające wyłącznie agregaty.
 
 ## Zmiany do wykonania (podsumowanie)
 
@@ -137,5 +136,5 @@ surowych punktow ani komorek z `count < 10`.
 | 2 | Idempotentny importer realnych wydarzen | Data/Neo4j + Backend Events |
 | 3 | Interfejsy repozytoriow z Domain do `Application/Abstractions`: decyzja po MVP albo przy pierwszej implementacji repozytorium, nie blokuje MVP | Core Backend Owner + Data/Neo4j |
 | 4 | Usuniecie pakietow EF Core/Npgsql z Infrastructure: osobny maly task porzadkowy po potwierdzeniu, ze kod runtime ich nie uzywa | Data/Neo4j (zgoda Core Backend Owner) |
-| 5 | Ujednolicenie `DefaultOrigin*` do zaakceptowanych `Home*` oraz zapis snapshotu `IS_GOING_TO`. Schemat i seed zrobione (issue #6); pozostaje `Domain/Models/User.cs` i stary adapter grafu | Data/Neo4j + Core Backend Owner |
-| 6 | Implementacja adapterow `IAttendanceRepository` i `IPulseDataReader` dla Neo4j | Data/Neo4j |
+| 5 | Ujednolicenie nazw wspolrzednych uzytkownika (`Home*` docelowo, `DefaultOrigin*` w seedzie demonstracyjnym, `Domain/Models/User.cs` i starym adapterze grafu). Do tego czasu adaptery czytaja obie nazwy; plan: [NEO4J_ADAPTER_RECONCILIATION.md](NEO4J_ADAPTER_RECONCILIATION.md) | Data/Neo4j + Core Backend Owner |
+| 6 | Adaptery Neo4j (Events, Attendance, PULSE, Crew): zrobione, testy na prawdziwej instancji w `FlowBB.Infrastructure.Tests` | Data/Neo4j |

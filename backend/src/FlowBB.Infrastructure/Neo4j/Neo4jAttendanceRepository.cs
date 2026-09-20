@@ -13,19 +13,22 @@ namespace FlowBB.Infrastructure.Neo4j;
 /// </summary>
 public sealed class Neo4jAttendanceRepository(IDriver driver, Neo4jOptions options) : IAttendanceRepository
 {
-    // Znacznik r.__IsNew istnieje tylko w obrebie tej instrukcji: jest ustawiany, odczytywany i usuwany przed commitem,
+    // Punkt startu: docelowo User.HomeLatitude/HomeLongitude; DefaultOrigin* to zamiennik dla seedu demonstracyjnego z develop
+    // (docs/NEO4J_ADAPTER_RECONCILIATION.md). Znacznik r.__IsNew istnieje tylko w obrebie tej instrukcji: jest ustawiany, odczytywany i usuwany przed commitem,
     // wiec inna transakcja nigdy go nie widzi. Pozwala odroznic utworzenie relacji od dopasowania istniejacej.
     private const string UpsertQuery = """
         MATCH (u:User {UserId: $userId})
         MATCH (e:Event {EventId: $eventId})
+        WITH u, e, coalesce(u.HomeLatitude, u.DefaultOriginLatitude) AS HomeLat,
+                   coalesce(u.HomeLongitude, u.DefaultOriginLongitude) AS HomeLon
         MERGE (u)-[r:IS_GOING_TO]->(e)
         ON CREATE SET r.__IsNew = true
         ON MATCH SET r.__IsNew = false
         SET r.TransportMode = $mode,
-            r.OriginLatitude = u.HomeLatitude,
-            r.OriginLongitude = u.HomeLongitude,
+            r.OriginLatitude = HomeLat,
+            r.OriginLongitude = HomeLon,
             r.UpdatedAt = $updatedAt
-        WITH r, r.__IsNew AS IsNew, (u.HomeLatitude IS NULL OR u.HomeLongitude IS NULL) AS MissingHome
+        WITH r, r.__IsNew AS IsNew, (HomeLat IS NULL OR HomeLon IS NULL) AS MissingHome
         REMOVE r.__IsNew
         RETURN IsNew, MissingHome
         """;
@@ -123,7 +126,7 @@ public sealed class Neo4jAttendanceRepository(IDriver driver, Neo4jOptions optio
         {
             // Wyjatek w transakcji cofa zapis: snapshot bez punktu startu zepsulby modal split i trase.
             throw new InvalidOperationException(
-                $"User {attendance.UserId:D} has no HomeLatitude/HomeLongitude, so the attendance snapshot cannot be built.");
+                $"User {attendance.UserId:D} has no HomeLatitude/HomeLongitude (nor DefaultOrigin*), so the attendance snapshot cannot be built.");
         }
 
         return records[0]["IsNew"].As<bool>();

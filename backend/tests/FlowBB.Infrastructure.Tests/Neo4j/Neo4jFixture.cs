@@ -17,6 +17,8 @@ public sealed class Neo4jFixture : IAsyncLifetime
 {
     private readonly string runId = Guid.NewGuid().ToString("N");
 
+    public string RunId => runId;
+
     public Neo4jOptions? Options { get; private set; }
 
     public IDriver? Driver { get; private set; }

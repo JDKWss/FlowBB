@@ -1,0 +1,55 @@
+using FlowBB.Api.Logging;
+using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Mvc;
+
+namespace FlowBB.Api.ExceptionHandling;
+
+/// <summary>
+/// Ostatnia linia obrony dla wyjatkow nieoczekiwanych. Loguje wyjatek po stronie serwera i zwraca klientowi
+/// bezpieczny <c>ProblemDetails</c> z <c>traceId</c>: bez stack trace, nazwy typu wyjatku i oryginalnego komunikatu
+/// (w tym komunikatow Neo4j). Przewidywalne wyniki biznesowe (400/404/409) mapuja endpointy jawnie na podstawie result type'ow.
+/// </summary>
+public sealed class GlobalExceptionHandler(
+    IProblemDetailsService problemDetailsService,
+    ILogger<GlobalExceptionHandler> logger) : IExceptionHandler
+{
+    public const string UnexpectedErrorTitle = "An unexpected error occurred.";
+
+    public async ValueTask<bool> TryHandleAsync(
+        HttpContext httpContext,
+        Exception exception,
+        CancellationToken cancellationToken)
+    {
+        if (IsClientAbort(httpContext, exception))
+        {
+            logger.LogDebug("Request was canceled by the client. TraceId: {TraceId}", TraceIdentifiers.Resolve(httpContext));
+            httpContext.Response.StatusCode = StatusCodes.Status499ClientClosedRequest;
+            return true;
+        }
+
+        logger.LogError(
+            exception,
+            "Unhandled exception for {Method} {Path}. TraceId: {TraceId}",
+            httpContext.Request.Method,
+            httpContext.Request.Path,
+            TraceIdentifiers.Resolve(httpContext));
+
+        httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        return await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
+        {
+            HttpContext = httpContext,
+            ProblemDetails = CreateProblemDetails(httpContext)
+        });
+    }
+
+    private static bool IsClientAbort(HttpContext httpContext, Exception exception) =>
+        exception is OperationCanceledException && httpContext.RequestAborted.IsCancellationRequested;
+
+    private static ProblemDetails CreateProblemDetails(HttpContext httpContext) => new()
+    {
+        Status = StatusCodes.Status500InternalServerError,
+        Title = UnexpectedErrorTitle,
+        Type = "https://tools.ietf.org/html/rfc9110#section-15.6.1",
+        Extensions = { ["traceId"] = TraceIdentifiers.Resolve(httpContext) }
+    };
+}

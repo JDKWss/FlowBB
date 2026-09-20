@@ -157,11 +157,18 @@ Skoro nie ma GTFS dla autobusów, jedyną otwartą, maszynowo czytelną formą s
 | Koleje Śląskie (6 stacji w mieście) | tak, `koleje-ks.pl/gtfs/2025-2026.zip` | brak w tym feedzie | **otwarte** |
 | MZK Bielsko-Biała | nieznaleziony (są PDF-y) | GTFS-RT istnieje (Google, itsBB) | brak publicznego adresu |
 
-## Rekomendacja dla routingu
+## Rekomendacja dla danych transportu i routingu
+
+Ta sekcja zachowuje wynik researchu zrodel transportu publicznego. Aktualna,
+niezaakceptowana jeszcze propozycja routingu drogowego Walking/Bike/Car znajduje
+sie w [docs/ROUTING_SERVICE.md](docs/ROUTING_SERVICE.md) i [ADR 002](docs/adr/002-road-routing-engine.md).
+OSM jest zrodlem danych sieci drogowej, a nie usluga liczaca trase.
 
 1. **Kolej:** Koleje Śląskie GTFS (`koleje-ks.pl`) do OTP.
 2. **Autobusy MZK:** do czasu zdobycia feedu użyć `DemoRoutePlanner` z ręcznie spisanymi liniami (np. linia 7 z planu demo). Nie budować routingu na scrapowaniu OnTime/itsBB.
-3. **OSM** (Geofabrik, województwo śląskie) do dojść pieszych.
+3. **OSM** (Geofabrik, województwo śląskie) jako zrodlo lokalnego grafu
+   Walking/Bike/Car dla osobnego silnika drogowego; nie rozwiazuje rozkladow
+   PublicTransport.
 4. Interfejs `IRoutePlanner` z planu zostaje bez zmian. To dobra izolacja przed brakiem danych autobusowych.
 5. **Pismo do MZK / Urzędu Miejskiego** o feed GTFS i GTFS-RT można pokazać jako element wdrożenia po hackathonie.
 
