@@ -23,13 +23,14 @@ Rola integracyjna nalezy do Core Backend Ownera: integracja backendu, `Program.c
 |---|---|---|---|
 | Events | Domain, Application (`Events/*`), Api (`Endpoints/Events`), Infrastructure/Neo4j (odczyt) | domena, `IEventLookup`, endpointy i adapter Neo4j sa zaimplementowane | tak |
 | Attendance | Application, Api, SignalR (`Hubs`) | encja, handlery, endpointy, testy i adapter `IAttendanceRepository` dla Neo4j sa zaimplementowane | tak |
-| Crew | Domain (`Crews`), Application (`Crews/*`), Api | istnieje model grafu `Crew` i operacje ogolnego repozytorium; brak modulu Application/API | nie |
+| Crew | Domain (`Crews`), Application (`Crews/*`), Api, Infrastructure/Neo4j | domena, handlery, endpointy (`GET groups`, `POST/DELETE members`) i adapter Neo4j sa zaimplementowane | tak |
 | PULSE | Application (`Pulse/*`), Api, `Hubs` | handlery agregacji, endpointy, testy i adapter `IPulseDataReader` dla Neo4j sa zaimplementowane | tak |
 | Routing | Domain (`Routing`), Application (`Abstractions/Routing`, `Routing`), Infrastructure (`Routing`), Api (`Endpoints/Routing`); prywatna usluga Python/FastAPI | `IRoutePlanner`, `DemoRoutePlanner`, handler i endpoint sa podlaczone; FastAPI, generator grafow, Compose i wewnetrzny klient HTTP sa zaimplementowane jako spike. Publiczne wlaczenie realnego planera blokuje brak prawdziwego `PlannerSource`, dystansu i geometrii w zaakceptowanym kontrakcie | tak, nadal `DemoRoutePlanner` |
 | SignalR | Api (`Hubs`) | hub i notifier istnieja; `/hubs/pulse` jest mapowany | tak |
 
-Uruchamiany host mapuje `/health`, Events, Attendance, PULSE, Routing,
-`/hubs/pulse` oraz dokumentacje API w srodowisku Development.
+Uruchamiany host mapuje `/health`, `/health/ready`, Events, Attendance, Crew, PULSE, Routing,
+`/hubs/pulse` oraz dokumentacje API w srodowisku Development. Start calego stosu i smoke test:
+[`DEMO_RUNBOOK.md`](DEMO_RUNBOOK.md), sekcja 10.
 
 Zasady: agent pracujacy nad Attendance nie implementuje Events (uzywa `IEventLookup`, w testach fake'a). Nie tworzymy produkcyjnego `DemoEventLookup`.
 
@@ -88,9 +89,16 @@ Tej zmiany nie robi sie w ramach dokumentacji. Kazda pozycja wymaga osobnego zad
 | 3 | Stary model `FlowBB.Domain.Models.Event` pozostaje do posprzatania po MVP | Porzadki | Data/Neo4j + Backend Events |
 | 4 | `PLAN_EVENTS_LOAD.md` zachowuje historyczny plan PostGIS/EF Core; aktualny importer wydarzen do Neo4j nie istnieje | MVP | Backend Events + Data/Neo4j |
 | 5 | Dane MZK nie maja pelnych trips, kolejnosci przystankow, powiazania kursow i wszystkich wspolrzednych; nie sa grafem routingu | Po MVP | Core Backend Owner |
-| 6 | Crew nie ma jeszcze adaptera Application ani rejestracji endpointow w uruchamianym API | MVP | Core Backend Owner + Data/Neo4j |
+| 6 | Seed demo zapisuje wszystkich 82 uzytkownikow (w tym `aaaaaaaa-...` z klienta) na wydarzenie `1111...`: nikt nie moze dac `82 -> 83`. Uzytkownik `dddddddd-...` z dawnego runbooka istnieje tylko w `flowbb-queries.cypher`. Wymaga uzytkownika demo spoza wydarzenia i zgodnego `DEMO_USER_ID` w kliencie | MVP (#72) | Data/Neo4j + Frontend |
+| 7 | Kontener `routing` jest `unhealthy` bez recznego `routing-prepare` (brak grafow). Nie blokuje API; do decyzji, czy Compose ma go pomijac w trybie demo | Porzadki | Core Backend Owner |
 
 ### Rozwiazane od utworzenia planu
+
+- Crew: domena, Application, endpointy i adapter Neo4j sa zarejestrowane w API (#54).
+- `/health` i `/health/ready` (Neo4j) zgodne z `HealthResponse` z OpenAPI (#55, #52).
+- Compose przekazuje `NEO4J_SEED_ON_STARTUP` do `api`, a API czeka na zdrowy lokalny Neo4j (#57).
+- Zweryfikowane: start od czystego srodowiska, seed, restart API i `infra/smoke-test.ps1` (13 PASS, 0 FAIL, 0 SKIP)
+  na lokalnym Neo4j; wynik w `DEMO_RUNBOOK.md`, sekcja 10.
 
 - `Event` uzywa `Name`, `StartAt`, opcjonalnego `EndAt` oraz kanonicznych
   `Category` i `Source`.
