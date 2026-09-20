@@ -15,6 +15,9 @@ rzeczywistego API i sa weryfikowane przez `ContractFixturesTests` pod katem nazw
 | `pulse-hexagons-empty.geojson` | `GET /api/pulse/hexagons` - wydarzenie bez komorki przekraczajacej prog prywatnosci |
 | `groups.json` | `GET /api/events/{eventId}/groups` - lista mikrogrup |
 | `route.json` | `GET /api/events/{eventId}/route` - deterministyczna trasa z `DemoRoutePlanner` |
+| `route-road.json` | `GET /api/events/{eventId}/route` - trasa drogowa (`plannerSource: RoadRouting`) z `geometry` (`LineString`) i `distanceMeters` |
+| `create-event-request.json` | `POST /api/events` - poprawne cialo zadania (test wysyla je do API i oczekuje 201) |
+| `event-created.json` | `POST /api/events` - odpowiedz 201 (`EventDetails`, `source: External`, `participantsCount: 0`) |
 | `problem-400.json` | ProblemDetails 400 - niepoprawny identyfikator |
 | `problem-404.json` | ProblemDetails 404 - brak zasobu |
 | `problem-409.json` | ProblemDetails 409 - pelna grupa |

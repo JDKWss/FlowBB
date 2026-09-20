@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using FlowBB.Api.IntegrationTests.Endpoints;
 using FluentAssertions;
 
@@ -14,7 +15,7 @@ public sealed class RoutingSmokeTests : SmokeTestBase
     [InlineData("PublicTransport")]
     [InlineData("Bike")]
     [InlineData("Car")]
-    public async Task Route_ForADeclaredAttendance_IsTheSameDemoPlanEveryTime(string mode)
+    public async Task Route_ForADeclaredAttendance_IsTheSamePlanEveryTimeWithAConsistentShape(string mode)
     {
         (await Api.DeclareAsync(SmokeSeed.Run, SmokeSeed.FreeUser, mode)).Dispose();
 
@@ -24,10 +25,41 @@ public sealed class RoutingSmokeTests : SmokeTestBase
         var plan = await SmokeClient.ReadAsync(first);
 
         first.StatusCode.Should().Be(HttpStatusCode.OK);
-        plan.GetProperty("plannerSource").GetString().Should().Be("Demo");
+        AssertPlannerSource(plan.GetProperty("plannerSource").GetString(), mode);
         plan.GetProperty("outbound").GetProperty("steps").GetArrayLength().Should().BeGreaterThan(0);
         plan.GetProperty("returns").GetArrayLength().Should().BeGreaterThan(0);
-        (await second.Content.ReadAsStringAsync()).Should().Be(firstBody, "the demo planner is deterministic");
+        AssertGeometryMatchesTheSource(plan);
+        (await second.Content.ReadAsStringAsync()).Should().Be(firstBody, "the planner is deterministic for the same data");
+    }
+
+    // PublicTransport zawsze idzie przez planer demo. Pozostale tryby uzywaja planera drogowego, gdy usluga routingu ma
+    // przygotowane grafy (profil real-routing), a w przeciwnym razie kontrolowanego fallbacku demo.
+    private static void AssertPlannerSource(string? source, string mode)
+    {
+        if (mode == "PublicTransport")
+        {
+            source.Should().Be("Demo");
+            return;
+        }
+
+        source.Should().BeOneOf("Demo", "RoadRouting");
+    }
+
+    // RoadRouting niesie geometrie LineString i dystans; plan demo nie ma ani jednego, ani drugiego.
+    private static void AssertGeometryMatchesTheSource(JsonElement plan)
+    {
+        var outbound = plan.GetProperty("outbound");
+        var hasGeometry = outbound.TryGetProperty("geometry", out var geometry) && geometry.ValueKind == JsonValueKind.Object;
+        if (plan.GetProperty("plannerSource").GetString() == "RoadRouting")
+        {
+            hasGeometry.Should().BeTrue("a road route carries its geometry");
+            geometry.GetProperty("type").GetString().Should().Be("LineString");
+            geometry.GetProperty("coordinates").GetArrayLength().Should().BeGreaterThanOrEqualTo(2);
+            outbound.GetProperty("distanceMeters").GetDouble().Should().BeGreaterThan(0);
+            return;
+        }
+
+        hasGeometry.Should().BeFalse("the demo planner has no geometry");
     }
 
     [SmokeFact]

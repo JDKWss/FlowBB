@@ -1,0 +1,52 @@
+{
+  "eventId": "11111111-1111-1111-1111-111111111111",
+  "userId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "plannerSource": "RoadRouting",
+  "outbound": {
+    "durationMinutes": 58,
+    "distanceMeters": 4620.5,
+    "departureAt": "2026-09-25T18:02:00+02:00",
+    "arrivalAt": "2026-09-25T19:00:00+02:00",
+    "geometry": {
+      "type": "LineString",
+      "coordinates": [
+        [19.0800, 49.7980],
+        [19.0620, 49.8100],
+        [19.0443, 49.8224]
+      ]
+    },
+    "steps": [
+      {
+        "type": "Walk",
+        "instruction": "Idz na miejsce wydarzenia (trasa drogowa, DEMO DATA / SYMULACJA).",
+        "durationMinutes": 58,
+        "line": null
+      }
+    ]
+  },
+  "returns": [
+    {
+      "durationMinutes": 58,
+      "distanceMeters": 4620.5,
+      "departureAt": "2026-09-25T21:40:00+02:00",
+      "arrivalAt": "2026-09-25T22:38:00+02:00",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [19.0443, 49.8224],
+          [19.0620, 49.8100],
+          [19.0800, 49.7980]
+        ]
+      },
+      "steps": [
+        {
+          "type": "Walk",
+          "instruction": "Wroc pieszo (trasa drogowa, DEMO DATA / SYMULACJA).",
+          "durationMinutes": 58,
+          "line": null
+        }
+      ]
+    }
+  ],
+  "returnGap": false
+}
