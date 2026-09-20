@@ -29,6 +29,20 @@ public sealed class Neo4jPulseDataReader(IDriver driver, Neo4jOptions options) :
         ORDER BY e.StartAt ASC, e.EventId ASC
         """;
 
+    // Jeden wiersz na deklaracje; HasAttendance odroznia puste wydarzenie od uszkodzonego snapshotu z nullami.
+    // Celowo bez u.UserId: identyfikator uzytkownika nie opuszcza zapytania.
+    private const string EventsWithPointsQuery = """
+        MATCH (e:Event)
+        OPTIONAL MATCH (:User)-[r:IS_GOING_TO]->(e)
+        RETURN e.EventId AS EventId, e.Name AS Name, e.EndAt AS EndAt,
+               r IS NOT NULL AS HasAttendance,
+               r.OriginLatitude AS Latitude, r.OriginLongitude AS Longitude, r.TransportMode AS Mode
+        """;
+
+    private int executedQueryCount;
+
+    internal int ExecutedQueryCount => Volatile.Read(ref executedQueryCount);
+
     public async Task<IReadOnlyList<PulsePoint>> GetPointsAsync(
         Guid eventId,
         CancellationToken cancellationToken = default)
@@ -49,6 +63,16 @@ public sealed class Neo4jPulseDataReader(IDriver driver, Neo4jOptions options) :
         return records.Select(MapEvent).ToList();
     }
 
+    public async Task<IReadOnlyList<PulseEventSnapshot>> GetEventsWithPointsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var records = await ReadAsync(EventsWithPointsQuery, new Dictionary<string, object?>(), cancellationToken);
+        return records
+            .GroupBy(record => record["EventId"].As<string>())
+            .Select(group => MapSnapshot(group.ToList()))
+            .ToList();
+    }
+
     private static Dictionary<string, object?> EventIdParameter(Guid eventId)
     {
         return new Dictionary<string, object?> { ["eventId"] = Neo4jValueConversions.ToDatabaseId(eventId) };
@@ -59,6 +83,7 @@ public sealed class Neo4jPulseDataReader(IDriver driver, Neo4jOptions options) :
         Dictionary<string, object?> parameters,
         CancellationToken cancellationToken)
     {
+        Interlocked.Increment(ref executedQueryCount);
         await using var session = driver.AsyncSession(config => config.WithDatabase(options.Database));
         return await session.ExecuteReadAsync(async tx =>
         {
@@ -91,5 +116,16 @@ public sealed class Neo4jPulseDataReader(IDriver driver, Neo4jOptions options) :
         return string.IsNullOrWhiteSpace(name)
             ? throw new InvalidOperationException($"Event {id:D} in Neo4j has no Name.")
             : new PulseEventInfo(id, name, Neo4jValueConversions.ToNullableDateTimeOffset(record["EndAt"], "EndAt"));
+    }
+
+    private static PulseEventSnapshot MapSnapshot(IReadOnlyList<IRecord> records)
+    {
+        var info = MapEvent(records[0]);
+        var points = records
+            .Where(record => record["HasAttendance"].As<bool>())
+            .Select(record => MapPoint(record, info.Id))
+            .ToList();
+
+        return new PulseEventSnapshot(info, points);
     }
 }

@@ -22,4 +22,8 @@ public sealed class FakePulseDataReader : IPulseDataReader
 
     public Task<IReadOnlyList<PulseEventInfo>> GetEventsAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<PulseEventInfo>>(_events.Select(e => new PulseEventInfo(e.Key, e.Value.Name, e.Value.EndAt)).ToList());
+
+    public Task<IReadOnlyList<PulseEventSnapshot>> GetEventsWithPointsAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<PulseEventSnapshot>>(_events.Select(e =>
+            new PulseEventSnapshot(new PulseEventInfo(e.Key, e.Value.Name, e.Value.EndAt), e.Value.Points)).ToList());
 }

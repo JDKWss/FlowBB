@@ -158,6 +158,38 @@ public sealed class Neo4jPulseDataReaderTests(Neo4jFixture neo4j) : IAsyncLifeti
     }
 
     [Neo4jFact]
+    public async Task GetEventsWithPoints_EqualsPerEventReads()
+    {
+        var events = await Reader.GetEventsAsync();
+        var expected = new List<PulseEventSnapshot>();
+        foreach (var info in events)
+        {
+            expected.Add(new PulseEventSnapshot(info, await Reader.GetPointsAsync(info.Id)));
+        }
+
+        var snapshots = await Reader.GetEventsWithPointsAsync();
+
+        snapshots.Should().BeEquivalentTo(expected);
+        typeof(PulseEventSnapshot).GetProperties().Select(property => property.Name)
+            .Should().NotContain("UserId");
+    }
+
+    [Neo4jFact]
+    public async Task GetEventsWithPoints_ExecutesOneQueryRegardlessOfEventCount()
+    {
+        var beforeFirstRead = Reader.ExecutedQueryCount;
+        var initial = await Reader.GetEventsWithPointsAsync();
+        var afterFirstRead = Reader.ExecutedQueryCount;
+        await AddEventsAsync(12);
+
+        var expanded = await Reader.GetEventsWithPointsAsync();
+
+        (afterFirstRead - beforeFirstRead).Should().Be(1);
+        (Reader.ExecutedQueryCount - afterFirstRead).Should().Be(1);
+        expanded.Should().HaveCount(initial.Count + 12);
+    }
+
+    [Neo4jFact]
     public async Task GetPoints_InvalidCoordinatesAreNotIncludedInExceptionMessage()
     {
         const double invalidLatitude = 123.456789;
@@ -265,5 +297,18 @@ public sealed class Neo4jPulseDataReaderTests(Neo4jFixture neo4j) : IAsyncLifeti
             .WithParameters(parameters)
             .WithConfig(new QueryConfig(database: options.Database))
             .ExecuteAsync();
+    }
+
+    private Task AddEventsAsync(int count)
+    {
+        var eventIds = Enumerable.Range(0, count).Select(_ => Guid.NewGuid().ToString("D")).ToList();
+        return ExecuteAsync(
+            """
+            UNWIND $EventIds AS eventId
+            CREATE (:Event:PulseReaderIntegrationTest {
+              EventId: eventId, Name: 'Bulk query test event', StartAt: datetime(), IntegrationTestRunId: $RunId
+            })
+            """,
+            new { EventIds = eventIds, RunId = runId });
     }
 }

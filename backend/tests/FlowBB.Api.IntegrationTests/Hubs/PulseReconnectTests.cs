@@ -275,6 +275,14 @@ public sealed class PulseReconnectTests
         public Task<IReadOnlyList<PulseEventInfo>> GetEventsAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<PulseEventInfo>>([new PulseEventInfo(eventId, "Koncert na Rynku")]);
 
+        public Task<IReadOnlyList<PulseEventSnapshot>> GetEventsWithPointsAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<PulseEventSnapshot>>(
+            [
+                new(
+                    new PulseEventInfo(eventId, "Koncert na Rynku"),
+                    _attendance.Values.Select(mode => new PulsePoint(49.8224, 19.0443, mode)).ToList())
+            ]);
+
         private ModalSplit Split() => new(
             _attendance.Values.Count(mode => mode == TransportMode.PublicTransport),
             _attendance.Values.Count(mode => mode == TransportMode.Walking),
