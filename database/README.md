@@ -49,12 +49,12 @@ Seed przenosi dane ze starego modelu: ustawia `HomeLatitude`/`HomeLongitude` i u
 
 ## Testy adapterow na prawdziwym Neo4j
 
-Testy w `backend/tests/FlowBB.Infrastructure.Tests` lacza sie z prawdziwa instancja, ustawiana zmiennymi `FLOWBB_TEST_NEO4J_URI`, `FLOWBB_TEST_NEO4J_PASSWORD` (oraz opcjonalnie `..._USERNAME` i `..._DATABASE`, domyslnie `neo4j`). Sa to celowo inne zmienne niz `NEO4J_*`, zeby testy nie trafily przypadkiem w baze aplikacji: **wskazuj tylko jednorazowa instancje**, bo testy zapisuja i usuwaja dane. Fixture stosuje prawdziwy `schema.cypher`, a dane testowe usuwa po przebiegu.
+Testy w `backend/tests/FlowBB.Infrastructure.Tests` lacza sie z prawdziwa instancja, ustawiana zmiennymi `FLOWBB_NEO4J_TEST_URI`, `FLOWBB_NEO4J_TEST_PASSWORD` (oraz opcjonalnie `..._USERNAME` i `..._DATABASE`, domyslnie `neo4j`). Sa to celowo inne zmienne niz `NEO4J_*`, zeby testy nie trafily przypadkiem w baze aplikacji: **wskazuj tylko jednorazowa instancje**, bo testy zapisuja i usuwaja dane. Fixture stosuje prawdziwy `schema.cypher`, a dane testowe usuwa po przebiegu.
 
 ```bash
 docker run -d --name flowbb-neo4j-test -p 127.0.0.1:17687:7687 \
   -e NEO4J_AUTH=neo4j/<haslo> neo4j:5.26.30-community
-export FLOWBB_TEST_NEO4J_URI=neo4j://127.0.0.1:17687 FLOWBB_TEST_NEO4J_PASSWORD=<haslo>
+export FLOWBB_NEO4J_TEST_URI=neo4j://127.0.0.1:17687 FLOWBB_NEO4J_TEST_PASSWORD=<haslo>
 dotnet test backend/FlowBB.sln
 ```
 
@@ -111,11 +111,4 @@ PULSE nie jest osobną bazą ani zapisanym licznikiem. API odczytuje snapshoty r
 
 ### Testy integracyjne Neo4j
 
-Testy `FlowBB.Infrastructure.Tests` tworzą izolowane dane bezpośrednim Cypherem na skonfigurowanej instancji Neo4j i usuwają je po każdym teście. Są opt-in, aby zwykły `dotnet test` nie wymagał dostępu do bazy:
-
-```powershell
-$env:NEO4J_RUN_INTEGRATION_TESTS="true"
-dotnet test backend/tests/FlowBB.Infrastructure.Tests/FlowBB.Infrastructure.Tests.csproj
-```
-
-Połączenie jest pobierane z tych samych zmiennych `NEO4J_*` lub ignorowanego pliku konfiguracyjnego co backend. Testy nie zapisują ani nie wypisują sekretów oraz dokładnych współrzędnych w logach.
+Testy `FlowBB.Infrastructure.Tests` lacza sie z jednorazowa instancja Neo4j ustawiana zmiennymi `FLOWBB_NEO4J_TEST_URI` i `FLOWBB_NEO4J_TEST_PASSWORD` (opcjonalnie `..._USERNAME`, `..._DATABASE`, domyslnie `neo4j`). Sa to celowo inne zmienne niz `NEO4J_*`, zeby testy nie trafily w baze aplikacji (np. Aura z `.env`). Bez nich testy sa pomijane (`Skipped`), a zwykly `dotnet test` nie wymaga bazy. Szczegoly i przyklad uruchomienia: sekcja „Testy adapterow na prawdziwym Neo4j" wyzej. Testy tworza izolowane dane i usuwaja je po sobie, nie wypisuja sekretow ani dokladnych wspolrzednych.
