@@ -110,12 +110,13 @@ Reguly:
 
 ## Constraints i indeksy
 
-Definicja: `database/schema.cypher` (idempotentny, uruchomienie: [database/README.md](../database/README.md)).
+Definicja: numerowane, idempotentne skrypty w `database/migrations/` (uruchomienie: [database/README.md](../database/README.md)). `database/schema.cypher` jest tylko zgodnym wstecznie snapshotem aktualnej wersji. Węzeł `(:SchemaVersion {Key: 'flowbb'})` zapisuje ostatnią zastosowaną wersję i nazwę migracji.
 
 | Constraint / indeks | Stan |
 |---|---|
 | `User.UserId`, `Event.EventId`, `Venue.VenueId`, `Crew.CrewId` - unikalne | jest |
 | `Tag.TagId` - unikalne | jest (poza P0) |
+| `SchemaVersion.Key` - unikalne | jest |
 | Indeks zakresu na `Event.StartAt` | jest |
 
 Neo4j Community nie obsluguje constraintow istnienia (`IS NOT NULL`), wiec schemat ich nie zawiera. Kolumna „Wymagane” oznacza, ze pole musi zapisac adapter lub seed; baza tego nie wymusza, wymusza tylko unikalnosc identyfikatorow.
@@ -140,4 +141,4 @@ PULSE nie przechowuje niezależnych liczników. Po zatwierdzeniu transakcji Atte
 | 4 | Pakiety EF Core/Npgsql usuniete z Infrastructure (#58); Neo4j pozostaje jedyna persystencja runtime | Data/Neo4j + Core Backend Owner |
 | 5 | Nazwy wspolrzednych ujednolicone jako `DefaultOriginLatitude/DefaultOriginLongitude` w kodzie, seedach, `AGENTS.md` i ADR 001 | Data/Neo4j + Core Backend Owner |
 | 6 | Adaptery Neo4j (Events, Attendance, PULSE, Crew): zrobione, testy na prawdziwej instancji w `FlowBB.Infrastructure.Tests` | Data/Neo4j |
-| 7 | Initializer bez starego grafu: wspolny `Neo4jDriverFactory`, osadzony `database/schema.cypher` i idempotentny seed demo | Data/Neo4j |
+| 7 | Initializer bez starego grafu: wspolny `Neo4jDriverFactory`, osadzone wersjonowane migracje i idempotentny seed demo | Data/Neo4j |

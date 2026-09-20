@@ -10,7 +10,7 @@ public sealed class Neo4jCollection : ICollectionFixture<Neo4jFixture>
 }
 
 /// <summary>
-/// Wspolne polaczenie z prawdziwym Neo4j. Stosuje prawdziwy <c>database/schema.cypher</c> i sprzata dane testowe:
+/// Wspolne polaczenie z prawdziwym Neo4j. Stosuje wersjonowane migracje i sprzata dane testowe:
 /// kazdy wezel utworzony przez pomocnicze metody ma <c>TestRunId</c>, po ktorym jest usuwany na koncu przebiegu.
 /// </summary>
 public sealed class Neo4jFixture : IAsyncLifetime
@@ -34,10 +34,7 @@ public sealed class Neo4jFixture : IAsyncLifetime
         Driver = Neo4jDriverFactory.Create(Options);
         await Driver.VerifyConnectivityAsync();
 
-        foreach (var statement in ReadSchemaStatements())
-        {
-            await ExecuteAsync(statement);
-        }
+        await Neo4jSchemaMigrator.ApplyAsync(Driver, Options.Database);
     }
 
     public async Task DisposeAsync()
@@ -146,29 +143,4 @@ public sealed class Neo4jFixture : IAsyncLifetime
             new { userId = userId.ToString("D"), eventId = eventId.ToString("D") });
     }
 
-    private static IEnumerable<string> ReadSchemaStatements()
-    {
-        var path = FindRepositoryFile(Path.Combine("database", "schema.cypher"));
-        var withoutComments = string.Join(
-            '\n',
-            File.ReadAllLines(path).Where(line => !line.TrimStart().StartsWith("//", StringComparison.Ordinal)));
-
-        return withoutComments
-            .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(statement => statement.Length > 0);
-    }
-
-    private static string FindRepositoryFile(string relativePath)
-    {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
-        {
-            var candidate = Path.Combine(directory.FullName, relativePath);
-            if (File.Exists(candidate))
-            {
-                return candidate;
-            }
-        }
-
-        throw new FileNotFoundException($"Nie znaleziono {relativePath} powyzej {AppContext.BaseDirectory}.");
-    }
 }

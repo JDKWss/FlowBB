@@ -2,8 +2,8 @@
 // Dane syntetyczne: DEMO DATA / SYMULACJA.
 // WAŻNE: uruchamiaj po jednym pełnym bloku, od pierwszego słowa do średnika.
 
-// 1. OGRANICZENIA I INDEKSY — przeniesione do database/schema.cypher
-// Najpierw uruchom schema.cypher (patrz database/README.md), potem poniższy seed.
+// 1. OGRANICZENIA I INDEKSY — przeniesione do database/migrations/
+// Najpierw uruchom migracje w kolejnosci numerow (patrz database/README.md), potem poniższy seed.
 
 // 2. UŻYTKOWNICY — zaznacz od UNWIND do średnika i uruchom
 

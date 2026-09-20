@@ -2,12 +2,13 @@
 
 Kontrakt danych: [../docs/NEO4J_CONTRACT.md](../docs/NEO4J_CONTRACT.md). Decyzja o bazie: [../docs/adr/001-runtime-persistence.md](../docs/adr/001-runtime-persistence.md).
 
-| Plik                    | Zawartosc                                                        | Idempotentny          |
-| ----------------------- | ---------------------------------------------------------------- | --------------------- |
-| `schema.cypher`         | constraints unikalnosci i indeksy                                | tak (`IF NOT EXISTS`) |
-| `flowbb-queries.cypher` | syntetyczny seed (`DEMO DATA / SYMULACJA`) i zapytania kontrolne | tak (`MERGE` + `SET`) |
+| Plik / katalog          | Zawartosc                                                        | Idempotentny                        |
+| ----------------------- | ---------------------------------------------------------------- | ----------------------------------- |
+| `migrations/*.cypher`   | numerowane migracje constraints i indeksow                       | tak (`IF NOT EXISTS` + znacznik)    |
+| `schema.cypher`         | zgodny wstecznie snapshot aktualnej wersji schematu              | tak; nie dodawaj tu nowych migracji |
+| `flowbb-queries.cypher` | syntetyczny seed (`DEMO DATA / SYMULACJA`) i zapytania kontrolne | tak (`MERGE` + `SET`)               |
 
-Kolejnosc: najpierw `schema.cypher`, potem seed. Oba pliki mozna uruchamiac wielokrotnie; drugie uruchomienie nie zmienia liczby wezlow (20) ani relacji (41).
+Migracje stosuje sie w kolejnosci numerow. Kazda konczy sie aktualizacja pojedynczego wezla `(:SchemaVersion {Key: 'flowbb'})`. Initializer odczytuje ten znacznik, uruchamia tylko brakujace migracje i odmawia startu, gdy baza ma wersje nowsza niz aplikacja. Skrypt mozna bezpiecznie uruchomic ponownie: constraints, indeksy, wersja i `AppliedAt` nie zmieniaja sie. `schema.cypher` pozostaje tylko dla starszych instrukcji i odpowiada wersji 2.
 
 ## Uruchomienie na lokalnym kontenerze
 
@@ -15,25 +16,34 @@ Przy kontenerze `neo4j` z profilu `local-db` (`infra/docker-compose.yml`), z kat
 
 ```bash
 docker compose --profile local-db exec -T neo4j \
-  cypher-shell -u "$NEO4J_USERNAME" -p "$NEO4J_PASSWORD" < database/schema.cypher
+  cypher-shell -u "$NEO4J_USERNAME" -p "$NEO4J_PASSWORD" < database/migrations/001_constraints.cypher
+docker compose --profile local-db exec -T neo4j \
+  cypher-shell -u "$NEO4J_USERNAME" -p "$NEO4J_PASSWORD" < database/migrations/002_event_start_at_index.cypher
 docker compose --profile local-db exec -T neo4j \
   cypher-shell -u "$NEO4J_USERNAME" -p "$NEO4J_PASSWORD" < database/flowbb-queries.cypher
 ```
 
-Wynik kontrolny: `SHOW CONSTRAINTS` pokazuje 8 constraintow `UNIQUENESS`, a `MATCH (n) RETURN count(n)` po seedzie zwraca 20.
+Wynik kontrolny: `SHOW CONSTRAINTS` pokazuje 9 constraintow `UNIQUENESS`, a `MATCH (version:SchemaVersion {Key: 'flowbb'}) RETURN version.Version, version.Name` zwraca `2` i `002_event_start_at_index`. Wynik seedu obejmuje dodatkowy wezel znacznika schematu.
 
-## Uruchomienie na Neo4j Aura
+## Reczna weryfikacja na jednorazowej instancji Neo4j Aura
 
-Instrukcja ponizej **nie byla sprawdzana na Aurze** (weryfikacja: lokalny Neo4j 5.26 Community). Aura nie daje dostepu do powloki kontenera, wiec sa dwie drogi:
+> **Status: procedura nie zostala wykonana w ramach #114, poniewaz nie udostepniono danych dostepowych do bezpiecznej, pustej instancji Aura.**
 
-1. **Konsola Aura (Query)**: otworz plik, wklej i uruchom kazdy blok od pierwszego slowa do srednika. Bloki sa niezalezne, wiec w razie bledu mozna wznowic od dowolnego miejsca.
-2. **`cypher-shell` z lokalnego komputera**:
+`Neo4jTestSafetyGuard` celowo blokuje testy adapterow na hostach Aura. Nie omijaj go i nie ustawiaj `FLOWBB_NEO4J_TEST_*` na baze Aura. Ponizsza procedura jest wylacznie recznym smoke testem na jednorazowej, pustej instancji, ktora po weryfikacji mozna usunac.
+
+1. Utworz pusta instancje Aura. Dane dostepowe ustaw tylko w lokalnych zmiennych `NEO4J_URI`, `NEO4J_DATABASE`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`; nie wklejaj ich do logow, plikow ani PR. URI z konsoli Aura ma zwykle schemat `neo4j+s://`.
+2. Z lokalnego komputera zastosuj kolejno migracje i seed:
 
    ```bash
-   cypher-shell -a "$NEO4J_URI" -u "$NEO4J_USERNAME" -p "$NEO4J_PASSWORD" -d "$NEO4J_DATABASE" -f database/schema.cypher
+   cypher-shell -a "$NEO4J_URI" -u "$NEO4J_USERNAME" -p "$NEO4J_PASSWORD" -d "$NEO4J_DATABASE" -f database/migrations/001_constraints.cypher
+   cypher-shell -a "$NEO4J_URI" -u "$NEO4J_USERNAME" -p "$NEO4J_PASSWORD" -d "$NEO4J_DATABASE" -f database/migrations/002_event_start_at_index.cypher
+   cypher-shell -a "$NEO4J_URI" -u "$NEO4J_USERNAME" -p "$NEO4J_PASSWORD" -d "$NEO4J_DATABASE" -f database/flowbb-demo-seed.cypher
    ```
 
-   `NEO4J_URI` ma schemat `neo4j+s://` (wartosc z konsoli Aura). Hasla nie zapisujemy w repozytorium.
+3. W Aura Query sprawdz `MATCH (version:SchemaVersion {Key: 'flowbb'}) RETURN version.Version, version.Name`; oczekiwany wynik to wersja `2`. Sprawdz tez `SHOW CONSTRAINTS` i `SHOW INDEXES`.
+4. Uruchom API z tymi samymi zmiennymi `NEO4J_*` i `NEO4J_SEED_ON_STARTUP=true`. Ponowne zastosowanie migracji oraz seedu potwierdza idempotencje.
+5. Gdy `/health` odpowiada, uruchom `pwsh infra/smoke-test.ps1` i zachowaj tylko wynik PASS/FAIL, bez konfiguracji polaczenia.
+6. Po tescie usun jednorazowa instancje Aura i wyczysc lokalne zmienne srodowiskowe.
 
 ## Ograniczenia edycji Community
 
@@ -41,13 +51,15 @@ Instrukcja ponizej **nie byla sprawdzana na Aurze** (weryfikacja: lokalny Neo4j 
 - Konsekwencja: baza przyjmie wezel `Event` bez `Name`. Kompletnosc pol wymaganych pilnuja adaptery w `Infrastructure/Neo4j`, a nie schemat. Unikalnosc `EventId`, `UserId`, `VenueId`, `CrewId` jest wymuszana przez baze (duplikat konczy sie bledem).
 - Edycja Community obsluguje jedna baze uzytkownika, o nazwie `neo4j` (`CREATE DATABASE` jest tam nieobslugiwane). Gdy `NEO4J_DATABASE` nie jest ustawione, backend uzywa wlasnie `neo4j`; dla Aury podaj nazwe bazy z konsoli.
 - Unikalnosci relacji `IS_GOING_TO` nie wymusza constraint: ma ja gwarantowac `MERGE` na parze wezlow. Do potwierdzenia testem rownoleglych zapisow na prawdziwej instancji w issue #17.
-- Aury nie sprawdzano: schemat, seed i testy zweryfikowano wylacznie na lokalnym Neo4j 5.26 Community.
+- Aura jest usluga zarzadzana, zwykle wymaga szyfrowanego `neo4j+s://`, nie udostepnia powloki kontenera i moze wybrac inny fizyczny operator planu wraz ze wzrostem statystyk. Uzyte DDL (`IF NOT EXISTS`, uniqueness constraints i range index) jest wspolne dla Community i Aura, ale procedury Aura powyzej nie wykonano.
 
-## Przeglad indeksow PULSE (#102)
+## Przeglad indeksow PULSE, Attendance i Crew (#114)
 
-Plany `EXPLAIN` i `PROFILE` sprawdzono na Neo4j 5.26.30 Community. Odczyt pojedynczego wydarzenia po `EventId` korzysta z `NodeUniqueIndexSeek` na istniejacym `event_id_unique`, a potem przechodzi relacje `IS_GOING_TO` przez `Expand(All)`. Zbiorczy odczyt summary celowo obejmuje wszystkie wydarzenia: plan uzywa `NodeByLabelScan` dla `Event`, a nastepnie `OptionalExpand(All)` po `IS_GOING_TO`.
+Plany `EXPLAIN` i `PROFILE` sprawdzono na Neo4j 5.26.30 Community. Odczyt PULSE pojedynczego wydarzenia po `EventId` korzysta z `NodeUniqueIndexSeek` na `event_id_unique`, a potem przechodzi relacje `IS_GOING_TO` przez `Expand(All)`. Zbiorczy odczyt summary celowo obejmuje wszystkie wydarzenia: plan uzywa `NodeByLabelScan` dla `Event`, a nastepnie `OptionalExpand(All)` po `IS_GOING_TO`.
 
-Nie dodano nowego indeksu. Zbiorczy odczyt nie ma selektywnego predykatu, wiec indeksy na `TransportMode`, wspolrzednych relacji ani `Event.StartAt` nie ograniczylyby liczby odczytywanych rekordow. `event_start_at` pozostaje potrzebny zapytaniom listy wydarzen, ale summary nie sortuje wynikow, poniewaz kolejnosc nie wplywa na agregaty. Ponowny przeglad ma sens po dodaniu filtrowania summary po czasie lub obszarze.
+Attendance szuka `User.UserId` i `Event.EventId` przez constraint-backed `NodeUniqueIndexSeek`; pozniejsze `MERGE` dotyczy juz znalezionej pary wezlow. Odczyt agregatu wydarzenia zaczyna sie od `event_id_unique`. Crew analogicznie korzysta z `crew_id_unique`, `user_id_unique` i `event_id_unique` dla dolaczenia, opuszczenia oraz listy grup wydarzenia, a czlonkow przechodzi przez relacje `MEMBER_OF`.
+
+Nie dodano nowego indeksu biznesowego. Zbiorczy odczyt PULSE nie ma selektywnego predykatu, a przejscia Attendance/Crew sa po relacjach od wezlow znalezionych przez unikalne identyfikatory. Indeksy na `TransportMode`, wspolrzednych relacji albo `MEMBER_OF` nie ograniczylyby liczby odczytow. Dodano jedynie constraint `schema_version_key_unique`, ktory gwarantuje pojedynczy znacznik wersji dla klucza `flowbb`.
 
 ## Migracja z poprzedniego seedu
 
@@ -55,7 +67,7 @@ Seed przenosi dane ze starszych wersji: ustawia `DefaultOriginLatitude`/`Default
 
 ## Testy adapterow na prawdziwym Neo4j
 
-Testy w `backend/tests/FlowBB.Infrastructure.Tests` lacza sie z prawdziwa instancja, ustawiana zmiennymi `FLOWBB_NEO4J_TEST_URI`, `FLOWBB_NEO4J_TEST_PASSWORD` (oraz opcjonalnie `..._USERNAME` i `..._DATABASE`, domyslnie `neo4j`). Sa to celowo inne zmienne niz `NEO4J_*`, zeby testy nie trafily przypadkiem w baze aplikacji. Testy zapisuja i usuwaja dane, dlatego wymagaja tez jawnego `FLOWBB_NEO4J_TEST_CONFIRM_DISPOSABLE=true`. Fixture odmawia pracy z Neo4j Aura nawet przy takim potwierdzeniu. Wskazuj wylacznie jednorazowa instancje; fixture stosuje prawdziwy `schema.cypher`, a dane testowe usuwa po przebiegu.
+Testy w `backend/tests/FlowBB.Infrastructure.Tests` lacza sie z prawdziwa instancja, ustawiana zmiennymi `FLOWBB_NEO4J_TEST_URI`, `FLOWBB_NEO4J_TEST_PASSWORD` (oraz opcjonalnie `..._USERNAME` i `..._DATABASE`, domyslnie `neo4j`). Sa to celowo inne zmienne niz `NEO4J_*`, zeby testy nie trafily przypadkiem w baze aplikacji. Testy zapisuja i usuwaja dane, dlatego wymagaja tez jawnego `FLOWBB_NEO4J_TEST_CONFIRM_DISPOSABLE=true`. Fixture odmawia pracy z Neo4j Aura nawet przy takim potwierdzeniu. Wskazuj wylacznie jednorazowa instancje; fixture stosuje te same osadzone migracje co aplikacja, a dane testowe usuwa po przebiegu.
 
 ```bash
 docker run -d --name flowbb-neo4j-test -p 127.0.0.1:17687:7687 \
@@ -84,7 +96,7 @@ Zeby wyczyscic dane bez zatrzymywania kontenera (**tylko jednorazowa baza testow
 docker exec flowbb-neo4j-test cypher-shell -u neo4j -p <haslo> "MATCH (n) DETACH DELETE n"
 ```
 
-Schemat zostaje (constraints i indeksy), a fixture i tak stosuje go przy kazdym przebiegu.
+Schemat zostaje (constraints, indeksy i znacznik wersji), a fixture i tak stosuje migracje przy kazdym przebiegu.
 
 ## Seed demonstracyjny i inicjalizacja przy starcie API (`flowbb-demo-seed.cypher`)
 
@@ -94,7 +106,7 @@ Drugi, wiekszy seed (issue #7) jest osadzany w assembly `FlowBB.Infrastructure` 
 
 ### Automatyczne uruchomienie
 
-Backend wykonuje constraints i seed przed wystartowaniem serwera, gdy ustawiono:
+Backend wykonuje brakujace migracje i seed przed wystartowaniem serwera, gdy ustawiono:
 
 ```text
 NEO4J_SEED_ON_STARTUP=true
