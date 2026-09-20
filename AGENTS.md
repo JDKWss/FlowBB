@@ -69,7 +69,7 @@ Jesli zmiana nie wspiera tego scenariusza, nie jest P0.
 - Kontenery: Docker Compose.
 - Demo: `/client` w mobilnym rozmiarze viewportu przegladarki, `/dashboard` w przegladarce desktopowej; cloudflared tylko jako awaryjny tunel do API.
 
-Pakiety EF Core i Npgsql zostaly usuniete z `FlowBB.Infrastructure.csproj` (pozostalosc po wczesniejszym planie) i nie naleza do stacku; nie dodawaj ich ponownie.
+Nieuzywane pakiety dawnego stacku relacyjnego zostaly usuniete z `FlowBB.Infrastructure.csproj`, poniewaz nie naleza do stacku. Nie dodawaj ich ponownie bez nowej decyzji architektonicznej i zgody Backend/Core Leada.
 
 Nie dodawaj produkcyjnej zaleznosci, frameworka, bazy ani zewnetrznej uslugi bez zgody Backend/Core Leada.
 

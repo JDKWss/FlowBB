@@ -5,12 +5,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="..\..\..\database\flowbb-demo-seed.cypher"
-                      LogicalName="FlowBB.Database.flowbb-demo-seed.cypher" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
   <ItemGroup>
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <EmbeddedResource Include="..\..\..\database\flowbb-demo-seed.cypher"
+                      LogicalName="FlowBB.Database.flowbb-demo-seed.cypher" />
   </ItemGroup>
 
   <ItemGroup>

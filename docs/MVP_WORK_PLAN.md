@@ -90,12 +90,11 @@ Tej zmiany nie robi sie w ramach dokumentacji. Kazda pozycja wymaga osobnego zad
 
 ### Rozwiazane od utworzenia planu
 
+- Nieuzywane zaleznosci dawnego stacku relacyjnego i jego lokalne narzedzie CLI zostaly usuniete; Neo4j pozostaje jedyna persystencja runtime.
 - Crew: domena, Application, endpointy i adapter Neo4j sa zarejestrowane w API (#54).
 - `/health` i `/health/ready` (Neo4j) zgodne z `HealthResponse` z OpenAPI (#55, #52).
 - Compose przekazuje `NEO4J_SEED_ON_STARTUP` do `api`, a API czeka na zdrowy lokalny Neo4j (#57).
 - Seed ma 83 syntetycznych uzytkownikow; `DEMO_USER_ID` `aaaaaaaa-...` pozostaje poza wydarzeniami i Crew, wiec pierwszy POST na `1111...` pokazuje `82 -> 83` (#72).
-- Pakiety EF Core i Npgsql usuniete z `FlowBB.Infrastructure.csproj`, a `dotnet-ef` z `dotnet-tools.json` (#58). Infrastructure
-  korzysta z abstrakcji DI i logowania przez `FrameworkReference` do `Microsoft.AspNetCore.App`.
 - Szeroki `IFlowBbGraphRepository`, `Neo4jFlowBbGraphRepository*` i modele `Domain/Models/*` (w tym stary `Event`) usuniete (#59). `Neo4jDatabaseInitializer`
   korzysta bezposrednio z `IDriver` (te same constraints i seed); `Domain` nie zawiera interfejsow repozytoriow.
 - Zweryfikowane: start od czystego srodowiska, seed, restart API i `infra/smoke-test.ps1` (13 PASS, 0 FAIL, 0 SKIP)
