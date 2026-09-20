@@ -12,6 +12,7 @@ import type {
 const queryKeys = {
   events: ['events'] as const,
   event: (eventId: string) => ['events', eventId] as const,
+  airQuality: (eventId: string) => ['events', eventId, 'air-quality'] as const,
   route: (eventId: string) => ['events', eventId, 'route', DEMO_USER_ID] as const,
   groups: (eventId: string) => ['events', eventId, 'groups', DEMO_USER_ID] as const,
 }
@@ -27,6 +28,14 @@ export const useEvent = (eventId: string | null) =>
     queryKey: queryKeys.event(eventId ?? 'none'),
     queryFn: () => clientService.getEvent(eventId!),
     enabled: Boolean(eventId),
+  })
+
+export const useAirQuality = (eventId: string | null, enabled: boolean) =>
+  useQuery({
+    queryKey: queryKeys.airQuality(eventId ?? 'none'),
+    queryFn: () => clientService.getAirQuality(eventId!),
+    enabled: Boolean(eventId) && enabled,
+    retry: 1,
   })
 
 export const useRoute = (eventId: string | null, enabled: boolean) =>

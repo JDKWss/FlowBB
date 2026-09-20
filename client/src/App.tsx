@@ -7,6 +7,7 @@ const AttendanceView = lazy(() => import('./features/journey/AttendanceView').th
 const RouteView = lazy(() => import('./features/journey/RouteView').then(module => ({ default: module.RouteView })))
 const CrewView = lazy(() => import('./features/journey/CrewView').then(module => ({ default: module.CrewView })))
 import {
+  useAirQuality,
   useEvent,
   useEvents,
   useGroups,
@@ -181,6 +182,7 @@ export default function App() {
 
   const eventsQuery = useEvents()
   const eventQuery = useEvent(eventId)
+  const airQualityQuery = useAirQuality(eventId, screen === 'details')
   const routeQuery = useRoute(eventId, screen === 'route' || screen === 'crew')
   const groupsQuery = useGroups(eventId, screen === 'crew')
   const attendanceMutation = useSaveAttendance()
@@ -255,6 +257,10 @@ export default function App() {
     content = (
       <EventDetailsView
         event={eventQuery.data}
+        airQuality={airQualityQuery.data}
+        airQualityLoading={airQualityQuery.isLoading}
+        airQualityError={airQualityQuery.error ? errorMessage(airQualityQuery.error) : null}
+        onRetryAirQuality={() => void airQualityQuery.refetch()}
         onBack={() => goBack('events', null)}
         onContinue={startAttendance}
       />

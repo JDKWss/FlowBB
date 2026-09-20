@@ -13,11 +13,13 @@ import {
   Tooltip,
 } from 'recharts'
 import {
+  useAirQuality,
   useEventPulse,
   usePulseHexagons,
   usePulseSummary,
 } from '../hooks/useDashboardData'
 import type { EventSummary, ModalSplit } from '../types/contracts'
+import { AirQualityCard } from './AirQualityCard'
 import { PulseMap } from './PulseMap'
 
 const splitConfig: Array<{
@@ -63,6 +65,7 @@ export function PulseView({
   const summary = usePulseSummary()
   const pulse = useEventPulse(selectedEvent.id)
   const hexagons = usePulseHexagons(selectedEvent.id)
+  const airQuality = useAirQuality(selectedEvent.id)
 
   if (pulse.isLoading) return <LoadingPanel />
 
@@ -210,6 +213,13 @@ export function PulseView({
               </div>
             )}
           </article>
+
+          <AirQualityCard
+            data={airQuality.data}
+            isLoading={airQuality.isLoading}
+            error={airQuality.error instanceof Error ? airQuality.error.message : null}
+            onRetry={() => void airQuality.refetch()}
+          />
         </aside>
       </section>
     </div>

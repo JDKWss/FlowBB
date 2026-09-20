@@ -11,6 +11,8 @@ RUN dotnet restore backend/src/FlowBB.Api/FlowBB.Api.csproj
 COPY backend/src/ backend/src/
 # FlowBB.Infrastructure osadza database/flowbb-demo-seed.cypher jako zasob (EmbeddedResource), wiec katalog musi byc w obrazie budujacym.
 COPY database/ database/
+# Deterministyczny fallback Air Quality jest osadzany z wersjonowanego snapshotu.
+COPY data/air-quality/ data/air-quality/
 RUN dotnet publish backend/src/FlowBB.Api/FlowBB.Api.csproj \
     --configuration Release \
     --output /app/publish \

@@ -15,8 +15,8 @@ normalizacje, obsluge awarii i polityke fallback po stronie FlowBB.
 ## Kontrakt publiczny
 
 Kanoniczny kontrakt to `GET /api/events/{eventId}/air-quality` oraz
-`AirQualityResponse` w `contracts/openapi.yaml`. Operacja ma
-`x-runtime-status: planned`, poniewaz issue #94 nie implementuje endpointu.
+`AirQualityResponse` w `contracts/openapi.yaml`. Endpoint jest zaimplementowany
+i zawsze zwraca dane znormalizowane przez backend FlowBB.
 
 Odpowiedz zawiera `eventId`, stacje, czas pomiaru, poziom jakosci, status,
 zrodlo, pomiary `pm10`, `pm25`, `no2`, `o3` oraz opcjonalny alert. Wszystkie
@@ -25,8 +25,8 @@ zera. Publiczna odpowiedz nie zawiera identyfikatora uzytkownika,
 wspolrzednych mieszkanca, origin Attendance, Crew ani indywidualnej trasy.
 
 `400` oznacza niepoprawny UUID, `404` poprawny UUID nieistniejacego wydarzenia,
-a `500` tylko nieoczekiwany blad FlowBB. Awaria lub timeout GIOS ma w przyszlej
-implementacji zwrocic `200` z `Fallback + Demo`, a nie publiczne `5xx`.
+a `500` tylko nieoczekiwany blad FlowBB. Awaria, timeout lub bezuzyteczna
+odpowiedz GIOS zwraca `200` z `Fallback + Demo`, a nie publiczne `5xx`.
 
 ## Status i zrodlo
 
@@ -35,9 +35,12 @@ implementacji zwrocic `200` z `Fallback + Demo`, a nie publiczne `5xx`.
 - `Fallback + Demo`: brak uzytecznych danych zewnetrznych; FlowBB zwraca
   deterministyczny snapshot.
 
-Kombinacje `Fresh + Demo` i `Fallback + Gios` nie powinny byc produkowane.
-Prog 90 minut wynika z godzinnego cyklu publikacji GIOS i zostaje zamrozony dla
-MVP+. Klasyfikacje wieku i wybor fallback beda nalezec do issue #96.
+Kombinacje `Fresh + Demo` i `Fallback + Gios` nie sa produkowane.
+Prog 90 minut wynika z godzinnego cyklu publikacji GIOS. Use case klasyfikuje
+wiek, utrzymuje 20-minutowy cache, ogranicza rownolegle wywolania dla wydarzenia
+i wybiera fallback po timeoutcie lub bledzie dostawcy. Metadane listy stacji
+oraz stanowisk sa wspoldzielone przez wydarzenia i buforowane przez 12 godzin,
+aby respektowac ostrzejszy limit uslug metadanych GIOS.
 
 ## Poziom jakosci, pomiary i czas
 
@@ -65,7 +68,7 @@ ISO 8601 z jawnym offsetem, normalizowanym dla strefy `Europe/Warsaw`, np.
 
 ## Wybor stacji
 
-Przyszly use case pobiera wspolrzedne wydarzenia i przekazuje je do
+Use case pobiera wspolrzedne wydarzenia i przekazuje je do
 `IAirQualityProvider`. Adapter oblicza odleglosc w linii prostej i wybiera
 najblizsza stacje, ktora udostepnia co najmniej jeden obslugiwany pomiar:
 PM10, PM2.5, NO2 albo O3. Brakujace zanieczyszczenia pozostaja `null`.
@@ -106,16 +109,16 @@ Przy `source: Gios` UI musi czytelnie pokazac co najmniej
 informacji o zakresie/przetworzeniu). Przy `source: Demo` UI pokazuje
 `Źródło: dane demonstracyjne FlowBB`.
 
-## Fallback dla issue #98
+## Fallback demonstracyjny
 
-Issue #98 ma utworzyc `data/air-quality/demo-snapshot.json` o ksztalcie
+`data/air-quality/demo-snapshot.json` ma ksztalt
 dokladnie `AirQualityResponse`, z `status: Fallback`, `source: Demo` i stalym
 `measuredAt`. Wzorem formatu jest `contracts/fixtures/air-quality-fallback.json`; `ContractFixturesTests`
 sprawdza go wzgledem kontraktu razem z regula, ze `Fresh` i `Stale` wystepuja tylko ze zrodlem `Gios`, a `Fallback`
-tylko z `Demo`. Snapshot jest jeden dla wszystkich wydarzen: `eventId` i `station.distanceMeters` w pliku sa stale (dane
-demonstracyjne), a use case (#96) podstawia `eventId` zadanego wydarzenia i zwraca pozostale pola bez zmian. Plik jest wersjonowany i nie moze byc aktualizowany automatycznie
-w runtime. Przeplyw ma pozostac prosty: deserializacja snapshotu i zwrot tego
-samego kontraktu publicznego.
+tylko z `Demo`. Plik jest wersjonowany, osadzany jako zasob assembly i nie moze byc aktualizowany automatycznie
+w runtime. Jest deserializowany lokalnie i nie wymaga GIOS, Neo4j ani zmiennych srodowiskowych. Snapshot jest jeden
+dla wszystkich wydarzen: use case podstawia `eventId` zadanego wydarzenia i przelicza jedynie odleglosc
+wydarzenie-stacja, zachowujac zamrozone pomiary oraz pozostale dane demonstracyjne.
 
 ## Izolacja awarii
 
@@ -126,11 +129,12 @@ ani `/health/ready`. Awaria, timeout, limit zapytan (`429`) albo bezuzyteczna od
 Client i Dashboard traktuja karte jakosci powietrza jako opcjonalny widget: jej ladowanie i blad nie moga blokowac
 renderowania wydarzenia, KPI, mapy ani aktualizacji SignalR (#95).
 
-## Granice kolejnych issue
+## Implementacja
 
-- #95: Client i Dashboard, w tym etykiety zrodla; bez polaczen do GIOS.
-- #96: use case, prog 90 minut, cache i wybor fallback.
-- #97: adapter GIOS, normalizacja danych i endpoint runtime.
+- #94: kanoniczny kontrakt i modele provider-neutral.
+- #95: karta w Client i Dashboard; przegladarki wywoluja tylko FlowBB API.
+- #96: use case, prog 90 minut, cache, timeout i wybor fallback.
+- #97: adapter GIOS v1, normalizacja danych i endpoint runtime.
 - #98: deterministyczny snapshot zgodny 1:1 z `AirQualityResponse`.
 
 Air Quality nie jest zapisywane w Neo4j i nie zmienia zasad prywatnosci PULSE.

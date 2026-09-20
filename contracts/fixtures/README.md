@@ -18,7 +18,7 @@ rzeczywistego API i sa weryfikowane przez `ContractFixturesTests` pod katem nazw
 | `route-road.json` | `GET /api/events/{eventId}/route` - trasa drogowa (`plannerSource: RoadRouting`) z `geometry` (`LineString`) i `distanceMeters` |
 | `create-event-request.json` | `POST /api/events` - poprawne cialo zadania (test wysyla je do API i oczekuje 201) |
 | `event-created.json` | `POST /api/events` - odpowiedz 201 (`EventDetails`, `source: External`, `participantsCount: 0`) |
-| `air-quality.json` | Planowane `GET /api/events/{eventId}/air-quality` - kanoniczny przyklad `Fresh` + `Gios` |
+| `air-quality.json` | `GET /api/events/{eventId}/air-quality` - kanoniczny przyklad `Fresh` + `Gios` |
 | `air-quality-fallback.json` | Ta sama operacja - format snapshotu fallback `Fallback` + `Demo` (wzor dla `data/air-quality/demo-snapshot.json`, issue #98) |
 | `problem-400.json` | ProblemDetails 400 - niepoprawny identyfikator |
 | `problem-404.json` | ProblemDetails 404 - brak zasobu |

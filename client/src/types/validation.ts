@@ -17,6 +17,29 @@ export const eventDetailsSchema = eventSummarySchema.extend({
   externalId: z.string().nullable().optional(), crewAvailable: z.boolean(),
   availableTransportModes: z.array(transportSchema).refine(items => new Set(items).size === items.length),
 })
+const airQualityMeasurementSchema = z.strictObject({
+  value: z.number().finite().nonnegative(),
+  unit: z.literal('µg/m³'),
+})
+export const airQualitySchema = z.strictObject({
+  eventId: id,
+  station: z.strictObject({
+    name: z.string().min(1).max(200),
+    distanceMeters: z.number().finite().nonnegative(),
+  }),
+  measuredAt: timestamp,
+  qualityLevel: z.enum(['VeryGood', 'Good', 'Moderate', 'Sufficient', 'Bad', 'VeryBad', 'Unknown']),
+  status: z.enum(['Fresh', 'Stale', 'Fallback']),
+  source: z.enum(['Gios', 'Demo']),
+  pm10: airQualityMeasurementSchema.nullable(),
+  pm25: airQualityMeasurementSchema.nullable(),
+  no2: airQualityMeasurementSchema.nullable(),
+  o3: airQualityMeasurementSchema.nullable(),
+  alert: z.strictObject({
+    severity: z.enum(['Info', 'Warning']),
+    message: z.string().min(1).max(300),
+  }).nullable(),
+})
 export const attendanceRequestSchema = z.strictObject({ userId: id, transportMode: transportSchema })
 export const attendanceSchema = z.strictObject({
   eventId: id, userId: id, transportMode: transportSchema,

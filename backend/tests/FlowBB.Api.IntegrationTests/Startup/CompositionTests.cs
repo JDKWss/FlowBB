@@ -1,6 +1,8 @@
+using FlowBB.Application.Abstractions.AirQuality;
 using FlowBB.Application.Abstractions.Persistence;
 using FlowBB.Application.Abstractions.Realtime;
 using FlowBB.Application.Abstractions.Routing;
+using FlowBB.Application.AirQuality.GetEventAirQuality;
 using FlowBB.Application.Attendance.DeleteAttendance;
 using FlowBB.Application.Attendance.UpsertAttendance;
 using FlowBB.Application.Crews.GetEventGroups;
@@ -39,6 +41,7 @@ public sealed class CompositionTests
         typeof(GetEventPulseHandler),
         typeof(GetPulseSummaryHandler),
         typeof(GetEventRouteHandler),
+        typeof(GetEventAirQualityHandler),
         typeof(GetEventGroupsHandler),
         typeof(JoinCrewHandler),
         typeof(LeaveCrewHandler)
@@ -81,6 +84,9 @@ public sealed class CompositionTests
         AssertSingle<IPulseDataReader>(services);
         AssertSingle<IPulseNotifier>(services);
         AssertSingle<IRoutePlanner>(services);
+        AssertSingle<IAirQualityProvider>(services);
+        AssertSingle<IAirQualityFallbackProvider>(services);
+        AssertSingle<IAirQualityCache>(services);
         ResolveMappedHandlers(services);
 
         return Task.CompletedTask;

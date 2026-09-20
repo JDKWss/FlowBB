@@ -1,6 +1,7 @@
-import { eventDetails, events, groups, routes } from '../mocks/data'
-import { attendanceRequestSchema, attendanceSchema, eventSummarySchema, eventDetailsSchema, groupSchema, routeSchema } from '../types/validation'
+import { airQuality, eventDetails, events, groups, routes } from '../mocks/data'
+import { airQualitySchema, attendanceRequestSchema, attendanceSchema, eventSummarySchema, eventDetailsSchema, groupSchema, routeSchema } from '../types/validation'
 import type {
+  AirQualityResponse,
   AttendanceResponse,
   AttendanceUpsertRequest,
   EventDetails,
@@ -14,6 +15,7 @@ import type {
 export interface ClientService {
   getEvents(): Promise<EventSummary[]>
   getEvent(eventId: string): Promise<EventDetails>
+  getAirQuality(eventId: string): Promise<AirQualityResponse>
   saveAttendance(
     eventId: string,
     request: AttendanceUpsertRequest,
@@ -114,6 +116,13 @@ export class HttpClientService implements ClientService {
     return request(`/api/events/${encodeURIComponent(eventId)}`, eventDetailsSchema)
   }
 
+  getAirQuality(eventId: string) {
+    return request(
+      `/api/events/${encodeURIComponent(eventId)}/air-quality`,
+      airQualitySchema,
+    )
+  }
+
   saveAttendance(eventId: string, attendance: AttendanceUpsertRequest) {
     const body = attendanceRequestSchema.parse(attendance)
     return request(`/api/events/${encodeURIComponent(eventId)}/attendance`, attendanceSchema, {
@@ -173,6 +182,11 @@ class MockClientService implements ClientService {
     const event = this.mutableDetails.find((item) => item.id === eventId)
     if (!event) throw new Error('Event not found.')
     return eventDetailsSchema.parse(clone(event))
+  }
+
+  async getAirQuality(eventId: string) {
+    await wait()
+    return airQualitySchema.parse(clone({ ...airQuality, eventId }))
   }
 
   async saveAttendance(eventId: string, request: AttendanceUpsertRequest) {

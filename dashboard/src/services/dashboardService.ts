@@ -1,4 +1,5 @@
 import {
+  airQualitySchema,
   createEventRequestSchema,
   eventDetailsSchema,
   eventPulseSchema,
@@ -71,6 +72,11 @@ async function request<T>(
 
 export const dashboardService = {
   getEvents: () => request('/api/events', eventSummarySchema.array()),
+  getAirQuality: (eventId: string) =>
+    request(
+      `/api/events/${encodeURIComponent(eventId)}/air-quality`,
+      airQualitySchema,
+    ),
   getPulseSummary: () => request('/api/pulse/summary', pulseSummarySchema),
   getEventPulse: (eventId: string) =>
     request(`/api/pulse/events/${encodeURIComponent(eventId)}`, eventPulseSchema),

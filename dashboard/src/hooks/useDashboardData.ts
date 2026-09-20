@@ -4,6 +4,7 @@ import type { CreateEventRequest } from '../types/contracts'
 
 export const dashboardKeys = {
   events: ['events'] as const,
+  airQuality: (eventId: string) => ['events', eventId, 'air-quality'] as const,
   pulseSummary: ['pulse', 'summary'] as const,
   eventPulse: (eventId: string) => ['pulse', 'event', eventId] as const,
   hexagons: (eventId: string) => ['pulse', 'hexagons', eventId] as const,
@@ -20,6 +21,15 @@ export function usePulseSummary() {
   return useQuery({
     queryKey: dashboardKeys.pulseSummary,
     queryFn: dashboardService.getPulseSummary,
+  })
+}
+
+export function useAirQuality(eventId: string | null) {
+  return useQuery({
+    queryKey: dashboardKeys.airQuality(eventId ?? 'none'),
+    queryFn: () => dashboardService.getAirQuality(eventId!),
+    enabled: Boolean(eventId),
+    retry: 1,
   })
 }
 
