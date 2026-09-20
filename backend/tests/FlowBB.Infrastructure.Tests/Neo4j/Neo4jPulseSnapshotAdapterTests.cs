@@ -45,13 +45,13 @@ public sealed class Neo4jPulseSnapshotAdapterTests(Neo4jFixture neo4j)
     }
 
     [Neo4jFact]
-    public async Task GetPointsAsync_UsesSnapshotNotCurrentHome()
+    public async Task GetPointsAsync_UsesSnapshotNotCurrentDefaultOrigin()
     {
         var eventId = await CreateEventAsync();
         var userId = await neo4j.CreateUserAsync(49.8155, 19.0340);
         await CreateAttendance().UpsertAsync(new AttendanceIntent(eventId, userId, TransportMode.Bike, Now));
         await neo4j.ExecuteAsync(
-            "MATCH (u:User {UserId: $id}) SET u.HomeLatitude = 50.0, u.HomeLongitude = 20.0",
+            "MATCH (u:User {UserId: $id}) SET u.DefaultOriginLatitude = 50.0, u.DefaultOriginLongitude = 20.0",
             new { id = userId.ToString("D") });
 
         var points = await CreateReader().GetPointsAsync(eventId);

@@ -45,7 +45,7 @@ Aura nie daje dostepu do powloki kontenera, wiec sa dwie drogi:
 
 ## Migracja z poprzedniego seedu
 
-Seed przenosi dane ze starego modelu: ustawia `HomeLatitude`/`HomeLongitude` i usuwa `DefaultOriginLatitude`/`DefaultOriginLongitude` oraz `DemoData`. Ponowne uruchomienie na bazie po starszym seedzie nie wymaga czyszczenia danych. Snapshot `IS_GOING_TO` (`TransportMode`, `OriginLatitude`, `OriginLongitude`, `UpdatedAt`) i `MEMBER_OF.JoinedAt` sa uzupelniane na istniejacych relacjach.
+Seed przenosi dane ze starszych wersji: ustawia `DefaultOriginLatitude`/`DefaultOriginLongitude` i usuwa `HomeLatitude`/`HomeLongitude` oraz `DemoData`. Ponowne uruchomienie na bazie po starszym seedzie nie wymaga czyszczenia danych. Snapshot `IS_GOING_TO` (`TransportMode`, `OriginLatitude`, `OriginLongitude`, `UpdatedAt`) i `MEMBER_OF.JoinedAt` sa uzupelniane na istniejacych relacjach.
 
 ## Testy adapterow na prawdziwym Neo4j
 
@@ -62,7 +62,7 @@ Bez tych zmiennych testy adapterow sa **pomijane (Skipped)**, a nie zaliczane. Z
 
 ## Seed demonstracyjny i inicjalizacja przy starcie API (`flowbb-demo-seed.cypher`)
 
-Drugi, wiekszy seed (issue #7) jest osadzany w assembly `FlowBB.Infrastructure` i uruchamiany przez `Neo4jDatabaseInitializer`. `flowbb-queries.cypher` (4 uzytkownikow) zostaje reczna, mala wersja do Neo4j Query. Seed demonstracyjny uzywa nazw `DefaultOriginLatitude`/`DefaultOriginLongitude`, a adaptery czytaja obie nazwy, wiec oba seedy dzialaja z tymi samymi adapterami. Roznice i zalecane poprawki: [../docs/NEO4J_ADAPTER_RECONCILIATION.md](../docs/NEO4J_ADAPTER_RECONCILIATION.md).
+Drugi, wiekszy seed (issue #7) jest osadzany w assembly `FlowBB.Infrastructure` i uruchamiany przez `Neo4jDatabaseInitializer`. `flowbb-queries.cypher` (4 uzytkownikow) zostaje reczna, mala wersja do Neo4j Query. Oba seedy uzywaja tych samych nazw `DefaultOriginLatitude`/`DefaultOriginLongitude`, wiec dzialaja z tymi samymi adapterami. Roznice i zalecane poprawki: [../docs/NEO4J_ADAPTER_RECONCILIATION.md](../docs/NEO4J_ADAPTER_RECONCILIATION.md).
 
 `flowbb-demo-seed.cypher` zawiera idempotentne dane syntetyczne zgodne z mockiem `client/src/mocks/data.ts`. Seed nie wymaga kontenera ani wolumenu i jest osadzany w assembly Infrastructure podczas buildu.
 

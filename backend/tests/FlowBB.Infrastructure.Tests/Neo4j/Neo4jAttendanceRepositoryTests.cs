@@ -62,40 +62,6 @@ public sealed class Neo4jAttendanceRepositoryTests(Neo4jFixture neo4j)
     }
 
     [Neo4jFact]
-    public async Task UpsertAsync_UserWithLegacyDefaultOriginCoordinates_UsesThemAsSnapshot()
-    {
-        var eventId = await CreateEventAsync();
-        var userId = Guid.NewGuid();
-        await neo4j.ExecuteAsync(
-            """
-            CREATE (:User {UserId: $id, Name: 'Seed demo', DefaultOriginLatitude: 49.8050, DefaultOriginLongitude: 19.0340, TestRunId: $runId})
-            """,
-            new { id = userId.ToString("D"), runId = neo4j.RunId });
-
-        var result = await CreateRepository().UpsertAsync(Intent(eventId, userId, TransportMode.Walking));
-
-        result!.IsNew.Should().BeTrue();
-        var origin = await CreateLookup().FindAsync(eventId, userId);
-        origin!.Origin.Latitude.Should().Be(49.8050);
-        origin.Origin.Longitude.Should().Be(19.0340);
-    }
-
-    [Neo4jFact]
-    public async Task UpsertAsync_PrefersHomeCoordinatesOverLegacyOnes()
-    {
-        var eventId = await CreateEventAsync();
-        var userId = await neo4j.CreateUserAsync(49.8155, 19.0340);
-        await neo4j.ExecuteAsync(
-            "MATCH (u:User {UserId: $id}) SET u.DefaultOriginLatitude = 50.0, u.DefaultOriginLongitude = 20.0",
-            new { id = userId.ToString("D") });
-
-        await CreateRepository().UpsertAsync(Intent(eventId, userId, TransportMode.Walking));
-
-        var origin = await CreateLookup().FindAsync(eventId, userId);
-        origin!.Origin.Latitude.Should().Be(49.8155);
-    }
-
-    [Neo4jFact]
     public async Task UpsertAsync_Repeat_IsNotNewAndDoesNotDoubleCount()
     {
         var eventId = await CreateEventAsync();
@@ -145,12 +111,12 @@ public sealed class Neo4jAttendanceRepositoryTests(Neo4jFixture neo4j)
     }
 
     [Neo4jFact]
-    public async Task UpsertAsync_UserWithoutHomeCoordinates_ThrowsAndRollsBack()
+    public async Task UpsertAsync_UserWithoutOriginCoordinates_ThrowsAndRollsBack()
     {
         var eventId = await CreateEventAsync();
         var userId = Guid.NewGuid();
         await neo4j.ExecuteAsync(
-            "CREATE (:User {UserId: $id, Name: 'Bez domu', TestRunId: 'nohome'})",
+            "CREATE (:User {UserId: $id, Name: 'Bez punktu startu', TestRunId: 'noorigin'})",
             new { id = userId.ToString("D") });
 
         try

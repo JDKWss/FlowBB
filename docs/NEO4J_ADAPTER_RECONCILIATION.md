@@ -21,7 +21,7 @@ Dlaczego adaptery z tej galezi: wersje z `develop` licza `IsNew` osobnym `OPTION
 
 ## 2. Mosty (warstwa zgodnosci)
 
-1. **Nazwy wspolrzednych uzytkownika.** `AGENTS.md` sekcja 8, ADR 001 i `NEO4J_CONTRACT.md` z tej galezi mowia `HomeLatitude/HomeLongitude`. Kod, stary graf, `Domain/Models/User.cs` i `flowbb-demo-seed.cypher` z `develop` uzywaja `DefaultOriginLatitude/DefaultOriginLongitude`. `Neo4jAttendanceRepository` czyta `coalesce(u.HomeLatitude, u.DefaultOriginLatitude)` (i analogicznie dlugosc), wiec dziala z obu seedow. `Home*` ma pierwszenstwo. Testy: `UpsertAsync_UserWithLegacyDefaultOriginCoordinates_UsesThemAsSnapshot` i `UpsertAsync_PrefersHomeCoordinatesOverLegacyOnes`.
+1. **Nazwy wspolrzednych uzytkownika** (rozwiazane): obowiazuje `DefaultOriginLatitude/DefaultOriginLongitude`, zgodnie z kodem i seedem demonstracyjnym na `develop`. Adapter Attendance i `flowbb-queries.cypher` uzywaja tylko tych nazw, bez zamiennika `Home*`. Zostaje do poprawy dokumentacja: `AGENTS.md` sekcja 8 i ADR 001 nadal mowia `HomeLatitude/HomeLongitude` (Core Backend).
 2. **Rejestracja DI.** `Neo4jPersistenceExtensions` rejestruje teraz `IAttendanceOriginLookup -> Neo4jAttendanceOriginLookup` i `ICrewRepository -> Neo4jCrewRepository`. `Program.cs` (Core Backend) nie wymaga zmiany.
 3. **Dwa mechanizmy schematu.** `Neo4jFlowBbGraphRepository.EnsureSchemaAsync` (initializer) zaklada constraints z osmiu `SchemaQueries`; `database/schema.cypher` zaklada te same i dodatkowo indeks `event_start_at`. Initializer go nie zaklada. Bez indeksu lista wydarzen dziala poprawnie, tylko bez optymalizacji filtra po `StartAt`.
 
@@ -29,8 +29,8 @@ Weryfikacja mostow na prawdziwym Neo4j 5.26 Community: 41 testow z tej galezi, 8
 
 ## 3. Co warto poprawic (kolejnosc zalecana)
 
-**A. Ujednolicic nazwy wspolrzednych (Data/Neo4j + Core Backend).**
-Docelowo `Home*` (ADR 001, AGENTS.md). Zmiany: `flowbb-demo-seed.cypher` (zamiana nazw pol, dane bez zmian), `Neo4jFlowBbGraphRepository.Nodes.cs` i `Domain/Models/User.cs` (albo ich usuniecie, patrz B), `NEO4J_CONTRACT.md` (usunac zamiennik). Potem usunac `coalesce` z `Neo4jAttendanceRepository` i test `...LegacyDefaultOrigin...`. Alternatywa: przyjac `DefaultOrigin*` jako docelowe i poprawic ADR 001, AGENTS.md sekcja 8 oraz seed i schemat z tej galezi (`database/flowbb-queries.cypher`); wtedy `coalesce` znika w druga strone. Decyzja: Core Backend.
+**A. Nazwy wspolrzednych: ZROBIONE po stronie kodu i seedow (`DefaultOrigin*`).**
+Do poprawy zostaje wylacznie dokumentacja, ktora jest poza obszarem Data/Neo4j: `AGENTS.md` sekcja 8 i ADR 001 (oraz opis issue #6). Migracja danych: `flowbb-queries.cypher` usuwa `HomeLatitude/HomeLongitude` z uzytkownikow po starszym seedzie.
 
 **B. Zdjac initializer ze starego grafu, potem usunac stary stos (Data/Neo4j).**
 `Neo4jDatabaseInitializer` korzysta z `Neo4jFlowBbGraphRepository.FromEnvironment()`, `EnsureSchemaAsync()` i `ApplySeedAsync()`. Nalezy go przepisac na `IDriver` + `Neo4jOptions`: schemat z embedded `database/schema.cypher`, seed jak dotychczas. Dopiero wtedy mozna usunac `Neo4jFlowBbGraphRepository*`, `Domain/Models/*` i `Domain/Repositories/IFlowBbGraphRepository.cs` (nic poza initializerem z nich nie korzysta; sprawdzone grepem). Ten sam krok usuwa duplikat schematu z 3.3 i zamiennik z 3.A. W #16 zostalo to zrobione, a scalenie z `develop` to przywrocilo.
