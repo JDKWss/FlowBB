@@ -108,7 +108,8 @@ FlowBB has two independent React + Vite + TypeScript applications:
 - deck.gl
 - @deck.gl/react — geospatial overlays / demand visualisation
   Maps:
-- MapLibre GL JS — preferred map renderer if/when installed and approved
+- MapLibre GL JS + react-map-gl — installed in both applications; dashboard
+  renders aggregate PULSE GeoJSON and click-to-select organizer locations
 - OpenFreeMap — preferred map tile/style source for the hackathon map
 - deck.gl — overlay for demand/hexagon layers
   MapLibre is optional and must not become a blocker for P0.
@@ -124,6 +125,14 @@ boundary is documented in [ROUTING_SERVICE.md](ROUTING_SERVICE.md).
 2. reuse an already-installed library when possible
 3. do not install a new library just because it appears in this document
 4. if a listed preferred library is not installed, report it before changing dependencies
+
+Current dashboard runtime path
+
+- `VITE_API_URL` is normalized once in `dashboardService`.
+- TanStack Query owns Events and PULSE server state.
+- Zod validates all REST responses and the `PulseUpdated` message.
+- SignalR uses automatic reconnect; REST remains usable while it is offline.
+- The default runtime has no fixture fallback.
    API and contract rules
    For both applications:
 

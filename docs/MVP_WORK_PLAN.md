@@ -21,12 +21,13 @@ Rola integracyjna nalezy do Core Backend Ownera: integracja backendu, `Program.c
 
 | Modul | Docelowe warstwy | Stan na `develop` 2026-09-20 | Podpiecie w `Program.cs` |
 |---|---|---|---|
-| Events | Domain, Application (`Events/*`), Api (`Endpoints/Events`), Infrastructure/Neo4j (odczyt) | domena, `IEventLookup`, endpointy i adapter Neo4j sa zaimplementowane | tak |
+| Events | Domain, Application (`Events/*`), Api (`Endpoints/Events`), Infrastructure/Neo4j | domena, `IEventLookup`, GET oraz `POST /api/events` i transakcyjny zapis Event + Venue sa zaimplementowane | tak |
 | Attendance | Application, Api, SignalR (`Hubs`) | encja, handlery, endpointy, testy i adapter `IAttendanceRepository` dla Neo4j sa zaimplementowane | tak |
 | Crew | Domain (`Crews`), Application (`Crews/*`), Api, Infrastructure/Neo4j | domena, handlery, endpointy (`GET groups`, `POST/DELETE members`) i adapter Neo4j sa zaimplementowane | tak |
 | PULSE | Application (`Pulse/*`), Api, `Hubs` | handlery agregacji, endpointy, testy i adapter `IPulseDataReader` dla Neo4j sa zaimplementowane | tak |
 | Routing | Domain (`Routing`), Application (`Abstractions/Routing`, `Routing`), Infrastructure (`Routing`), Api (`Endpoints/Routing`); prywatna usluga Python/FastAPI | kompozyt kieruje Walking/Bike/Car do FastAPI, PublicTransport do `DemoRoutePlanner`; publiczna odpowiedz zawiera opcjonalny dystans i GeoJSON | tak, `CompositeRoutePlanner` |
 | SignalR | Api (`Hubs`) | hub i notifier istnieja; `/hubs/pulse` jest mapowany | tak |
+| Dashboard | React/Vite (`dashboard`) | PULSE korzysta z realnych REST/SignalR i agregatow GeoJSON; Add event wybiera lokalizacje na MapLibre i zapisuje przez ASP.NET | n/d |
 
 Uruchamiany host mapuje `/health`, `/health/ready`, Events, Attendance, Crew, PULSE, Routing,
 `/hubs/pulse` oraz dokumentacje API w srodowisku Development. Start calego stosu i smoke test:
