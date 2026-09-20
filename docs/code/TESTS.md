@@ -102,7 +102,7 @@ Szczegoly i plan awaryjny: [DEMO_RUNBOOK.md](../DEMO_RUNBOOK.md).
 ## Analiza statyczna
 
 Repozytorium **nie ma skonfigurowanego SonarQube**: brak `sonar-project.properties`,
-brak `dotnet-sonarscanner` w `dotnet-tools.json` (jest tam tylko `dotnet-ef`) i brak pipeline'u CI.
+brak `dotnet-sonarscanner` w `dotnet-tools.json` (manifest jest pusty) i brak pipeline'u CI.
 Analizy nie da sie wiec uruchomic lokalnie bez serwera Sonara i nie zostala uruchomiona.
 
 Zastepczo, recznie wzgledem regul z `AGENTS.md` sekcja 15, na branchu integracyjnym:

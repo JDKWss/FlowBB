@@ -84,7 +84,6 @@ Tej zmiany nie robi sie w ramach dokumentacji. Kazda pozycja wymaga osobnego zad
 
 | # | Problem | Priorytet | Wlasciciel |
 |---|---|---|---|
-| 1 | `FlowBB.Infrastructure.csproj` nadal zawiera `Npgsql.EntityFrameworkCore.PostgreSQL`, `...NetTopologySuite` i `Microsoft.EntityFrameworkCore.*`. Osobny maly task porzadkowy po potwierdzeniu, ze kod runtime ich nie uzywa | Porzadki | Data/Neo4j (zgoda Core Backend Owner) |
 | 2 | `IFlowBbGraphRepository` i modele w `FlowBB.Domain/Repositories` i `Models`: interfejs powinien docelowo trafic do `Application/Abstractions/Persistence`. Decyzja po MVP albo przy pierwszej implementacji repozytorium; nie blokuje MVP | Po MVP | Core Backend Owner + Data/Neo4j |
 | 3 | Stary model `FlowBB.Domain.Models.Event` pozostaje do posprzatania po MVP | Porzadki | Data/Neo4j + Backend Events |
 | 4 | `PLAN_EVENTS_LOAD.md` zachowuje historyczny plan PostGIS/EF Core; aktualny importer wydarzen do Neo4j nie istnieje | MVP | Backend Events + Data/Neo4j |
@@ -97,6 +96,8 @@ Tej zmiany nie robi sie w ramach dokumentacji. Kazda pozycja wymaga osobnego zad
 - `/health` i `/health/ready` (Neo4j) zgodne z `HealthResponse` z OpenAPI (#55, #52).
 - Compose przekazuje `NEO4J_SEED_ON_STARTUP` do `api`, a API czeka na zdrowy lokalny Neo4j (#57).
 - Seed ma 83 syntetycznych uzytkownikow; `DEMO_USER_ID` `aaaaaaaa-...` pozostaje poza wydarzeniami i Crew, wiec pierwszy POST na `1111...` pokazuje `82 -> 83` (#72).
+- Pakiety EF Core i Npgsql usuniete z `FlowBB.Infrastructure.csproj`, a `dotnet-ef` z `dotnet-tools.json` (#58). Infrastructure
+  korzysta z abstrakcji DI i logowania przez `FrameworkReference` do `Microsoft.AspNetCore.App`.
 - Zweryfikowane: start od czystego srodowiska, seed, restart API i `infra/smoke-test.ps1` (13 PASS, 0 FAIL, 0 SKIP)
   na lokalnym Neo4j; wynik w `DEMO_RUNBOOK.md`, sekcja 10.
 
