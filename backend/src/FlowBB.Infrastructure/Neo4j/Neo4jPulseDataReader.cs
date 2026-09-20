@@ -23,11 +23,7 @@ public sealed class Neo4jPulseDataReader(
             """;
 
         var records = await ReadAsync(query, new { EventId = eventId.ToString("D") }, cancellationToken);
-        return records.Select(record => new PulsePoint(
-                record.Get<double>("Latitude"),
-                record.Get<double>("Longitude"),
-                ParseTransportMode(record.Get<string?>("TransportMode"))))
-            .ToList();
+        return records.Select(MapPoint).ToList();
     }
 
     public async Task<PulseEventInfo?> GetEventAsync(
@@ -76,6 +72,22 @@ public sealed class Neo4jPulseDataReader(
         return new PulseEventInfo(
             Guid.ParseExact(record.Get<string>("EventId"), "D"),
             record.Get<string>("Name"));
+    }
+
+    private static PulsePoint MapPoint(IRecord record)
+    {
+        var latitude = record.Get<double>("Latitude");
+        var longitude = record.Get<double>("Longitude");
+        if (!double.IsFinite(latitude) || latitude is < -90 or > 90 ||
+            !double.IsFinite(longitude) || longitude is < -180 or > 180)
+        {
+            throw new InvalidOperationException("Neo4j attendance snapshot contains invalid coordinates.");
+        }
+
+        return new PulsePoint(
+            latitude,
+            longitude,
+            ParseTransportMode(record.Get<string?>("TransportMode")));
     }
 
     private static TransportMode ParseTransportMode(string? value)

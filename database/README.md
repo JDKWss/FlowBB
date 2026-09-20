@@ -44,3 +44,14 @@ Oczekiwane wyniki:
 ## PULSE
 
 PULSE nie jest osobną bazą ani zapisanym licznikiem. API odczytuje snapshoty relacji `IS_GOING_TO`, a istniejąca logika Application wylicza liczniki, podział środków transportu i komórki mapy. Publiczna mapa zwraca wyłącznie zagregowane komórki z `count >= 10`; identyfikatory i dokładne punkty użytkowników nie opuszczają backendu.
+
+## Testy integracyjne Neo4j
+
+Testy `FlowBB.Infrastructure.Tests` tworzą izolowane dane bezpośrednim Cypherem na skonfigurowanej instancji Neo4j i usuwają je po każdym teście. Są opt-in, aby zwykły `dotnet test` nie wymagał dostępu do bazy:
+
+```powershell
+$env:NEO4J_RUN_INTEGRATION_TESTS="true"
+dotnet test backend/tests/FlowBB.Infrastructure.Tests/FlowBB.Infrastructure.Tests.csproj
+```
+
+Połączenie jest pobierane z tych samych zmiennych `NEO4J_*` lub ignorowanego pliku konfiguracyjnego co backend. Testy nie zapisują ani nie wypisują sekretów oraz dokładnych współrzędnych w logach.

@@ -25,7 +25,7 @@ public static class Neo4jPersistenceExtensions
             provider.GetRequiredService<Neo4jAttendanceRepository>());
         services.AddScoped<IAttendanceOriginLookup>(provider =>
             provider.GetRequiredService<Neo4jAttendanceRepository>());
-        services.AddScoped<IPulseDataReader, Neo4jPulseDataReader>();
+        services.AddNeo4jPulseDataReader();
         services.AddScoped<IEventRepository, Neo4jEventRepository>();
 
         return services;
