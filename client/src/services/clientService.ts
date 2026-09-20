@@ -24,6 +24,133 @@ export interface ClientService {
   leaveGroup(groupId: string, userId: string): Promise<void>
 }
 
+const apiBaseUrl = (import.meta.env.VITE_API_URL ?? 'http://localhost:8080').replace(/\/+$/, '')
+
+type Parser<T> = { parse(value: unknown): T }
+
+class HttpError extends Error {
+  readonly status?: number
+
+  constructor(message: string, status?: number) {
+    super(message)
+    this.name = 'HttpError'
+    this.status = status
+  }
+}
+
+async function request<T>(path: string, parser: Parser<T>, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers)
+  headers.set('Accept', 'application/json')
+  if (init?.body) headers.set('Content-Type', 'application/json')
+
+  let response: Response
+  try {
+    response = await fetch(`${apiBaseUrl}${path}`, { ...init, headers })
+  } catch (error) {
+    throw new HttpError(error instanceof Error ? `API unavailable: ${error.message}` : 'API unavailable.')
+  }
+
+  const contentType = response.headers.get('content-type') ?? ''
+  const text = await response.text()
+  let payload: unknown
+  if (text && contentType.includes('json')) {
+    try {
+      payload = JSON.parse(text)
+    } catch {
+      throw new HttpError(`API returned invalid JSON (HTTP ${response.status}).`, response.status)
+    }
+  }
+
+  if (!response.ok) {
+    if (payload && typeof payload === 'object') {
+      const problem = payload as { title?: unknown; detail?: unknown; status?: unknown }
+      const detail = typeof problem.detail === 'string' ? problem.detail : null
+      const title = typeof problem.title === 'string' ? problem.title : null
+      const status = typeof problem.status === 'number' ? problem.status : response.status
+      throw new HttpError(detail ?? title ?? `API request failed (HTTP ${status}).`, status)
+    }
+    throw new HttpError(text.trim() || `API request failed (HTTP ${response.status}).`, response.status)
+  }
+
+  if (!contentType.includes('json')) {
+    throw new HttpError(`API returned a non-JSON success response (HTTP ${response.status}).`, response.status)
+  }
+
+  return parser.parse(payload)
+}
+
+async function requestNoContent(path: string, init: RequestInit): Promise<void> {
+  const headers = new Headers(init.headers)
+  headers.set('Accept', 'application/json')
+  let response: Response
+  try {
+    response = await fetch(`${apiBaseUrl}${path}`, { ...init, headers })
+  } catch (error) {
+    throw new HttpError(error instanceof Error ? `API unavailable: ${error.message}` : 'API unavailable.')
+  }
+
+  if (response.status === 204) return
+  const text = await response.text()
+  let message = text.trim()
+  if ((response.headers.get('content-type') ?? '').includes('json') && text) {
+    try {
+      const problem = JSON.parse(text) as { title?: unknown; detail?: unknown }
+      message = typeof problem.detail === 'string'
+        ? problem.detail
+        : typeof problem.title === 'string' ? problem.title : message
+    } catch {
+      // Preserve the original non-JSON body in the error below.
+    }
+  }
+  throw new HttpError(message || `API request failed (HTTP ${response.status}).`, response.status)
+}
+
+export class HttpClientService implements ClientService {
+  getEvents() {
+    return request('/api/events', eventSummarySchema.array())
+  }
+
+  getEvent(eventId: string) {
+    return request(`/api/events/${encodeURIComponent(eventId)}`, eventDetailsSchema)
+  }
+
+  saveAttendance(eventId: string, attendance: AttendanceUpsertRequest) {
+    const body = attendanceRequestSchema.parse(attendance)
+    return request(`/api/events/${encodeURIComponent(eventId)}/attendance`, attendanceSchema, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  }
+
+  getRoute(eventId: string, userId: string) {
+    return request(
+      `/api/events/${encodeURIComponent(eventId)}/route?userId=${encodeURIComponent(userId)}`,
+      routeSchema,
+    )
+  }
+
+  getGroups(eventId: string, userId: string) {
+    return request(
+      `/api/events/${encodeURIComponent(eventId)}/groups?userId=${encodeURIComponent(userId)}`,
+      groupSchema.array(),
+    )
+  }
+
+  joinGroup(groupId: string, membership: GroupMembershipRequest) {
+    return request(`/api/groups/${encodeURIComponent(groupId)}/members`, groupSchema, {
+      method: 'POST',
+      body: JSON.stringify(membership),
+    })
+  }
+
+  leaveGroup(groupId: string, userId: string) {
+    return requestNoContent(
+      `/api/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(userId)}`,
+      { method: 'DELETE' },
+    )
+  }
+}
+
 const wait = (milliseconds = 220) =>
   new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds))
 
@@ -130,4 +257,6 @@ class MockClientService implements ClientService {
   }
 }
 
-export const clientService: ClientService = new MockClientService()
+export const clientService: ClientService = import.meta.env.VITE_USE_MOCKS === 'true'
+  ? new MockClientService()
+  : new HttpClientService()

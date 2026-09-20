@@ -29,13 +29,19 @@ import Map, {
   type MapRef,
 } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import type { EventDetails } from '../../types/contracts'
-import {
-  getDemoRoute,
-  type DemoRouteFixture,
-  type MapRouteMode,
-} from '../../mocks/routeMap'
+import type { EventDetails, JourneyOption, RouteGeometry, TransportMode } from '../../types/contracts'
 import { Alert, AlertDescription, AlertTitle, Badge, Skeleton } from '../ui'
+
+type MapRouteMode = Extract<TransportMode, 'Walking' | 'Bike' | 'Car'>
+
+type RenderedRoadRoute = {
+  mode: MapRouteMode
+  geometry: RouteGeometry
+  durationMinutes: number
+  distanceMeters: number
+  origin: { longitude: number; latitude: number }
+  destination: { longitude: number; latitude: number }
+}
 
 const OPEN_FREE_MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty'
 
@@ -127,7 +133,7 @@ function MapUnavailable() {
   )
 }
 
-function InteractiveMap({ route, event }: { route: DemoRouteFixture; event: EventDetails }) {
+function InteractiveMap({ route, event }: { route: RenderedRoadRoute; event: EventDetails }) {
   const mapRef = useRef<MapRef>(null)
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const loadedRef = useRef(false)
@@ -347,12 +353,36 @@ function InteractiveMap({ route, event }: { route: DemoRouteFixture; event: Even
   )
 }
 
-export function RouteMap({ mode, event }: { mode: MapRouteMode; event: EventDetails }) {
-  const route = useMemo(() => getDemoRoute(mode, event), [event, mode])
+export function RouteMap({
+  mode,
+  event,
+  journey,
+}: {
+  mode: MapRouteMode
+  event: EventDetails
+  journey: JourneyOption
+}) {
+  const route = useMemo<RenderedRoadRoute | null>(() => {
+    if (!journey.geometry || journey.distanceMeters == null) return null
+    const first = journey.geometry.coordinates[0]
+    const last = journey.geometry.coordinates.at(-1)
+    if (!first || !last) return null
+
+    return {
+      mode,
+      geometry: journey.geometry,
+      durationMinutes: journey.durationMinutes,
+      distanceMeters: journey.distanceMeters,
+      origin: { longitude: first[0], latitude: first[1] },
+      destination: { longitude: last[0], latitude: last[1] },
+    }
+  }, [journey, mode])
   const ModeIcon = modeDetails[mode].icon
 
+  if (!route) return null
+
   return (
-    <section data-testid="route-map-section" className="mb-5" aria-labelledby="demo-route-title">
+    <section data-testid="route-map-section" className="mb-5" aria-labelledby="road-route-title">
       <MapErrorBoundary fallback={<MapUnavailable />}>
         <InteractiveMap route={route} event={event} />
       </MapErrorBoundary>
@@ -365,11 +395,11 @@ export function RouteMap({ mode, event }: { mode: MapRouteMode; event: EventDeta
             </span>
             <div>
               <Badge
-                id="demo-route-title"
+                id="road-route-title"
                 variant="secondary"
                 className="h-auto bg-white/[0.06] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-300"
               >
-                Demo route
+                Road route
               </Badge>
               <p className="mt-1 text-base font-bold text-white">
                 {modeDetails[mode].label}
@@ -379,13 +409,13 @@ export function RouteMap({ mode, event }: { mode: MapRouteMode; event: EventDeta
           <p className="pt-1 text-right text-sm font-semibold text-white">
             {route.durationMinutes} min
             <span className="block text-xs font-normal text-neutral-400">
-              {route.distanceKm.toFixed(1)} km
+              {(route.distanceMeters / 1000).toFixed(1)} km
             </span>
           </p>
         </div>
 
         <div className="mt-4 grid grid-cols-[auto_1fr_auto] items-center gap-3 text-xs">
-          <span className="max-w-24 text-neutral-300">{route.origin.label}</span>
+          <span className="max-w-24 text-neutral-300">Your location</span>
           <span aria-hidden="true" className="h-px bg-neutral-700" />
           <span className="max-w-28 text-right font-medium text-white">
             {event.name}
@@ -393,7 +423,7 @@ export function RouteMap({ mode, event }: { mode: MapRouteMode; event: EventDeta
         </div>
         <p className="mt-2 flex items-center gap-1.5 text-xs text-neutral-500">
           <Flag aria-hidden="true" className="size-3.5" />
-          {route.destination.label}
+          {event.venueName}
         </p>
       </div>
     </section>

@@ -31,6 +31,14 @@ export const groupSchema = z.strictObject({
 })
 const journeySchema = z.strictObject({
   durationMinutes: count, departureAt: timestamp, arrivalAt: timestamp,
+  distanceMeters: z.number().finite().nonnegative().nullable().optional(),
+  geometry: z.strictObject({
+    type: z.literal('LineString'),
+    coordinates: z.array(z.tuple([
+      z.number().finite().min(-180).max(180),
+      z.number().finite().min(-90).max(90),
+    ])).min(2),
+  }).nullable().optional(),
   steps: z.array(z.strictObject({
     type: z.enum(['Walk', 'Transit', 'Bike', 'Car', 'Wait']),
     instruction: z.string().max(300), durationMinutes: count,
@@ -38,6 +46,6 @@ const journeySchema = z.strictObject({
   })).min(1),
 })
 export const routeSchema = z.strictObject({
-  eventId: id, userId: id, plannerSource: z.enum(['Demo', 'OpenTripPlanner']),
+  eventId: id, userId: id, plannerSource: z.enum(['Demo', 'RoadRouting', 'OpenTripPlanner']),
   outbound: journeySchema, returns: z.array(journeySchema), returnGap: z.boolean(),
 })
