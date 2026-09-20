@@ -50,17 +50,17 @@ var app = builder.Build();
 StartupSummary.Log(app.Services.GetRequiredService<ILogger<Program>>(), app.Configuration, app.Environment);
 
 if (builder.Configuration.GetValue<bool>(Neo4jDatabaseInitializer.SeedOnStartupVariable))
- {
-      app.Logger.LogInformation("Initializing Neo4j schema and idempotent seed data.");
-      await Neo4jDatabaseInitializer.InitializeAsync();
-  }
+{
+    app.Logger.LogInformation("Initializing Neo4j schema and idempotent seed data.");
+    await Neo4jDatabaseInitializer.InitializeAsync();
+}
 
-  // Kontekst logow (TraceId, FlowEventId, FlowCrewId) musi obejmowac takze podsumowanie zadania z UseSerilogRequestLogging.
-  app.UseMiddleware<RequestLogContextMiddleware>();
-  // Logger z DI zamiast globalnego Log.Logger (patrz preserveStaticLogger wyzej).
-  app.UseSerilogRequestLogging(options => options.Logger = app.Services.GetRequiredService<Serilog.ILogger>());
-  app.UseExceptionHandler();
-  app.UseCors(FrontendCorsPolicy);
+// Kontekst logow (TraceId, FlowEventId, FlowCrewId) musi obejmowac takze podsumowanie zadania z UseSerilogRequestLogging.
+app.UseMiddleware<RequestLogContextMiddleware>();
+// Logger z DI zamiast globalnego Log.Logger (patrz preserveStaticLogger wyzej).
+app.UseSerilogRequestLogging(options => options.Logger = app.Services.GetRequiredService<Serilog.ILogger>());
+app.UseExceptionHandler();
+app.UseCors(FrontendCorsPolicy);
 
 if (app.Environment.IsDevelopment())
 {
@@ -73,7 +73,9 @@ app.MapEventsEndpoints();
 app.MapAttendanceEndpoints();
 app.MapPulseEndpoints();
 app.MapRoutingEndpoints();
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+// TODO(#54): AddCrewModule()/MapCrewEndpoints() po adapterze ICrewRepository (issue #18).
+app.MapGet("/health", () => Results.Ok(new { status = "ok" }))
+    .WithName("getHealth");
 
 app.Run();
 
