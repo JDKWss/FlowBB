@@ -53,8 +53,8 @@ przesunela sie najbardziej. Bez tej korekty punkty przy krawedziach ladowalyby w
 |---|---|---|
 | `GetActivityMapHandler` | grupuje punkty po komorce, odrzuca `< 10`, sortuje po `q`, potem `r` | deterministyczna kolejnosc wyniku |
 | `GetPulseHexagonsHandler` | sprawdza istnienie wydarzenia, potem deleguje do powyzszego | rozroznia "brak wydarzenia" (404) od "brak komorek" (pusta kolekcja) |
-| `GetEventPulseHandler` | KPI wydarzenia | `participantsWithoutReturn` = stala `0` |
-| `GetPulseSummaryHandler` | KPI calego miasta | patrz nizej |
+| `GetEventPulseHandler` | KPI wydarzenia | `participantsWithoutReturn` i alert `ReturnGap` z `DemoReturnGapPolicy` (#85) |
+| `GetPulseSummaryHandler` | KPI calego miasta | `participantsWithoutReturn` to suma po wydarzeniach (`DemoReturnGapPolicy`); patrz nizej |
 
 `ModalSplit.From(points)` liczy rozklad srodkow transportu jednym przebiegiem; wszystko,
 co nie jest znanym trybem, laduje w `Unknown`.
@@ -63,12 +63,44 @@ co nie jest znanym trybem, laduje w `Unknown`.
 w petli po kazdym wydarzeniu - klasyczne N+1. Przy kilkunastu wydarzeniach demo to nie problem,
 ale to pierwsze miejsce do poprawy, jesli seed urosnie.
 
-## Alerty
+## Alerty i luka powrotowa
 
-`EventPulseResponse.Alerts` jest zawsze pusta lista (`[]` w `PulseResponseMapping`).
-Schemat `PulseAlertResponse` istnieje w kodzie i w kontrakcie, ale nic go nie wypelnia -
-alert luki powrotowej wymaga logiki powrotow, ktorej w MVP nie ma.
-Dashboard musi umiec pokazac pusty stan alertow.
+Regula demo jest **zamrozona** (#84) i zaimplementowana w jednej klasie `Application/Pulse/DemoReturnGapPolicy` (#85).
+Z tej klasy korzystaja: `GetEventPulseHandler` (KPI i `alerts`), `GetPulseSummaryHandler` (suma po wydarzeniach),
+`UpsertAttendanceHandler` i `DeleteAttendanceHandler` (pole `participantsWithoutReturn` komunikatu `PulseUpdated`)
+oraz `GetEventRouteHandler` (`returnGap` i `returns` trasy). Dzieki temu liczby w PULSE, w komunikacie SignalR i w trasie sa spojne.
+Dla wydarzenia bez luki `alerts` jest pusta (`[]`) i dashboard musi umiec pokazac ten stan.
+
+**Zrodlo `EndAt`:** PULSE i handlery Attendance czytaja `PulseEventInfo.EndAt` z `IPulseDataReader`, a trasa `Event.EndAt` z `IEventLookup`.
+Adapter Neo4j wypelnia `PulseEventInfo.EndAt` dopiero po #86; do tego czasu PULSE i `PulseUpdated` zwracaja `0`,
+a trasa dla uczestnika `PublicTransport` na wydarzeniu poznym juz zwraca `returnGap: true` z pustym `returns`.
+
+**Regula (MVP, symulacja `DEMO DATA / SYMULACJA`):**
+
+| Element | Ustalenie |
+|---|---|
+| Kto nie ma dogodnego powrotu | uczestnik z `TransportMode = PublicTransport` |
+| Kiedy | wydarzenie konczy sie o **22:00 lub pozniej** czasu lokalnego `Europe/Warsaw` |
+| Wejscie | `PulseEventInfo.EndAt` (`DateTimeOffset?`); `EndAt` jest przeliczany na `Europe/Warsaw` (z czasem letnim i zimowym), a porownuje sie godzine lokalna z progiem 22:00 |
+| Brak `EndAt` | brak luki (`participantsWithoutReturn = 0`) |
+| Inne srodki transportu | nigdy nie licza sie do luki |
+| Dane rozkladowe MZK | nie uzywane; to nie jest analiza rozkladow jazdy |
+| Skad `EndAt` | Data (#86): `Neo4jPulseDataReader` czyta pole `EndAt` wezla `Event`; do tego czasu jest `null` |
+
+**Alert:** `ReturnGap`, severity `Warning`, dodawany do `alerts` tylko gdy `participantsWithoutReturn > 0`;
+komunikat zawiera liczbe osob (z polska odmiana) i godzine, np. `21 osob nie ma dogodnego powrotu po 22:00.`
+(zgodnie z przykladem w OpenAPI), `1 osoba nie ma ...`, `2 osoby nie maja ...`.
+
+**Trasa:** dla uczestnika `PublicTransport` na wydarzeniu poznym `GetEventRouteHandler` podmienia plan planera na `returns: []`
+i `returnGap: true` (niezaleznie od tego, czy planerem jest `DemoRoutePlanner`, czy `RoadRouting`); trasa `outbound` zostaje bez zmian.
+Pozostale tryby i wydarzenia wczesne nie zmieniaja sie.
+W MVP nie ma alertow `HighDemand` i `LowCoverage`, choc kod `enum` je dopuszcza.
+
+**Poza regula MVP (do decyzji, jesli pojawi sie taki przypadek):** wydarzenie konczace sie po polnocy
+(godzina lokalna po `00:00`) jest porownywane z progiem 22:00 wg godziny lokalnej, wiec **nie** zostanie uznane za pozne.
+Seed nie zawiera takiego wydarzenia (najpozniejszy koniec: 23:15).
+
+**Kontrakt OpenAPI bez zmian:** pola `participantsWithoutReturn`, `alerts` (`ReturnGap`), `returnGap` i `returns` juz istnieja.
 
 ## Pliki
 

@@ -49,7 +49,10 @@ public static class PulseResponseMapping
 
     public static EventPulseResponse ToResponse(this EventPulse pulse) =>
         new(pulse.EventId, pulse.EventName, pulse.GeneratedAt, pulse.ParticipantsCount,
-            pulse.ModalSplit.ToResponse(), pulse.ParticipantsWithoutReturn, []);
+            pulse.ModalSplit.ToResponse(), pulse.ParticipantsWithoutReturn, pulse.Alerts.Select(ToResponse).ToList());
+
+    private static PulseAlertResponse ToResponse(PulseAlert alert) =>
+        new(alert.Code.ToString(), alert.Severity.ToString(), alert.Message);
 
     public static HexagonFeatureCollectionResponse ToFeatureCollection(this IEnumerable<HexCell> cells) =>
         new("FeatureCollection", cells.Select(ToFeature).ToList());

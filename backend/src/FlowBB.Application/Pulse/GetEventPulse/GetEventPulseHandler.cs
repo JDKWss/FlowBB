@@ -2,20 +2,18 @@ using FlowBB.Application.Abstractions.Persistence;
 
 namespace FlowBB.Application.Pulse.GetEventPulse;
 
-/// <summary>KPI wydarzenia. Alerty nie sa jeszcze liczone: w MVP brak logiki powrotow.</summary>
+/// <summary>KPI wydarzenia. Luka powrotowa i alert pochodza z <see cref="DemoReturnGapPolicy"/>.</summary>
 public sealed record EventPulse(
     Guid EventId,
     string EventName,
     DateTimeOffset GeneratedAt,
     int ParticipantsCount,
     ModalSplit ModalSplit,
-    int ParticipantsWithoutReturn);
+    int ParticipantsWithoutReturn,
+    IReadOnlyList<PulseAlert> Alerts);
 
 public sealed class GetEventPulseHandler(IPulseDataReader reader, TimeProvider clock)
 {
-    /// <summary>Jawne zalozenie MVP: logika powrotow nie istnieje, wiec zawsze 0.</summary>
-    public const int ParticipantsWithoutReturnInMvp = 0;
-
     /// <returns>KPI wydarzenia lub <c>null</c>, gdy wydarzenie nie istnieje.</returns>
     public async Task<EventPulse?> HandleAsync(Guid eventId, CancellationToken cancellationToken = default)
     {
@@ -31,12 +29,16 @@ public sealed class GetEventPulseHandler(IPulseDataReader reader, TimeProvider c
         }
 
         var points = await reader.GetPointsAsync(eventId, cancellationToken);
+        var modalSplit = ModalSplit.From(points);
+        var withoutReturn = DemoReturnGapPolicy.CountParticipantsWithoutReturn(info.EndAt, modalSplit);
+        var alert = DemoReturnGapPolicy.CreateAlert(withoutReturn);
         return new EventPulse(
             info.Id,
             info.Name,
             clock.GetUtcNow(),
             points.Count,
-            ModalSplit.From(points),
-            ParticipantsWithoutReturnInMvp);
+            modalSplit,
+            withoutReturn,
+            alert is null ? [] : [alert]);
     }
 }
