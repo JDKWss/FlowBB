@@ -8,10 +8,10 @@ namespace FlowBB.Infrastructure.Tests.Neo4j;
 /// </summary>
 public static class Neo4jTestEnvironment
 {
-    public const string UriVariable = "FLOWBB_TEST_NEO4J_URI";
-    public const string DatabaseVariable = "FLOWBB_TEST_NEO4J_DATABASE";
-    public const string UsernameVariable = "FLOWBB_TEST_NEO4J_USERNAME";
-    public const string PasswordVariable = "FLOWBB_TEST_NEO4J_PASSWORD";
+    public const string UriVariable = "FLOWBB_NEO4J_TEST_URI";
+    public const string DatabaseVariable = "FLOWBB_NEO4J_TEST_DATABASE";
+    public const string UsernameVariable = "FLOWBB_NEO4J_TEST_USERNAME";
+    public const string PasswordVariable = "FLOWBB_NEO4J_TEST_PASSWORD";
 
     public static bool IsConfigured =>
         !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(UriVariable)) &&
