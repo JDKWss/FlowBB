@@ -9,6 +9,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="FlowBB.Infrastructure.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <EmbeddedResource Include="..\..\..\database\flowbb-demo-seed.cypher"
                       LogicalName="FlowBB.Database.flowbb-demo-seed.cypher" />
   </ItemGroup>

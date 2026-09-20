@@ -16,6 +16,9 @@ public sealed class Neo4jPulseDataReaderTests(Neo4jFixture neo4j) : IAsyncLifeti
     private const double OtherLatitude = 49.79381;
     private const double OtherLongitude = 19.04955;
 
+    private static readonly DateTimeOffset TargetEndAt = new(2026, 9, 20, 23, 15, 0, TimeSpan.FromHours(2));
+    private static readonly DateTimeOffset OtherEndAt = new(2026, 9, 20, 21, 30, 0, TimeSpan.FromHours(2));
+
     private readonly string runId = $"pulse-reader-{Guid.NewGuid():N}";
     private readonly Guid targetEventId = Guid.NewGuid();
     private readonly Guid otherEventId = Guid.NewGuid();
@@ -126,8 +129,22 @@ public sealed class Neo4jPulseDataReaderTests(Neo4jFixture neo4j) : IAsyncLifeti
         var found = await Reader.GetEventAsync(targetEventId);
         var missing = await Reader.GetEventAsync(Guid.NewGuid());
 
-        found.Should().Be(new PulseEventInfo(targetEventId, "Pulse target event"));
+        found.Should().Be(new PulseEventInfo(targetEventId, "Pulse target event", TargetEndAt));
         missing.Should().BeNull();
+    }
+
+    [Neo4jFact]
+    public async Task GetEvent_ReturnsEndAtWithOffsetAndNullWhenMissing()
+    {
+        var late = await Reader.GetEventAsync(targetEventId);
+        var early = await Reader.GetEventAsync(otherEventId);
+        var withoutEnd = await Reader.GetEventAsync(emptyEventId);
+
+        late!.EndAt.Should().Be(TargetEndAt);
+        late.EndAt!.Value.Offset.Should().Be(TimeSpan.FromHours(2));
+        early!.EndAt.Should().Be(OtherEndAt);
+        early.EndAt!.Value.Offset.Should().Be(TimeSpan.FromHours(2));
+        withoutEnd!.EndAt.Should().BeNull();
     }
 
     [Neo4jFact]
@@ -135,8 +152,8 @@ public sealed class Neo4jPulseDataReaderTests(Neo4jFixture neo4j) : IAsyncLifeti
     {
         var events = await Reader.GetEventsAsync();
 
-        events.Should().Contain(new PulseEventInfo(targetEventId, "Pulse target event"));
-        events.Should().Contain(new PulseEventInfo(otherEventId, "Pulse other event"));
+        events.Should().Contain(new PulseEventInfo(targetEventId, "Pulse target event", TargetEndAt));
+        events.Should().Contain(new PulseEventInfo(otherEventId, "Pulse other event", OtherEndAt));
         events.Should().Contain(new PulseEventInfo(emptyEventId, "Pulse empty event"));
     }
 
@@ -171,12 +188,14 @@ public sealed class Neo4jPulseDataReaderTests(Neo4jFixture neo4j) : IAsyncLifeti
               EventId: $TargetEventId,
               Name: 'Pulse target event',
               StartAt: datetime('2026-09-20T10:00:00Z'),
+              EndAt: datetime('2026-09-20T23:15:00+02:00'),
               IntegrationTestRunId: $RunId
             })
             CREATE (other:Event:PulseReaderIntegrationTest {
               EventId: $OtherEventId,
               Name: 'Pulse other event',
               StartAt: datetime('2026-09-20T11:00:00Z'),
+              EndAt: datetime('2026-09-20T21:30:00+02:00'),
               IntegrationTestRunId: $RunId
             })
             CREATE (empty:Event:PulseReaderIntegrationTest {

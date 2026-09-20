@@ -7,7 +7,8 @@ namespace FlowBB.Infrastructure.Neo4j;
 /// <summary>
 /// Adapter <see cref="IPulseDataReader"/>. Zwraca surowe punkty snapshotu <c>IS_GOING_TO</c> bez identyfikatora
 /// uzytkownika; agregacje (licznik, modal split, heksagony) wykonuje Application. Adapter niczego nie loguje,
-/// a komunikaty bledow nie zawieraja wspolrzednych.
+/// a komunikaty bledow nie zawieraja wspolrzednych. <c>EndAt</c> wydarzenia jest tylko odczytywane (z zachowaniem offsetu);
+/// regule luki powrotowej liczy Application (<c>DemoReturnGapPolicy</c>), nie Cypher.
 /// </summary>
 public sealed class Neo4jPulseDataReader(IDriver driver, Neo4jOptions options) : IPulseDataReader
 {
@@ -19,12 +20,12 @@ public sealed class Neo4jPulseDataReader(IDriver driver, Neo4jOptions options) :
 
     private const string EventQuery = """
         MATCH (e:Event {EventId: $eventId})
-        RETURN e.EventId AS EventId, e.Name AS Name
+        RETURN e.EventId AS EventId, e.Name AS Name, e.EndAt AS EndAt
         """;
 
     private const string EventsQuery = """
         MATCH (e:Event)
-        RETURN e.EventId AS EventId, e.Name AS Name
+        RETURN e.EventId AS EventId, e.Name AS Name, e.EndAt AS EndAt
         ORDER BY e.StartAt ASC, e.EventId ASC
         """;
 
@@ -89,6 +90,6 @@ public sealed class Neo4jPulseDataReader(IDriver driver, Neo4jOptions options) :
 
         return string.IsNullOrWhiteSpace(name)
             ? throw new InvalidOperationException($"Event {id:D} in Neo4j has no Name.")
-            : new PulseEventInfo(id, name);
+            : new PulseEventInfo(id, name, Neo4jValueConversions.ToNullableDateTimeOffset(record["EndAt"], "EndAt"));
     }
 }

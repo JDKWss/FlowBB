@@ -33,8 +33,12 @@ public static class Neo4jDatabaseInitializer
             await RunAsync(driver, options.Database, query);
         }
 
-        await ApplySeedAsync(driver, options.Database, LoadSeedStatements());
+        await ApplySeedAsync(driver, options.Database);
     }
+
+    /// <summary>Wykonuje osadzony seed demo w jednej transakcji. Seed jest idempotentny (kazde wykonanie daje ten sam stan).</summary>
+    internal static Task ApplySeedAsync(IDriver driver, string database) =>
+        ApplySeedAsync(driver, database, LoadSeedStatements());
 
     private static async Task RunAsync(IDriver driver, string database, string query)
     {

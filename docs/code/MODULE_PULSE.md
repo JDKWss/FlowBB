@@ -72,8 +72,7 @@ oraz `GetEventRouteHandler` (`returnGap` i `returns` trasy). Dzieki temu liczby 
 Dla wydarzenia bez luki `alerts` jest pusta (`[]`) i dashboard musi umiec pokazac ten stan.
 
 **Zrodlo `EndAt`:** PULSE i handlery Attendance czytaja `PulseEventInfo.EndAt` z `IPulseDataReader`, a trasa `Event.EndAt` z `IEventLookup`.
-Adapter Neo4j wypelnia `PulseEventInfo.EndAt` dopiero po #86; do tego czasu PULSE i `PulseUpdated` zwracaja `0`,
-a trasa dla uczestnika `PublicTransport` na wydarzeniu poznym juz zwraca `returnGap: true` z pustym `returns`.
+Adapter Neo4j wypelnia `PulseEventInfo.EndAt` od #86 (odczyt pola `EndAt` wezla `Event`, z zachowaniem offsetu).
 
 **Regula (MVP, symulacja `DEMO DATA / SYMULACJA`):**
 
@@ -85,7 +84,7 @@ a trasa dla uczestnika `PublicTransport` na wydarzeniu poznym juz zwraca `return
 | Brak `EndAt` | brak luki (`participantsWithoutReturn = 0`) |
 | Inne srodki transportu | nigdy nie licza sie do luki |
 | Dane rozkladowe MZK | nie uzywane; to nie jest analiza rozkladow jazdy |
-| Skad `EndAt` | Data (#86): `Neo4jPulseDataReader` czyta pole `EndAt` wezla `Event`; do tego czasu jest `null` |
+| Skad `EndAt` | `Neo4jPulseDataReader` czyta pole `EndAt` wezla `Event` (#86); `null`, gdy pola brak |
 
 **Alert:** `ReturnGap`, severity `Warning`, dodawany do `alerts` tylko gdy `participantsWithoutReturn > 0`;
 komunikat zawiera liczbe osob (z polska odmiana) i godzine, np. `21 osob nie ma dogodnego powrotu po 22:00.`
