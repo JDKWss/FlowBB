@@ -268,7 +268,7 @@ Nie instaluj globalnych narzedzi ani nie aktualizuj lockfile bez potrzeby zadani
 
 ### Ochrona `develop` bez wymuszenia technicznego (#81, wariant B)
 
-Obecny plan GitHub nie udostepnia ochrony gałezi dla repozytorium prywatnego (API zwraca 403), wiec `develop` i `main`
+Obecny plan GitHub nie udostepnia ochrony galezi dla repozytorium prywatnego (API zwraca 403), wiec `develop` i `main`
 chroni umowa procesowa, sprawdzana w review:
 
 - Zmiany trafiaja na `develop` wylacznie przez PR. Zadnego `git push` wprost na `develop` ani `main`, takze merge'y
@@ -282,7 +282,7 @@ chroni umowa procesowa, sprawdzana w review:
 - Czerwony `develop` blokuje nowe merge'e: naprawa albo revert ma pierwszenstwo przed kolejnymi PR.
 - Testy, ktorych CI nie uruchamia (np. testy na prawdziwym Neo4j, `Smoke/`), uruchom lokalnie przed PR i podaj wynik w opisie.
 
-Jesli plan GitHub sie zmieni lub repozytorium zostanie upublicznione, przejdz na wariant A z #81 (ochrona gałezi z wymaganymi
+Jesli plan GitHub sie zmieni lub repozytorium zostanie upublicznione, przejdz na wariant A z #81 (ochrona galezi z wymaganymi
 checks i review).
 
 ## 12. Kolejnosc realizacji i bramki
