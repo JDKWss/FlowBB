@@ -34,6 +34,7 @@ public static class Neo4jPersistenceExtensions
         services.AddScoped<IAttendanceOriginLookup, Neo4jAttendanceOriginLookup>();
         services.AddNeo4jPulseDataReader();
         services.AddScoped<IEventRepository, Neo4jEventRepository>();
+        services.AddScoped<IEventWriter, Neo4jEventWriter>();
         services.AddScoped<ICrewRepository, Neo4jCrewRepository>();
 
         return services;

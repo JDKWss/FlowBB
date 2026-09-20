@@ -114,11 +114,6 @@ export function EventListView({
   return (
     <section aria-labelledby="events-title" className="w-full px-5 pb-28 pt-8">
       <header className="mb-7">
-        <div className="mb-4 flex items-center justify-between gap-4">
-          <span className="text-xs font-bold uppercase tracking-[0.24em] text-primary">
-            Bielsko-Biała · 19–21 September
-          </span>
-        </div>
         <h1 id="events-title" className="text-4xl font-bold leading-[1.1] tracking-[-0.04em] text-white">
           Your city.<br /><span className="text-neutral-400">Your next plan.</span>
         </h1>

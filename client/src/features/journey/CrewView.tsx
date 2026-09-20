@@ -31,9 +31,6 @@ export function CrewView({
       <header className="mb-7 flex items-center gap-3">
         <FlowBackButton label="Back to your route" onClick={onBack} />
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
-            Crew
-          </p>
           <p className="truncate text-sm text-slate-400">{event.name}</p>
         </div>
       </header>

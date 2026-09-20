@@ -1,0 +1,51 @@
+name: Routing service CI
+
+on:
+  pull_request:
+    paths:
+      - "routing-service/**"
+      - ".github/workflows/routing-service.yml"
+  push:
+    branches:
+      - develop
+      - main
+    paths:
+      - "routing-service/**"
+      - ".github/workflows/routing-service.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: routing-service-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: routing-service
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Ta sama wersja Pythona i te same przypiete zaleznosci co w etapie "test" routing-service/Dockerfile.
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12.11"
+          cache: pip
+          cache-dependency-path: |
+            routing-service/requirements.txt
+            routing-service/requirements-dev.txt
+
+      - name: Install dependencies
+        run: python -m pip install --requirement requirements-dev.txt
+
+      # pytest konczy sie kodem 5, gdy nie zebral zadnego testu, wiec pusty zestaw nie przejdzie jako sukces.
+      - name: Test
+        run: python -m pytest -q

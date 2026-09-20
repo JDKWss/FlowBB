@@ -2,6 +2,7 @@ using System.Globalization;
 using FlowBB.Api.Endpoints;
 using FlowBB.Application.Abstractions.Persistence;
 using FlowBB.Application.Events;
+using FlowBB.Application.Events.CreateEvent;
 using FlowBB.Application.Events.GetEvent;
 using FlowBB.Application.Events.GetEvents;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -14,6 +15,7 @@ public static class EventsEndpoints
     {
         services.AddScoped<GetEventsHandler>();
         services.AddScoped<GetEventHandler>();
+        services.AddScoped<CreateEventHandler>();
         services.TryAddScoped<IEventLookup, EventLookup>();
         return services;
     }
@@ -23,6 +25,12 @@ public static class EventsEndpoints
         var group = app.MapGroup("/api/events").WithTags("Events");
 
         group.MapGet("/", GetEventsAsync).WithName("getEvents");
+        group.MapPost("/", CreateEventAsync)
+            .WithName("createEvent")
+            .Accepts<CreateEventRequest>("application/json")
+            .Produces<EventDetailsResponse>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status500InternalServerError);
         group.MapGet("/{eventId}", GetEventAsync).WithName("getEventById");
 
         return app;
@@ -44,6 +52,32 @@ public static class EventsEndpoints
 
         var events = await handler.HandleAsync(query, cancellationToken);
         return TypedResults.Ok(events.Select(item => item.ToSummaryResponse()).ToList());
+    }
+
+    private static async Task<IResult> CreateEventAsync(
+        HttpRequest request,
+        CreateEventHandler handler,
+        CancellationToken cancellationToken)
+    {
+        var body = await ApiRequests.ReadJsonAsync<CreateEventRequest>(request, cancellationToken);
+        if (body is null)
+        {
+            return ApiProblems.BadRequest("Request body must be valid JSON.");
+        }
+
+        if (!body.TryToCommand(out var command, out var requestError))
+        {
+            return ApiProblems.BadRequest(requestError);
+        }
+
+        var result = await handler.HandleAsync(command, cancellationToken);
+        if (!result.IsValid)
+        {
+            return ApiProblems.BadRequest(result.ValidationError!);
+        }
+
+        var response = result.Details!.ToResponse();
+        return TypedResults.Created($"/api/events/{response.Id:D}", response);
     }
 
     // Nieparsowalny lub pusty id to 400, a poprawny, lecz nieznany id to 404 (getEventById w contracts/openapi.yaml).

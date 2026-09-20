@@ -131,6 +131,47 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "500":
           $ref: "#/components/responses/InternalServerError"
+    post:
+      tags: [Events]
+      summary: Tworzy wydarzenie organizatora
+      description: |
+        Tworzy wydarzenie oraz dedykowane miejsce w Neo4j. Identyfikatory
+        wydarzenia i miejsca sa generowane przez backend, `source` ma zawsze
+        wartosc `External`, a liczba uczestnikow jest wyliczana z deklaracji
+        i poczatkowo wynosi 0.
+      operationId: createEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEventRequest"
+            example:
+              name: "HackBB Afterparty"
+              description: "Spotkanie po wydarzeniu."
+              startAt: "2026-09-20T19:00:00+02:00"
+              endAt: "2026-09-20T22:00:00+02:00"
+              venueName: "Bielsko-Biała"
+              category: Community
+              location:
+                latitude: 49.82
+                longitude: 19.04
+      responses:
+        "201":
+          description: Wydarzenie i miejsce zostaly utworzone
+          headers:
+            Location:
+              description: Adres utworzonego wydarzenia
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventDetails"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /api/events/{eventId}:
     parameters:
@@ -654,6 +695,40 @@ components:
         source:
           type: string
           enum: [Demo, City, External]
+
+    CreateEventRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - description
+        - startAt
+        - venueName
+        - category
+        - location
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        description:
+          type: string
+          maxLength: 1000
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+          nullable: true
+        venueName:
+          type: string
+          minLength: 1
+          maxLength: 160
+        category:
+          $ref: "#/components/schemas/EventCategory"
+        location:
+          $ref: "#/components/schemas/GeoPoint"
 
     EventDetails:
       allOf:
