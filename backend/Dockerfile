@@ -1,4 +1,5 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+# Wersje przypiete (SDK 10.0.401, runtime 10.0.12), zeby demo budowalo sie tak samo w dniu prezentacji.
+FROM mcr.microsoft.com/dotnet/sdk:10.0.401 AS build
 WORKDIR /src
 
 COPY backend/src/FlowBB.Domain/FlowBB.Domain.csproj backend/src/FlowBB.Domain/
@@ -16,7 +17,7 @@ RUN dotnet publish backend/src/FlowBB.Api/FlowBB.Api.csproj \
     --no-restore \
     /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.12 AS final
 WORKDIR /app
 ENV ASPNETCORE_HTTP_PORTS=8080
 EXPOSE 8080

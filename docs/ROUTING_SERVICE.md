@@ -446,12 +446,16 @@ Only `api` calls `http://routing:8000` on the private Compose network. The
 override may expose one for debugging. This is one FlowBB repository and one
 deployment, not a separate routing repository.
 
-Prepare artifacts once, then start the runtime stack:
+`routing` is in the Compose profile `real-routing` and `routing-prepare` in the one-shot
+profile `routing-tools`; the default start (`ROUTING_MODE=Demo`) creates neither and the
+API uses `DemoRoutePlanner` directly. To use road routing, set `ROUTING_MODE=RoadRouting` in `.env`, prepare the
+artifacts once, then start the runtime stack with both profiles:
 
 ```bash
-docker compose -f infra/docker-compose.yml \
+docker compose -f infra/docker-compose.yml --env-file .env \
   --profile routing-tools run --rm routing-prepare
-docker compose -f infra/docker-compose.yml --profile local-db up --build
+docker compose -f infra/docker-compose.yml --env-file .env \
+  --profile local-db --profile real-routing up --build
 ```
 
 `routing` mounts `routing-data` read-only and has only Compose `expose: 8000`,

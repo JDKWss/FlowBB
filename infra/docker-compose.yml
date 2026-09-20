@@ -13,6 +13,9 @@ services:
       NEO4J_SEED_ON_STARTUP: ${NEO4J_SEED_ON_STARTUP:-false}
       Cors__AllowedOrigins__0: ${Cors__AllowedOrigins__0:?Set the client origin in .env}
       Cors__AllowedOrigins__1: ${Cors__AllowedOrigins__1:?Set the dashboard origin in .env}
+      # Demo (domyslnie): DemoRoutePlanner w procesie API, bez wywolan uslugi drogowej. RoadRouting wymaga profilu
+      # real-routing (kontener routing z grafami) i wlacza usluge drogowa z fallbackiem do DemoRoutePlanner.
+      Routing__Mode: ${ROUTING_MODE:-Demo}
       Routing__ServiceUrl: ${ROUTING_SERVICE_URL:-http://routing:8000}
       Routing__TimeoutSeconds: ${ROUTING_TIMEOUT_SECONDS:-3}
       Routing__DemoFallbackEnabled: ${ROUTING_DEMO_FALLBACK_ENABLED:-true}
@@ -40,7 +43,10 @@ services:
       retries: 5
       start_period: 20s
 
+  # Profil real-routing: prywatna usluga routingu drogowego. Bez profilu nie powstaje kontener, ktory bylby unhealthy
+  # (brak grafow do czasu routing-prepare). Uzycie: patrz docs/DEMO_RUNBOOK.md, sekcja 3.
   routing:
+    profiles: ["real-routing"]
     build:
       context: ../routing-service
     environment:
@@ -63,6 +69,9 @@ services:
       retries: 6
       start_period: 30s
 
+  # Jednorazowe narzedzie (docker compose --profile routing-tools run --rm routing-prepare). Celowo w osobnym profilu niz
+  # routing: przy profilu real-routing "up" uruchomilby tez routing-prepare, czyli ponownie pobieral OSM z Overpass i
+  # przebudowywal grafy, gdy routing je czyta.
   routing-prepare:
     profiles: ["routing-tools"]
     build:

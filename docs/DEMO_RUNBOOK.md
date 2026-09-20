@@ -34,8 +34,8 @@ przegladarce; proba prezentacji z timerem pozostaje do wykonania.
 - Docker (Compose v2) albo .NET SDK 10 do uruchomienia API lokalnie.
 - PowerShell 7 (`pwsh`) do skryptu smoke testu. Na Linuksie: `dotnet tool install --global PowerShell` albo pakiet z repozytorium dystrybucji.
 - Wolne miejsce na dysku: obrazy API i Neo4j oraz ich warstwy zajmuja kilka GB. Przy pelnym dysku Neo4j nie startuje (`No space left on device` w `docker logs`, kod wyjscia 70), a API startuje bez niego.
-- Dla realnego routingu drogowego: przygotowany wolumen
-  `routing-data` (jednorazowa komenda w kroku 4 ponizej).
+- Tylko dla opcjonalnego realnego routingu drogowego (profil `real-routing`): dostep do internetu i wolumen `routing-data`
+  przygotowany jednorazowo komenda `routing-prepare` (krok 4 ponizej). Domyslne demo tego nie potrzebuje i dziala bez internetu.
 - Neo4j: instancja Aura (patrz `backend/README.md`) albo lokalny kontener (profil `local-db`; w `.env`: `NEO4J_URI=neo4j://neo4j:7687`).
 - Przegladarka desktopowa dla `/dashboard`, przegladarka w mobilnym viewporcie dla `/client`.
 - Zadnych sekretow w repozytorium: hasla i dane polaczenia tylko w `.env` (ignorowany przez git), wzor w `.env.example`.
@@ -48,12 +48,16 @@ przegladarce; proba prezentacji z timerem pozostaje do wykonania.
 3. `NEO4J_SEED_ON_STARTUP=true` (domyslnie w `.env.example`) sprawia, ze API przy starcie wykonuje constraints i
    `database/flowbb-demo-seed.cypher`. Compose przekazuje te zmienna do kontenera `api`. Seed jest idempotentny, ale
    **kazdy restart API przywraca stan seedu** (deklaracje i czlonkostwa dodane w trakcie demo znikaja).
-4. Przygotuj realne grafy Walking/Bike/Car (ten jednorazowy krok wymaga
-   sieci i Overpass): `docker compose -f infra/docker-compose.yml --env-file .env --profile routing-tools run --rm routing-prepare`.
+4. **Tylko dla realnego routingu drogowego** (domyslnie pomin): ustaw w `.env` `ROUTING_MODE=RoadRouting` i przygotuj grafy
+   Walking/Bike/Car (jednorazowo, wymaga sieci i Overpass):
+   `docker compose -f infra/docker-compose.yml --env-file .env --profile routing-tools run --rm routing-prepare`.
 5. Uruchom stos (z lokalnym Neo4j; dla Aury pomin `--profile local-db`):
    `docker compose -f infra/docker-compose.yml --env-file .env --profile local-db up --build -d`.
    API czeka na zdrowy kontener Neo4j (ok. 30 s), a potem wykonuje seed.
-   Bez kroku 4 kontener `routing` jest `unhealthy`, a API korzysta z kontrolowanego `DemoRoutePlanner`.
+   **Domyslny start (`ROUTING_MODE=Demo`) nie tworzy kontenera `routing`**, wiec nic nie jest `unhealthy`, a `/route` zwraca
+   `plannerSource: Demo` bez wywolan uslugi drogowej, timeoutow i ostrzezen. Dla `RoadRouting` dodaj drugi profil:
+   `--profile local-db --profile real-routing`; przy braku grafow lub niedostepnej uslugi API wraca do `DemoRoutePlanner`
+   (log `Road routing unavailable ...`), a bledy logiczne (np. `route_not_found`) nie sa ukrywane.
 6. Sprawdz zdrowie API: `GET http://localhost:8080/health` powinno zwrocic `200 {"status":"Healthy","timestamp":"..."}` (`/health/ready` sprawdza dodatkowo Neo4j). Wewnetrzny `/health` kontenera `routing` ma status `ready` tylko po zaladowaniu wszystkich trzech grafow.
 7. Otworz Scalar z OpenAPI (srodowisko Development): `http://localhost:8080/scalar`.
 8. Uruchom klienta: `cd client && npm ci && VITE_API_URL=http://localhost:8080 npm run dev`.
@@ -62,8 +66,8 @@ przegladarce; proba prezentacji z timerem pozostaje do wykonania.
 
 API mozna tez uruchomic recznie: `dotnet run --project backend/src/FlowBB.Api --urls http://localhost:8080`.
 Glowny host udostepnia `/health`, `/health/ready`, `/hubs/pulse` oraz endpointy Events, Attendance, Crew, PULSE i Routing.
-Zatrzymanie i pelny reset lokalnego stanu (wolumeny Neo4j, Seq, routing):
-`docker compose -f infra/docker-compose.yml --env-file .env --profile local-db down -v`.
+Zatrzymanie i pelny reset lokalnego stanu (wolumeny Neo4j, Seq, routing); uwzglednij oba profile, jesli uzywales `real-routing`:
+`docker compose -f infra/docker-compose.yml --env-file .env --profile local-db --profile real-routing down -v`.
 
 ## 4. Docelowy przebieg prezentacji (10 minut)
 
@@ -257,3 +261,30 @@ dashboard Vite oraz klient Vite.
   Najmniejsza zwrocona komorka miala 20 uczestnikow.
 - Dashboard i klient porownano obok siebie: wspolna czarna baza, neutralne
   karty, biala typografia, mietowy akcent, zaokraglenia i styl OpenFreeMap.
+
+## 12. Profile Compose i tryb tras (issue #90)
+
+Data: 2026-09-20. Srodowisko: Ubuntu 26.04, Docker 29.8.0 (Compose 5.5.1), lokalny Neo4j 5.26.30 Community (`--profile local-db`),
+`pwsh` 7.6.6. Obie konfiguracje uruchomiono od czystych wolumenow (`down -v`), obrazy `api` zbudowane na przypietych obrazach .NET
+(SDK 10.0.401, aspnet 10.0.12).
+
+| Sprawdzenie | `ROUTING_MODE=Demo` (domyslnie, bez `real-routing`) | `ROUTING_MODE=RoadRouting` + `--profile real-routing` |
+|---|---|---|
+| `docker compose config` | OK, uslugi: `api`, `seq`, `neo4j` (z `local-db`) | OK, dodatkowo `routing` |
+| Kontenery po starcie | `api`, `neo4j` healthy, `seq`; **brak kontenera `routing`, nic `unhealthy`** | `api`, `neo4j`, `routing` healthy (po `routing-prepare`, 5 min 4 s) |
+| `/route` Walking, Bike, Car | `plannerSource: Demo` | `RoadRouting` (dystans i geometria), np. Walking 1625,6 m |
+| `/route` PublicTransport | `Demo` | `Demo` (PublicTransport nie idzie przez usluge drogowa) |
+| `infra/smoke-test.ps1` (dwa przebiegi) | 13 PASS, 0 FAIL, 0 SKIP | 13 PASS, 0 FAIL, 0 SKIP |
+| `Smoke/` (`FLOWBB_SMOKE_BASE_URL`) | 68 PASS, 0 FAIL | 68 PASS, 0 FAIL |
+| Ostrzezenia i bledy w logu API | 0 (brak `Road routing unavailable` i timeoutow) | 0 |
+| Restart API (`docker restart infra-api-1`) | POST `82 -> 83`, po restarcie `82`, API `healthy` | nie powtarzano |
+
+Uwagi:
+
+- **`routing-prepare` jest w osobnym profilu `routing-tools`**, a nie w `real-routing`. Z obiema uslugami w `real-routing` `up`
+  uruchamial `routing-prepare`, czyli ponownie pobieral OSM z Overpass i przebudowywal grafy, gdy `routing` je czyta
+  (zaobserwowane w tej weryfikacji). To odstepstwo od tresci issue #90.
+- **Test bez internetu w trybie domyslnym: niewykonany jako pomiar.** Proba symulacji siecia `internal` nie byla
+  wiarygodna (API nie polaczylo sie wtedy z Neo4j), wiec jej nie liczymy. Wiadomo tyle, ze w trybie `Demo` API nie ma zadnego
+  wywolania uslugi drogowej (`IRoutePlanner` to `DemoRoutePlanner`, sprawdza to `RoutingModeTests`), a stos nie zawiera kontenera `routing`.
+- Neo4j Aura, przegladarka i proba z timerem: bez zmian, niewykonane.

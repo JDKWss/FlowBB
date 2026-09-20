@@ -33,7 +33,7 @@ builder.Services.AddNeo4jReadiness();
 builder.Services.AddEventsModule();
 builder.Services.AddAttendanceModule();
 builder.Services.AddPulseModule();
-builder.Services.AddRoutingModule();
+builder.Services.AddRoutingModule(builder.Configuration.GetRoutingMode());
 builder.Services.AddCrewModule();
 
 var routingServiceUrl = builder.Configuration["Routing:ServiceUrl"] ?? "http://routing:8000";
