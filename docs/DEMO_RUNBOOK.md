@@ -1,20 +1,20 @@
 # Runbook demo FlowBB
 
 Instrukcja uruchomienia i przeprowadzenia krytycznego scenariusza demo (AGENTS.md, sekcja 2) oraz plan awaryjny.
-**Status: 2026-09-20 (`develop` + #52).** Stos uruchamia sie od zera jedna komenda Compose, a `infra/smoke-test.ps1`
-konczy sie wynikiem 13 PASS / 0 FAIL / 0 SKIP (szczegoly w sekcji 10). **Znany bloker scenariusza prezentacji:**
-patrz sekcja 8 (seed nie ma uzytkownika, ktory moze dac `82 -> 83`).
+**Status: 2026-09-20 (`develop` + #72).** Stos uruchamia sie od zera jedna komenda Compose, a `infra/smoke-test.ps1`
+konczy sie wynikiem 13 PASS / 0 FAIL / 0 SKIP (szczegoly w sekcji 10). Uzytkownik demo `aaaaaaaa-...` nie ma
+poczatkowej deklaracji ani czlonkostwa w Crew, wiec pierwszy klik "Ide" pokazuje `82 -> 83`.
 
 ## 1. Status krokow scenariusza
 
 | # | Krok | Endpoint / element | Status |
 |---|---|---|---|
 | 1 | Uzytkownik otwiera wydarzenie w `/client` | `GET /api/events`, `GET /api/events/{id}` | dziala (smoke, lokalny Neo4j) |
-| 2 | Klika "Ide" i wybiera srodek transportu | `POST /api/events/{id}/attendance` | dziala; **z seedem nie da sie pokazac `+1` uzytkownikiem klienta** (sekcja 8) |
+| 2 | Klika "Ide" i wybiera srodek transportu | `POST /api/events/{id}/attendance` | dziala; uzytkownik klienta `aaaaaaaa-...` dostaje `isNew: true` na wydarzeniu `1111...` |
 | 3 | API zapisuje deklaracje w Neo4j | relacja `IS_GOING_TO` ze snapshotem | dziala (smoke, testy `FlowBB.Infrastructure.Tests`); na Aurze niepotwierdzone |
 | 4 | Backend przelicza agregaty | logika PULSE w C# | dziala (smoke: PULSE zgodny z Attendance) |
 | 5 | SignalR wysyla `PulseUpdated` | hub `/hubs/pulse` | negocjacja huba w smoke; komunikat sprawdzaja testy `AttendanceSignalRFlowTests` |
-| 6 | Dashboard pokazuje licznik bez odswiezania (`82 -> 83`) | `/dashboard`, klient SignalR | backend gotowy; przebieg z dashboardem wymaga weryfikacji wzrokowej i uzytkownika spoza seedu (sekcja 8) |
+| 6 | Dashboard pokazuje licznik bez odswiezania (`82 -> 83`) | `/dashboard`, klient SignalR | backend i seed gotowe; przebieg z dashboardem wymaga weryfikacji wzrokowej |
 | 7 | Uzytkownik widzi trase z `IRoutePlanner` | `GET /api/events/{id}/route?userId={userId}` | dziala (smoke: `plannerSource: Demo`, wynik powtarzalny) |
 | 8 | Uzytkownik dolacza do mikrogrupy CREW | `GET groups`, `POST/DELETE members` | dziala (smoke: dolaczenie +1, ponowienie bez zmian, opuszczenie 204 x2) |
 | 9 | Dashboard pokazuje popyt na mapie heksagonalnej | `GET /api/pulse/hexagons` | dziala (smoke: 4 komorki, wszystkie >= 10 osob, bez `userId`); na Aurze niepotwierdzone |
@@ -58,10 +58,9 @@ Zatrzymanie i pelny reset lokalnego stanu (wolumeny Neo4j, Seq, routing):
 ## 4. Docelowy przebieg prezentacji (10 minut)
 
 Dane sa syntetyczne i oznaczone w UI jako `DEMO DATA / SYMULACJA`.
-**Uwaga (sekcja 8):** seed zapisuje wszystkich 82 uzytkownikow, w tym uzytkownika klienta
-`aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa`, na wydarzenie `11111111-...`, wiec kroki 3-4 nie pokaza `82 -> 83`, dopoki seed
-nie dostanie uzytkownika spoza wydarzenia. Do sprawdzenia `+1` na zywo uzyj wydarzenia `33333333-...` (46 uczestnikow) i
-uzytkownika `d1000000-0000-0000-0000-000000000082`, ktory na nim nie jest.
+Seed utrzymuje 82 uczestnikow wydarzenia `11111111-...`, ale uzytkownik klienta
+`aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa` pozostaje poza wszystkimi wydarzeniami i grupami. Jest przeznaczony do pokazania
+pierwszej deklaracji `isNew: true`, zmiany licznika `82 -> 83`, trasy oraz dolaczenia do Crew.
 
 | Krok | Co robisz | Oczekiwany rezultat |
 |---|---|---|
@@ -90,9 +89,9 @@ Skrypt wykonuje kroki scenariusza przez HTTP i konczy sie wynikiem PASS, FAIL al
   Kod wyjscia 2 oznacza, ze API jest nieosiagalne.
 
 Opcje: `-EventId`, `-UserId`, `-CrewEventId`, `-TransportMode`, `-KeepData` (nie sprzataj po tescie).
-Domyslnie: Attendance na wydarzeniu `33333333-...` z uzytkownikiem `d1000000-...-000000000082` (nie ma tam deklaracji),
-Crew na wydarzeniu `11111111-...` (jedyne z grupami w seedzie). Skrypt tworzy deklaracje i usuwa ja na koncu, o ile sam
-ja utworzyl, wiec mozna go uruchamiac wielokrotnie. Brak grupy do dolaczenia jest FAIL, nie PASS.
+Domyslnie Attendance i Crew korzystaja z wydarzenia `11111111-...` oraz uzytkownika demo `aaaaaaaa-...`, ktory nie ma
+poczatkowej deklaracji ani czlonkostwa w grupie. Skrypt tworzy deklaracje i usuwa ja na koncu, o ile sam ja utworzyl,
+wiec mozna go uruchamiac wielokrotnie. Brak grupy do dolaczenia jest FAIL, nie PASS.
 Sam skrypt smoke nadal zawiera historyczny fallback do POST przy trasie (sekcja 8).
 
 **Czego skrypt nie sprawdza:** samego komunikatu SignalR (tylko negocjacje huba; komunikat pokrywaja testy integracyjne
@@ -142,10 +141,9 @@ Backup: nagraj przebieg scenariusza (sekcja 4) i zapisz zrzuty ekranu dashboardu
 - Relacja `IS_GOING_TO` przechowuje `TransportMode`, `OriginLatitude`,
   `OriginLongitude` i `UpdatedAt`. Modal split i mapa PULSE sa wyliczane w C#
   ze snapshotow odczytanych z Neo4j.
-- **Seed a scenariusz `82 -> 83` (blokuje prezentacje):** `flowbb-demo-seed.cypher` zapisuje wszystkich 82 uzytkownikow
-  (w tym `aaaaaaaa-...` z klienta) na wydarzenie `11111111-...`, a uzytkownik `dddddddd-...` istnieje tylko w starym
-  `database/flowbb-queries.cypher`. Klient klikajacy "Ide" dostaje `isNew: false` i licznik bez zmian.
-  Wymaga decyzji Data/Neo4j (nowy uzytkownik demo spoza wydarzenia) i Frontend (`DEMO_USER_ID`); issue #72.
+- Seed ma 83 syntetycznych uzytkownikow. Uczestnicy wydarzenia o liczbie `N` to uzytkownicy `d100...002` do
+  `d100...N+1`, dlatego liczniki pozostaja `82/46/28/64`, a `DEMO_USER_ID` `aaaaaaaa-...` jest wolny do scenariusza
+  `82 -> 83`. Ponowne wykonanie seedu usuwa jego deklaracje i czlonkostwo w seedowanych grupach (#72).
 - **Historyczna uwaga:** wczesniejszy branch kliencki eksperymentowal z POST
   i punktem startu w body. Nie jest to aktualny kontrakt `develop`.
 - `infra/smoke-test.ps1` nadal zawiera zgodnosciowy fallback do historycznego
@@ -166,7 +164,7 @@ Backup: nagraj przebieg scenariusza (sekcja 4) i zapisz zrzuty ekranu dashboardu
 - [x] `dotnet build` i `dotnet test` przechodza, a `infra/smoke-test.ps1` konczy sie bez FAIL i bez SKIP,
 - [ ] scenariusz demo zostal przecwiczony dwa razy z timerem.
 
-## 10. Wynik ostatniej weryfikacji (issue #57)
+## 10. Wynik ostatniej weryfikacji (issue #72)
 
 Data: 2026-09-20. Srodowisko: Windows 11, Docker 29.2.1 (Compose 5.0.2), lokalny Neo4j 5.26.30 Community (`--profile local-db`),
 czyste srodowisko (bez woluminow, obrazy zbudowane od zera).
@@ -174,12 +172,17 @@ czyste srodowisko (bez woluminow, obrazy zbudowane od zera).
 | Sprawdzenie | Wynik |
 |---|---|
 | `docker compose ... --env-file .env --profile local-db up --build -d` od zera | OK (ok. 20 s po zbudowanych obrazach); API czeka na zdrowy Neo4j |
-| Seed przy starcie (`NEO4J_SEED_ON_STARTUP`) | OK po poprawce Compose (wczesniej zmienna nie docierala do kontenera, `GET /api/events` zwracal `[]`) |
+| Seed przy starcie (`NEO4J_SEED_ON_STARTUP`) | `User=83`; uzytkownik `aaaaaaaa-...` ma zero relacji `IS_GOING_TO` i `MEMBER_OF`; wydarzenia maja `82/46/28/64` uczestnikow |
 | `/health` i `/health/ready` | `Healthy`; kontener `api` `healthy` |
 | `infra/smoke-test.ps1` (dwa przebiegi z rzedu) | 13 PASS, 0 FAIL, 0 SKIP, kod 0 |
-| Restart API (`docker restart`) | wraca `healthy`, seed idempotentny (`participantsCount` 220 bez zmian) |
+| Reczny POST Attendance `aaaa...` na `1111...`, potem DELETE | `isNew: true`, `82 -> 83`; DELETE 204 i powrot do 82 |
+| Restart API po pozostawieniu deklaracji | wraca `healthy`; seed usuwa deklaracje uzytkownika demo i przywraca `82/46/28/64` |
+| PULSE hexagons dla czterech wydarzen | `1111`: 4 komorki (min. 20), `3333`: 4 (min. 11), `4444`: 0 (28 osob rozproszonych ponizej progu), `5555`: 4 (min. 16); zadna zwrocona komorka nie ma `count < 10` |
+| `dotnet build backend/FlowBB.sln` | OK, 0 ostrzezen i 0 bledow |
+| `dotnet test backend/FlowBB.sln` z jednorazowym Neo4j | 457 PASS, 0 FAIL, 0 SKIP; wszystkie 53 testy Infrastructure wykonane |
+| `dotnet format backend/FlowBB.sln --verify-no-changes` | OK |
 | Kontener `routing` bez `routing-prepare` | `unhealthy` (brak grafow), API dziala z `DemoRoutePlanner` |
 | Konfiguracja Compose bez profilu `local-db` (Aura) | `docker compose config` OK; brak testu z prawdziwa Aura (brak dostepu) |
 | Scenariusz demo z timerem, dwa razy | **niewykonane** (wymaga czlowieka, `/client` i `/dashboard` w przegladarce) |
-| `+1` na dashboardzie przez SignalR w przegladarce | **niewykonane**; blokuje je seed (sekcja 8) |
+| `+1` na dashboardzie przez SignalR w przegladarce | **niewykonane wzrokowo**; backend i seed daja `82 -> 83`, komunikat pokrywaja testy integracyjne |
 

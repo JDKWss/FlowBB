@@ -89,14 +89,14 @@ Tej zmiany nie robi sie w ramach dokumentacji. Kazda pozycja wymaga osobnego zad
 | 3 | Stary model `FlowBB.Domain.Models.Event` pozostaje do posprzatania po MVP | Porzadki | Data/Neo4j + Backend Events |
 | 4 | `PLAN_EVENTS_LOAD.md` zachowuje historyczny plan PostGIS/EF Core; aktualny importer wydarzen do Neo4j nie istnieje | MVP | Backend Events + Data/Neo4j |
 | 5 | Dane MZK nie maja pelnych trips, kolejnosci przystankow, powiazania kursow i wszystkich wspolrzednych; nie sa grafem routingu | Po MVP | Core Backend Owner |
-| 6 | Seed demo zapisuje wszystkich 82 uzytkownikow (w tym `aaaaaaaa-...` z klienta) na wydarzenie `1111...`: nikt nie moze dac `82 -> 83`. Uzytkownik `dddddddd-...` z dawnego runbooka istnieje tylko w `flowbb-queries.cypher`. Wymaga uzytkownika demo spoza wydarzenia i zgodnego `DEMO_USER_ID` w kliencie | MVP (#72) | Data/Neo4j + Frontend |
-| 7 | Kontener `routing` jest `unhealthy` bez recznego `routing-prepare` (brak grafow). Nie blokuje API; do decyzji, czy Compose ma go pomijac w trybie demo | Porzadki | Core Backend Owner |
+| 6 | Kontener `routing` jest `unhealthy` bez recznego `routing-prepare` (brak grafow). Nie blokuje API; do decyzji, czy Compose ma go pomijac w trybie demo | Porzadki | Core Backend Owner |
 
 ### Rozwiazane od utworzenia planu
 
 - Crew: domena, Application, endpointy i adapter Neo4j sa zarejestrowane w API (#54).
 - `/health` i `/health/ready` (Neo4j) zgodne z `HealthResponse` z OpenAPI (#55, #52).
 - Compose przekazuje `NEO4J_SEED_ON_STARTUP` do `api`, a API czeka na zdrowy lokalny Neo4j (#57).
+- Seed ma 83 syntetycznych uzytkownikow; `DEMO_USER_ID` `aaaaaaaa-...` pozostaje poza wydarzeniami i Crew, wiec pierwszy POST na `1111...` pokazuje `82 -> 83` (#72).
 - Zweryfikowane: start od czystego srodowiska, seed, restart API i `infra/smoke-test.ps1` (13 PASS, 0 FAIL, 0 SKIP)
   na lokalnym Neo4j; wynik w `DEMO_RUNBOOK.md`, sekcja 10.
 
@@ -105,8 +105,7 @@ Tej zmiany nie robi sie w ramach dokumentacji. Kazda pozycja wymaga osobnego zad
 - `User` uzywa `DefaultOriginLatitude/Longitude`, a `IS_GOING_TO` przechowuje
   pelny snapshot wymagany przez Attendance, PULSE i Routing.
 - Adaptery Events, Attendance i PULSE dla Neo4j sa zarejestrowane w API.
-- Seed zawiera 82 syntetycznych uzytkownikow w gestych obszarach i daje
-  widoczne komorki PULSE przy progu `count >= 10`.
+- Seed zawiera 83 syntetycznych uzytkownikow w gestych obszarach, zachowuje liczniki wydarzen `82/46/28/64` i daje widoczne komorki PULSE przy progu `count >= 10`.
 - `VenueId` pozostaje zaakceptowanym tekstowym slugiem.
 - Adapter ogolnego grafu konwertuje identyfikatory wezlow `Guid` do/z tekstu Neo4j.
 - Repozytorium zawiera `.env.example`, `infra/docker-compose.yml` i
