@@ -2,11 +2,16 @@
 
 Stan na **2026-09-19**. Ocena oparta na `SOURCES.md` oraz na **ponownym sprawdzeniu na żywo** trzech źródeł JSON i nagłówków GTFS (liczby poniżej pochodzą z tego sprawdzenia). Nie sprawdzałem zawartości ZIP-a GTFS ani stron MZK/Pełnej Kultury. Tam opieram się na `SOURCES.md`.
 
+Zakres wpisow transportowych w tym rankingu to dane PublicTransport. Aktualna
+propozycja osobnego routingu drogowego Walking/Bike/Car jest w
+[docs/ROUTING_SERVICE.md](docs/ROUTING_SERVICE.md); OSM i silnik drogowy nie
+zastepuja GTFS/OTP.
+
 ## Wniosek w trzech zdaniach
 
 1. **Bierzemy trzy źródła JSON: Teatr Polski, Cavatina Hall i bb2026.** Każde ma wydarzenia z datą i godziną, a razem dają wystarczająco dużo różnorodnych wydarzeń do seedu.
 2. **Wczytujemy je jednorazowo do pliku seed w repo, nie na żywo.** Demo ma przejść bez ręcznego poprawiania danych i bez zależności od cudzych serwerów (`AGENTS.md`, sekcja 2 i 8). Endpoint Teatru nie jest udokumentowany, a liczby się zmieniają.
-3. **Transport: tylko GTFS Kolei Śląskich (P1, OTP) i ręcznie jedna linia MZK do `DemoRoutePlanner`.** Reszta odpada.
+3. **PublicTransport: tylko GTFS Kolei Śląskich (P1, OTP) i ręcznie jedna linia MZK do `DemoRoutePlanner`.** Reszta odpada w zakresie tego rankingu.
 
 ## Kryteria
 
@@ -77,7 +82,9 @@ Wartość dla demo FlowBB liczy się tak: czy źródło daje **datę i godzinę 
 
 ## Otwarte kwestie
 
-- **Kontrakt:** `contracts/openapi.yaml` jeszcze nie istnieje. Mapowanie źródeł na `Event` z `SOURCES.md` to propozycja, do uzgodnienia z Kubą przy tworzeniu kontraktu. Ten ranking niczego w kontrakcie nie zmienia.
+- **Kontrakt:** `contracts/openapi.yaml` istnieje i jest zrodlem prawdy. Mapowanie
+  zrodel na `Event` musi byc z nim zgodne i nadal wymaga akceptacji Kuby, jesli
+  mialoby zmienic pola lub enumy. Ten ranking niczego w kontrakcie nie zmienia.
 - **Regulamin (sekcja 13 `AGENTS.md`):** skrypt ingestu to kod aplikacji. Zapytajcie organizatora/mentora, czy przygotowanie danych obejmuje taki skrypt przed startem okna, albo napiszcie go dopiero w oknie hackathonu.
 - **Warunki korzystania:** nie sprawdzałem regulaminów Teatru, Cavatiny i bb2026. Wszystkie trzy udostępniają dane publicznie, ale w pitchu zaznaczcie źródło i że dane są snapshotem.
 
