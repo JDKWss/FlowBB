@@ -10,9 +10,11 @@ public sealed class Neo4jDatabaseInitializerTests(Neo4jFixture neo4j)
     {
         var rows = await neo4j.QueryAsync(
             """
-            MATCH (n) WHERE n.TestRunId IS NULL
+            MATCH (n) WHERE n.TestRunId IS NULL AND NOT n:SchemaVersion
             WITH count(n) AS nodes
-            OPTIONAL MATCH (a)-[r]->(b) WHERE a.TestRunId IS NULL AND b.TestRunId IS NULL
+            OPTIONAL MATCH (a)-[r]->(b)
+            WHERE a.TestRunId IS NULL AND b.TestRunId IS NULL
+              AND NOT a:SchemaVersion AND NOT b:SchemaVersion
             RETURN nodes, count(r) AS relationships
             """);
         return (rows[0]["nodes"].As<long>(), rows[0]["relationships"].As<long>());
@@ -21,7 +23,8 @@ public sealed class Neo4jDatabaseInitializerTests(Neo4jFixture neo4j)
     [Neo4jFact]
     public async Task InitializeAsync_IsIdempotentAndCreatesSchemaAndDemoSeed()
     {
-        var existing = await neo4j.QueryAsync("MATCH (n) WHERE n.TestRunId IS NULL RETURN collect(elementId(n)) AS ids");
+        var existing = await neo4j.QueryAsync(
+            "MATCH (n) WHERE n.TestRunId IS NULL AND NOT n:SchemaVersion RETURN collect(elementId(n)) AS ids");
         var existingIds = existing[0]["ids"].As<List<object>>().Select(id => (string)id).ToList();
 
         try
@@ -42,13 +45,14 @@ public sealed class Neo4jDatabaseInitializerTests(Neo4jFixture neo4j)
 
             var schema = await neo4j.QueryAsync("SHOW INDEXES YIELD name RETURN collect(name) AS names");
             schema[0]["names"].As<List<object>>().Select(name => (string)name)
-                .Should().Contain(["event_start_at", "event_id_unique", "user_id_unique", "crew_id_unique", "venue_id_unique"]);
+                .Should().Contain(
+                    ["event_start_at", "event_id_unique", "user_id_unique", "crew_id_unique", "venue_id_unique", "schema_version_key_unique"]);
         }
         finally
         {
             // Sprzata wylacznie to, co zalozyl seed w tym tescie; dane sprzed testu zostaja.
             await neo4j.ExecuteAsync(
-                "MATCH (n) WHERE n.TestRunId IS NULL AND NOT elementId(n) IN $existing DETACH DELETE n",
+                "MATCH (n) WHERE n.TestRunId IS NULL AND NOT n:SchemaVersion AND NOT elementId(n) IN $existing DETACH DELETE n",
                 new { existing = existingIds });
         }
     }
