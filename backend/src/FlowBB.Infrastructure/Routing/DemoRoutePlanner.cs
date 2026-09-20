@@ -1,6 +1,8 @@
 using FlowBB.Application.Abstractions.Routing;
 using FlowBB.Domain.Common;
 using FlowBB.Domain.Routing;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FlowBB.Infrastructure.Routing;
 
@@ -36,10 +38,24 @@ public sealed class DemoRoutePlanner : IRoutePlanner
     private static readonly TimeSpan DefaultEventDuration = TimeSpan.FromHours(2);
     private static readonly TimeSpan[] ReturnOffsets = [TimeSpan.FromMinutes(10), TimeSpan.FromMinutes(40)];
 
+    private readonly ILogger<DemoRoutePlanner> _logger;
+
+    public DemoRoutePlanner()
+        : this(NullLogger<DemoRoutePlanner>.Instance)
+    {
+    }
+
+    public DemoRoutePlanner(ILogger<DemoRoutePlanner> logger)
+    {
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
+
     public Task<RoutePlan> PlanAsync(RouteRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
+
+        _logger.LogInformation("Demo route planner fallback used for event {EventId}.", request.EventId);
 
         var distanceKm = GeoDistance.KilometersBetween(request.Origin, request.Destination);
         var plan = new RoutePlan(
