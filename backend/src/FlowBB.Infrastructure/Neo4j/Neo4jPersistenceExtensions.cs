@@ -6,6 +6,12 @@ namespace FlowBB.Infrastructure.Neo4j;
 
 public static class Neo4jPersistenceExtensions
 {
+    /// <summary>
+    /// Limit oczekiwania na polaczenie, wolne polaczenie z puli i ponowienia transakcji. Domyslne ustawienia sterownika
+    /// powodowaly, ze przy niedostepnej bazie zadanie wisialo ok. 37 s zanim zwrocilo blad.
+    /// </summary>
+    public static readonly TimeSpan DriverTimeout = TimeSpan.FromSeconds(5);
+
     public static IServiceCollection AddNeo4jPersistence(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -17,7 +23,11 @@ public static class Neo4jPersistenceExtensions
             options.Validate();
             return GraphDatabase.Driver(
                 options.Uri,
-                AuthTokens.Basic(options.Username, options.Password));
+                AuthTokens.Basic(options.Username, options.Password),
+                config => config
+                    .WithConnectionTimeout(DriverTimeout)
+                    .WithConnectionAcquisitionTimeout(DriverTimeout)
+                    .WithMaxTransactionRetryTime(DriverTimeout));
         });
 
         services.AddScoped<IAttendanceRepository, Neo4jAttendanceRepository>();
