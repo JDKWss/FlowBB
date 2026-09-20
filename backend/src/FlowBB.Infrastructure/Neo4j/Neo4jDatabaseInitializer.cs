@@ -3,51 +3,52 @@ using Neo4j.Driver;
 
 namespace FlowBB.Infrastructure.Neo4j;
 
+/// <summary>
+/// Zaklada schemat (<c>database/schema.cypher</c>) i idempotentny seed demonstracyjny (<c>database/flowbb-demo-seed.cypher</c>).
+/// Oba pliki sa osadzone w assembly, wiec inicjalizacja nie zalezy od katalogu roboczego.
+/// </summary>
 public static class Neo4jDatabaseInitializer
 {
     public const string SeedOnStartupVariable = "NEO4J_SEED_ON_STARTUP";
 
+    private const string SchemaResourceName = "FlowBB.Database.schema.cypher";
     private const string SeedResourceName = "FlowBB.Database.flowbb-demo-seed.cypher";
     private const string SeedEndMarker = "// __FLOWBB_SEED_END__";
-
-    private static readonly string[] SchemaQueries =
-    [
-        "CREATE CONSTRAINT user_id_unique IF NOT EXISTS FOR (n:User) REQUIRE n.UserId IS UNIQUE",
-        "CREATE CONSTRAINT user_email_unique IF NOT EXISTS FOR (n:User) REQUIRE n.Email IS UNIQUE",
-        "CREATE CONSTRAINT event_id_unique IF NOT EXISTS FOR (n:Event) REQUIRE n.EventId IS UNIQUE",
-        "CREATE CONSTRAINT venue_id_unique IF NOT EXISTS FOR (n:Venue) REQUIRE n.VenueId IS UNIQUE",
-        "CREATE CONSTRAINT owner_id_unique IF NOT EXISTS FOR (n:BusinessOwner) REQUIRE n.OwnerId IS UNIQUE",
-        "CREATE CONSTRAINT owner_email_unique IF NOT EXISTS FOR (n:BusinessOwner) REQUIRE n.Email IS UNIQUE",
-        "CREATE CONSTRAINT tag_id_unique IF NOT EXISTS FOR (n:Tag) REQUIRE n.TagId IS UNIQUE",
-        "CREATE CONSTRAINT crew_id_unique IF NOT EXISTS FOR (n:Crew) REQUIRE n.CrewId IS UNIQUE"
-    ];
 
     public static async Task InitializeAsync()
     {
         var options = Neo4jOptions.FromEnvironment();
         await using var driver = Neo4jDriverFactory.Create(options);
+        await InitializeAsync(driver, options);
+    }
 
-        await RunAsync(driver, options.Database, "RETURN 1");
-        foreach (var query in SchemaQueries)
-        {
-            await RunAsync(driver, options.Database, query);
-        }
+    public static async Task InitializeAsync(IDriver driver, Neo4jOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(driver);
+        ArgumentNullException.ThrowIfNull(options);
 
+        await driver.VerifyConnectivityAsync();
+        await EnsureSchemaAsync(driver, options.Database);
         await ApplySeedAsync(driver, options.Database);
     }
 
-    /// <summary>Wykonuje osadzony seed demo w jednej transakcji. Seed jest idempotentny (kazde wykonanie daje ten sam stan).</summary>
     internal static Task ApplySeedAsync(IDriver driver, string database) =>
-        ApplySeedAsync(driver, database, LoadSeedStatements());
+        ApplyStatementsInTransactionAsync(driver, database, LoadStatements(SeedResourceName, SeedEndMarker));
 
-    private static async Task RunAsync(IDriver driver, string database, string query)
+    private static async Task EnsureSchemaAsync(IDriver driver, string database)
     {
-        await driver.ExecutableQuery(query)
-            .WithConfig(new QueryConfig(database: database))
-            .ExecuteAsync();
+        foreach (var statement in LoadStatements(SchemaResourceName, endMarker: null))
+        {
+            await driver.ExecutableQuery(statement)
+                .WithConfig(new QueryConfig(database: database))
+                .ExecuteAsync();
+        }
     }
 
-    private static async Task ApplySeedAsync(IDriver driver, string database, IReadOnlyList<string> statements)
+    private static async Task ApplyStatementsInTransactionAsync(
+        IDriver driver,
+        string database,
+        IReadOnlyList<string> statements)
     {
         await using var session = driver.AsyncSession(config => config.WithDatabase(database));
         await session.ExecuteWriteAsync(async transaction =>
@@ -60,19 +61,24 @@ public static class Neo4jDatabaseInitializer
         });
     }
 
-    private static IReadOnlyList<string> LoadSeedStatements()
+    private static IReadOnlyList<string> LoadStatements(string resourceName, string? endMarker)
     {
-        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(SeedResourceName)
-            ?? throw new InvalidOperationException($"Embedded Neo4j seed {SeedResourceName} was not found.");
+        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
+            ?? throw new InvalidOperationException($"Embedded Neo4j script {resourceName} was not found.");
         using var reader = new StreamReader(stream);
         var script = reader.ReadToEnd();
-        var markerIndex = script.IndexOf(SeedEndMarker, StringComparison.Ordinal);
-        if (markerIndex < 0)
-            throw new InvalidOperationException("Neo4j seed end marker was not found.");
+
+        if (endMarker is not null)
+        {
+            var markerIndex = script.IndexOf(endMarker, StringComparison.Ordinal);
+            script = markerIndex < 0
+                ? throw new InvalidOperationException($"End marker {endMarker} was not found in {resourceName}.")
+                : script[..markerIndex];
+        }
 
         var executableScript = string.Join(
             '\n',
-            script[..markerIndex]
+            script
                 .ReplaceLineEndings("\n")
                 .Split('\n')
                 .Where(line => !line.TrimStart().StartsWith("//", StringComparison.Ordinal)));
