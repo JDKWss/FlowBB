@@ -8,6 +8,8 @@ COPY backend/src/FlowBB.Api/FlowBB.Api.csproj backend/src/FlowBB.Api/
 RUN dotnet restore backend/src/FlowBB.Api/FlowBB.Api.csproj
 
 COPY backend/src/ backend/src/
+# FlowBB.Infrastructure osadza database/flowbb-demo-seed.cypher jako zasob (EmbeddedResource), wiec katalog musi byc w obrazie budujacym.
+COPY database/ database/
 RUN dotnet publish backend/src/FlowBB.Api/FlowBB.Api.csproj \
     --configuration Release \
     --output /app/publish \
