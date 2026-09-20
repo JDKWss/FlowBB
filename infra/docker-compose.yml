@@ -1,0 +1,144 @@
+services:
+  client:
+    build:
+      context: ../client
+      args:
+        VITE_API_URL: http://localhost:8080
+    environment:
+      VITE_API_URL: http://localhost:8080
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "5173:8080"
+
+  dashboard:
+    build:
+      context: ../dashboard
+      args:
+        VITE_API_URL: http://localhost:8080
+    environment:
+      VITE_API_URL: http://localhost:8080
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "5174:8080"
+
+  api:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      NEO4J_URI: neo4j://neo4j:7687
+      NEO4J_DATABASE: neo4j
+      NEO4J_USERNAME: neo4j
+      # Neo4j ma lokalnie wylaczone auth; niepusta wartosc jest wymagana przez walidacje opcji backendu, ale nie jest haslem.
+      NEO4J_PASSWORD: unused-with-auth-disabled
+      # Lokalny stack zawsze odtwarza constraints i idempotentny seed demonstracyjny przy starcie API.
+      NEO4J_SEED_ON_STARTUP: "true"
+      Cors__AllowedOrigins__0: http://localhost:5173
+      Cors__AllowedOrigins__1: http://localhost:5174
+      # Demo (domyslnie): DemoRoutePlanner w procesie API, bez wywolan uslugi drogowej. RoadRouting wymaga profilu
+      # real-routing (kontener routing z grafami) i wlacza usluge drogowa z fallbackiem do DemoRoutePlanner.
+      Routing__Mode: ${ROUTING_MODE:-Demo}
+      Routing__ServiceUrl: http://routing:8000
+      Routing__TimeoutSeconds: "3"
+      Routing__DemoFallbackEnabled: "true"
+      # Logi do Seq z kontenera. localhost w kontenerze API to nie kontener Seq, wiec adres z appsettings.json jest nadpisywany.
+      # Indeks 1 wskazuje wpis "Seq" w Serilog:WriteTo (0 = Console); zmiana kolejnosci w appsettings.json wymaga zmiany tutaj.
+      Serilog__WriteTo__1__Args__serverUrl: http://seq:5341
+    # Inicjalizacja nie ma ponowien, dlatego API startuje dopiero po uzyskaniu gotowosci Neo4j.
+    # Brak zaleznosci od routing i Seq jest celowy: te uslugi nie moga blokowac poprawnej sciezki Demo.
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    # Gotowosc (issue #55): 200 gdy API laczy sie z Neo4j, 503 gdy nie. Obraz aspnet nie ma curl ani wget,
+    # wiec zapytanie HTTP idzie przez bash i /dev/tcp (bash, grep i head sa w obrazie).
+    healthcheck:
+      test:
+        - CMD
+        - bash
+        - -c
+        - "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /health/ready HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3 && head -n 1 <&3 | grep -q ' 200 '"
+      interval: 15s
+      timeout: 8s
+      retries: 5
+      start_period: 20s
+
+  # Profil real-routing: prywatna usluga routingu drogowego. Bez profilu nie powstaje kontener, ktory bylby unhealthy
+  # (brak grafow do czasu routing-prepare). Uzycie: patrz docs/DEMO_RUNBOOK.md, sekcja 3.
+  routing:
+    profiles: ["real-routing"]
+    build:
+      context: ../routing-service
+    environment:
+      ROUTING_DATA_DIR: /app/data
+      ROUTING_MAX_SNAP_METERS: ${ROUTING_MAX_SNAP_METERS:-500}
+      ROUTING_WALKING_SPEED_KMH: ${ROUTING_WALKING_SPEED_KMH:-4.8}
+      ROUTING_BIKE_SPEED_KMH: ${ROUTING_BIKE_SPEED_KMH:-15}
+    expose:
+      - "8000"
+    volumes:
+      - routing-data:/app/data:ro
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - 'import json, urllib.request; data=json.load(urllib.request.urlopen("http://localhost:8000/health", timeout=2)); raise SystemExit(0 if data.get("status") == "ready" else 1)'
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 30s
+
+  # Jednorazowe narzedzie (docker compose --profile routing-tools run --rm routing-prepare). Celowo w osobnym profilu niz
+  # routing: przy profilu real-routing "up" uruchomilby tez routing-prepare, czyli ponownie pobieral OSM z Overpass i
+  # przebudowywal grafy, gdy routing je czyta.
+  routing-prepare:
+    profiles: ["routing-tools"]
+    build:
+      context: ../routing-service
+    user: "0:0"
+    command: ["python", "scripts/build_graphs.py", "--output", "/app/data"]
+    volumes:
+      - routing-data:/app/data
+
+  # Lokalny podglad logow strukturalnych, dostepny tylko z hosta pod http://localhost:5341.
+  seq:
+    image: datalust/seq:2026.1.17114
+    environment:
+      ACCEPT_EULA: "Y"
+      # Lokalny tryb bez logowania jest bezpieczny tylko dlatego, ze port nie jest publikowany poza localhost.
+      SEQ_FIRSTRUN_NOAUTHENTICATION: "true"
+    ports:
+      - "127.0.0.1:5341:80"
+    volumes:
+      - seq-data:/data
+
+  # Jedyna baza runtime aplikacji w lokalnym development; startuje bez profilu i bez konfiguracji uzytkownika.
+  neo4j:
+    image: neo4j:5.26.30-community
+    environment:
+      NEO4J_AUTH: none
+    ports:
+      - "127.0.0.1:7474:7474"
+      - "127.0.0.1:7687:7687"
+    volumes:
+      - neo4j-data:/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'cypher-shell -a neo4j://localhost:7687 "RETURN 1"'
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  neo4j-data:
+  routing-data:
+  seq-data:

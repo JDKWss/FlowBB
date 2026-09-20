@@ -1,0 +1,15 @@
+{
+  "eventId": "11111111-1111-1111-1111-111111111111",
+  "eventName": "DEMO DATA / SYMULACJA - Koncert",
+  "generatedAt": "2026-09-25T12:00:00Z",
+  "participantsCount": 10,
+  "modalSplit": {
+    "publicTransport": 6,
+    "walking": 0,
+    "bike": 4,
+    "car": 0,
+    "unknown": 0
+  },
+  "participantsWithoutReturn": 0,
+  "alerts": []
+}

@@ -1,5 +1,11 @@
 # Jak wdrozyc konfiguracje agentow FlowBB
 
+> **Charakter dokumentu:** bootstrap/onboarding. Kroki ponizej opisuja
+> poczatkowe przygotowanie repozytorium i podzial pracy, a nie biezacy status
+> implementacji. Stan kodu na `develop` z 2026-09-20 opisuje
+> [docs/MVP_WORK_PLAN.md](docs/MVP_WORK_PLAN.md), a uruchamialnosc scenariusza
+> [docs/DEMO_RUNBOOK.md](docs/DEMO_RUNBOOK.md).
+
 ## 1. Skopiuj pliki do roota repozytorium
 
 ```text
@@ -21,9 +27,11 @@ flowbb/
 
 W `AGENTS.md` pozostawiono role zamiast imion poza Kuba. Wpisz imiona pozostalych osob dopiero, gdy potwierdzicie odpowiedzialnosci.
 
-## 3. Uzupelnij fixture'y przed kodem
+## 3. Poczatkowe przygotowanie fixture'ow
 
-Plik `contracts/openapi.yaml` jest juz przygotowany. Przed rozpoczeciem implementacji zatwierdzcie go wspolnie i dodajcie fixture'y:
+Ten krok byl przewidziany przed rozpoczeciem implementacji. `contracts/openapi.yaml`
+pozostaje zrodlem prawdy; fixture'y nalezy utrzymywac zgodnie z jego aktualnym
+ksztaltem:
 
 ```text
 contracts/openapi.yaml
@@ -58,18 +66,28 @@ Otworz repo jako workspace. W zadaniu wybierz wlasciwa persone z `.agents/agents
 Przeczytaj AGENTS.md i contracts/. Potwierdz granice roli @nazwa-roli. Nie edytuj plikow, dopoki nie podasz planu i testu akceptacyjnego.
 ```
 
-## 5. Pierwsze przypisania
+## 5. Przypisania implementacyjne
 
-1. Kuba + `@core-backend`: minimalne API Attendance i `PulseUpdated`.
-2. Drugi programista C# + `@integration-backend`: Docker Compose, health check i `DemoRoutePlanner`.
-3. Frontend Lead + `@frontend`: dwa projekty React + Vite + TypeScript - `/client` z przeplywem Events -> Event -> Ide -> Route -> Crew oraz `/dashboard` z klientem SignalR.
-4. Data Lead + `@data`: PostGIS, pierwsza migracja i seed wystarczajacy do widocznych heksagonow.
+| Rola / persona | Odpowiedzialnosc | Wylaczna wlasnosc |
+|---|---|---|
+| Frontend Owner (`@frontend`) | Client i Dashboard | `client/**`, `dashboard/**` |
+| Backend 1 - Core/Integration (`@backend-core`, Kuba) | PULSE, Routing, SignalR, konfiguracja aplikacji i Compose | `Program.cs`, PULSE, Routing, SignalR, `infra/docker-compose.yml` |
+| Backend 2 - Features/Quality (`@backend-features`) | Events, Crew, OpenAPI, CI, testy black-box i dokumentacja | Events, Crew, `contracts/openapi.yaml`, `.github/workflows/**`, runbook |
+| Data/Neo4j Owner (`@data`) | model grafu, adaptery, Cypher, seed i testy na prawdziwym Neo4j | `backend/src/FlowBB.Infrastructure/Neo4j/**`, `database/**`, `docs/NEO4J_CONTRACT.md` |
 
-Pierwsza wspolna bramka: przegladarka `/client` -> API -> PostgreSQL -> SignalR -> dashboard.
+Kuba pozostaje liderem projektu oraz zatwierdza kontrakty i nowe zaleznosci. `contracts/openapi.yaml` edytuje Backend 2 po jego akceptacji.
+
+Pierwsza wspolna bramka: przegladarka `/client` -> API -> Neo4j -> SignalR -> dashboard.
+
+Baza runtime to Neo4j ([ADR 001](docs/adr/001-runtime-persistence.md)); PostgreSQL/PostGIS w `data/gtfs/mzk/` to odseparowany PoC. Kolejnosc prac i bramki: [docs/MVP_WORK_PLAN.md](docs/MVP_WORK_PLAN.md). Realny routing drogowy dziala jako prywatna usluga Python/FastAPI wywolywana przez ASP.NET i jest opisany w [docs/ROUTING_SERVICE.md](docs/ROUTING_SERVICE.md); decyzja jest przyjeta dla MVP, a produkcyjna akceptacja pozostaje otwarta ([ADR 002](docs/adr/002-road-routing-engine.md)).
 
 ## 6. Bezpieczna praca rownolegla
 
-- Jedna osoba = jedna galaz i jeden worktree.
+- Jedno issue = jedna galaz = jeden PR; jedna osoba ma najwyzej jedno aktywne issue.
+- Testy potrzebne do ukonczenia funkcji sa czescia tego samego issue.
+- Dwa rownolegle zadania nie moga modyfikowac tych samych plikow.
+- Zmiana wspolnego kontraktu musi zostac scalona przed zalezna implementacja.
+- Jedna osoba = jeden worktree dla aktywnego zadania.
 - Agent moze edytowac tylko worktree wlasciciela zadania.
 - Czlowiek przeglada diff i wykonuje commit.
 - Integrujcie po malych pionowych fragmentach, nie dopiero na koniec.

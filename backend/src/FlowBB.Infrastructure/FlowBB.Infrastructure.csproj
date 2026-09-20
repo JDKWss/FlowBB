@@ -1,0 +1,40 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\FlowBB.Application\FlowBB.Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="FlowBB.Infrastructure.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\..\database\flowbb-demo-seed.cypher"
+                      LogicalName="FlowBB.Database.flowbb-demo-seed.cypher" />
+    <EmbeddedResource Include="..\..\..\database\migrations\*.cypher"
+                      LogicalName="FlowBB.Database.Migrations.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\..\data\gtfs\mzk\parsed\departures.json"
+                      LogicalName="FlowBB.Mzk.departures.json" />
+    <EmbeddedResource Include="..\..\..\data\gtfs\mzk\parsed\calendar_days.json"
+                      LogicalName="FlowBB.Mzk.calendar_days.json" />
+    <EmbeddedResource Include="..\..\..\data\gtfs\mzk\parsed\stops.json"
+                      LogicalName="FlowBB.Mzk.stops.json" />
+    <EmbeddedResource Include="..\..\..\data\air-quality\demo-snapshot.json"
+                      LogicalName="FlowBB.Data.AirQuality.demo-snapshot.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Neo4j.Driver" Version="6.3.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

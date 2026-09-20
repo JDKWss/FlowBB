@@ -1,0 +1,58 @@
+name: flowbb-mzk
+
+x-pipeline: &pipeline
+  build: .
+  user: "${MZK_UID:-1000}:${MZK_GID:-1000}"
+  working_dir: /work
+  volumes:
+    - .:/work
+  environment:
+    HOME: /tmp
+    PGHOST: db
+    PGUSER: postgres
+    PGDATABASE: mzk
+
+services:
+  # Efemeryczna baza tylko na potrzeby PoC: bez publikowania portow, bez hasla,
+  # dane w tmpfs (kazde uruchomienie zaczyna od czystej bazy).
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: mzk
+      POSTGRES_HOST_AUTH_METHOD: trust
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      # -h 127.0.0.1: tymczasowy serwer z inicjalizacji obrazu slucha tylko na gniezdzie Unix,
+      # wiec bez sprawdzenia TCP baza jest "healthy" na chwile przed otwarciem portu.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d mzk"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # fetch / extract / calendar / testy: bez bazy
+  pipeline:
+    <<: *pipeline
+    command: ["node", "pipeline/cli.mjs", "--help"]
+
+  # ladowanie do bazy i kontrole SQL
+  load:
+    <<: *pipeline
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["node", "pipeline/cli.mjs", "load-db", "checks"]
+
+  # test integracyjny: laduje wszystkie linie do bazy i sprawdza wynik (MZK_DB_TEST wlacza ten test)
+  test-db:
+    <<: *pipeline
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      HOME: /tmp
+      PGHOST: db
+      PGUSER: postgres
+      PGDATABASE: mzk
+      MZK_DB_TEST: "1"
+    command: ["node", "--test", "tests/db-load.test.mjs"]

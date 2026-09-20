@@ -1,0 +1,146 @@
+using FlowBB.Infrastructure.Neo4j;
+using Neo4j.Driver;
+
+namespace FlowBB.Infrastructure.Tests.Neo4j;
+
+[CollectionDefinition(Name)]
+public sealed class Neo4jCollection : ICollectionFixture<Neo4jFixture>
+{
+    public const string Name = "Neo4j";
+}
+
+/// <summary>
+/// Wspolne polaczenie z prawdziwym Neo4j. Stosuje wersjonowane migracje i sprzata dane testowe:
+/// kazdy wezel utworzony przez pomocnicze metody ma <c>TestRunId</c>, po ktorym jest usuwany na koncu przebiegu.
+/// </summary>
+public sealed class Neo4jFixture : IAsyncLifetime
+{
+    private readonly string runId = Guid.NewGuid().ToString("N");
+
+    public string RunId => runId;
+
+    public Neo4jOptions? Options { get; private set; }
+
+    public IDriver? Driver { get; private set; }
+
+    public async Task InitializeAsync()
+    {
+        if (!Neo4jTestEnvironment.IsConfigured)
+        {
+            return;
+        }
+
+        Options = Neo4jTestEnvironment.Load();
+        Driver = Neo4jDriverFactory.Create(Options);
+        await Driver.VerifyConnectivityAsync();
+
+        await Neo4jSchemaMigrator.ApplyAsync(Driver, Options.Database);
+    }
+
+    public async Task DisposeAsync()
+    {
+        if (Driver is null)
+        {
+            return;
+        }
+
+        await ExecuteAsync("MATCH (n {TestRunId: $runId}) DETACH DELETE n", new { runId });
+        await Driver.DisposeAsync();
+    }
+
+    public async Task ExecuteAsync(string query, object? parameters = null)
+    {
+        await Driver!.ExecutableQuery(query)
+            .WithParameters(parameters ?? new { })
+            .WithConfig(new QueryConfig(database: Options!.Database))
+            .ExecuteAsync();
+    }
+
+    public async Task<IReadOnlyList<IRecord>> QueryAsync(string query, object? parameters = null)
+    {
+        var result = await Driver!.ExecutableQuery(query)
+            .WithParameters(parameters ?? new { })
+            .WithConfig(new QueryConfig(database: Options!.Database))
+            .ExecuteAsync();
+        return result.Result;
+    }
+
+    public async Task<Guid> CreateUserAsync(double latitude = 49.8225, double longitude = 19.0444)
+    {
+        var id = Guid.NewGuid();
+        await ExecuteAsync(
+            """
+            CREATE (:User {UserId: $id, Name: 'Test User', DefaultOriginLatitude: $latitude, DefaultOriginLongitude: $longitude, TestRunId: $runId})
+            """,
+            new { id = id.ToString("D"), latitude, longitude, runId });
+        return id;
+    }
+
+    public async Task<string> CreateVenueAsync(string name = "Test Venue", double latitude = 49.82245, double longitude = 19.04431)
+    {
+        var id = $"test-venue-{Guid.NewGuid():N}";
+        await ExecuteAsync(
+            """
+            CREATE (:Venue {VenueId: $id, Name: $name, Address: 'Test', Latitude: $latitude, Longitude: $longitude, TestRunId: $runId})
+            """,
+            new { id, name, latitude, longitude, runId });
+        return id;
+    }
+
+    public async Task<Guid> CreateEventAsync(
+        string venueId,
+        DateTimeOffset startAt,
+        DateTimeOffset? endAt = null,
+        string name = "Test Event",
+        string category = "Culture",
+        string source = "Demo")
+    {
+        var id = Guid.NewGuid();
+        await ExecuteAsync(
+            """
+            MATCH (v:Venue {VenueId: $venueId})
+            CREATE (e:Event {EventId: $id, Name: $name, Description: 'Opis', EventUrl: 'https://example.invalid/e',
+                             Category: $category, Source: $source, StartAt: $startAt, EndAt: $endAt, TestRunId: $runId})
+            CREATE (e)-[:HOSTED_AT]->(v)
+            """,
+            new { id = id.ToString("D"), venueId, name, category, source, startAt, endAt, runId });
+        return id;
+    }
+
+    public async Task<Guid> CreateCrewAsync(Guid eventId, int maxMembers = 6, string name = "Test Crew")
+    {
+        var id = Guid.NewGuid();
+        await ExecuteAsync(
+            """
+            MATCH (e:Event {EventId: $eventId})
+            CREATE (c:Crew {CrewId: $id, Name: $name, Description: 'Opis grupy', MaxMembers: $maxMembers,
+                            Tags: ['muzyka', 'centrum'], MeetingPointName: 'Fontanna',
+                            MeetingPointLatitude: 49.82245, MeetingPointLongitude: 19.04431, TestRunId: $runId})
+            CREATE (c)-[:FOR_EVENT]->(e)
+            """,
+            new { id = id.ToString("D"), eventId = eventId.ToString("D"), name, maxMembers, runId });
+        return id;
+    }
+
+    public Task AddMemberAsync(Guid userId, Guid crewId, DateTimeOffset joinedAt)
+    {
+        return ExecuteAsync(
+            """
+            MATCH (u:User {UserId: $userId}), (c:Crew {CrewId: $crewId})
+            CREATE (u)-[:MEMBER_OF {JoinedAt: $joinedAt}]->(c)
+            """,
+            new { userId = userId.ToString("D"), crewId = crewId.ToString("D"), joinedAt });
+    }
+
+    public Task DeclareGoingAsync(Guid userId, Guid eventId)
+    {
+        return ExecuteAsync(
+            """
+            MATCH (u:User {UserId: $userId}), (e:Event {EventId: $eventId})
+            CREATE (u)-[:IS_GOING_TO {TransportMode: 'Walking', OriginLatitude: u.DefaultOriginLatitude,
+                                       OriginLongitude: u.DefaultOriginLongitude, UpdatedAt: datetime()}]->(e)
+            """,
+            new { userId = userId.ToString("D"), eventId = eventId.ToString("D") });
+    }
+
+}

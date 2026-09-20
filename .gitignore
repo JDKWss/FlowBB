@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # FlowBB - .NET 10 + Expo + React/Vite + Docker/PostGIS + OTP
 
 # -----------------------------------------------------------------------------
@@ -91,7 +90,6 @@ _ReSharper*/
 **/.nyc_output/
 **/coverage/
 
-=======
 # Node / React / Vite
 node_modules/
 dist/
@@ -99,17 +97,15 @@ dist/
 *.local
 
 # Environment files
-.env
-.env.*
-!.env.example
 
 # Logs
->>>>>>> 514928d (Add Dashboard and Client proj)
+
+# Lokalna konfiguracja Neo4j Aura (zawiera dane logowania)
+/backend/Neo4j-46e86353-Created-2026-09-19.txt
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-<<<<<<< HEAD
 lerna-debug.log*
 *.tsbuildinfo
 
@@ -143,7 +139,6 @@ docker-data/
 *.pid.lock
 *.backup
 *.bak
-*.dump
 
 # Nie ignorujemy migracji EF, docker-compose.yml, Dockerfile ani skryptow SQL.
 
@@ -215,6 +210,10 @@ $RECYCLE.BIN/
 # Archiwa lokalne i paczki przekazywane recznie
 # -----------------------------------------------------------------------------
 *.7z
+
+# Wygenerowane lokalnie artefakty grafow drogowych (manifest i .graphml).
+routing-service/data/*
+!routing-service/data/.gitkeep
 *.rar
 *.tar
 *.tar.gz
@@ -228,20 +227,12 @@ $RECYCLE.BIN/
 # Ignore HackBB binaries
 *.pdf
 *.docx
-=======
 
 # C# / .NET
 bin/
 obj/
-.vs/
-*.user
-*.suo
 
 # IDEs
-.idea/
 .vscode/
 
 # Operating system files
-.DS_Store
-Thumbs.db
->>>>>>> 514928d (Add Dashboard and Client proj)

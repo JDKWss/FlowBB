@@ -1,0 +1,15 @@
+{
+  "_comment": "Wartosci bazowe (regresja) z parsera dla parsed/ z 2026-09-19. To NIE jest niezalezna weryfikacja z PDF-ami: sprawdzone recznie sa tylko wybrane strony (patrz expected.json).",
+  "directions": [
+    { "line": "4", "direction": "Langiewicza Basen", "pages": 16, "departures": 2688 },
+    { "line": "4", "direction": "Osiedle Wojska Polskiego", "pages": 18, "departures": 3000 },
+    { "line": "7", "direction": "Szyndzielnia", "pages": 25, "departures": 3194 },
+    { "line": "7", "direction": "Wapienica Dzwonkowa", "pages": 28, "departures": 3447 },
+    { "line": "16", "direction": "Osiedle Sarni Stok", "pages": 17, "departures": 1844 },
+    { "line": "16", "direction": "Wapienica Zapora", "pages": 18, "departures": 1957 },
+    { "line": "N1", "direction": "Wapienica Centrum", "pages": 19, "departures": 152 },
+    { "line": "N1", "direction": "Zajezdnia MZK", "pages": 18, "departures": 144 },
+    { "line": "N2", "direction": "Hałcnów Kościół", "pages": 25, "departures": 200 },
+    { "line": "N2", "direction": "Zajezdnia MZK", "pages": 25, "departures": 200 }
+  ]
+}
