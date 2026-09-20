@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using FlowBB.Api.IntegrationTests.Endpoints;
 using FlowBB.Api.IntegrationTests.Infrastructure;
 using FluentAssertions;
 
@@ -11,12 +12,6 @@ public class EventsEndpointsTests
     {
         await using var stream = await response.Content.ReadAsStreamAsync();
         return await JsonDocument.ParseAsync(stream);
-    }
-
-    private static void AssertProblem(HttpResponseMessage response, HttpStatusCode expected)
-    {
-        response.StatusCode.Should().Be(expected);
-        response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
     }
 
     [Fact]
@@ -99,7 +94,7 @@ public class EventsEndpointsTests
 
         using var response = await host.Client.GetAsync(url);
 
-        AssertProblem(response, HttpStatusCode.BadRequest);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.BadRequest);
     }
 
     [Fact]
@@ -126,7 +121,7 @@ public class EventsEndpointsTests
 
         using var response = await host.Client.GetAsync("/api/events/99999999-9999-9999-9999-999999999999");
 
-        AssertProblem(response, HttpStatusCode.NotFound);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.NotFound);
     }
 
     [Theory]
@@ -138,7 +133,7 @@ public class EventsEndpointsTests
 
         using var response = await host.Client.GetAsync($"/api/events/{eventId}");
 
-        AssertProblem(response, HttpStatusCode.BadRequest);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.BadRequest);
     }
 
     [Fact]

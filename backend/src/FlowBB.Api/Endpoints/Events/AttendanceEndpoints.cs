@@ -1,3 +1,4 @@
+using FlowBB.Api.Endpoints;
 using FlowBB.Application.Abstractions.Realtime;
 using FlowBB.Application.Attendance.DeleteAttendance;
 using FlowBB.Application.Attendance.UpsertAttendance;
@@ -28,22 +29,26 @@ public static class AttendanceEndpoints
     }
 
     private static async Task<IResult> UpsertAsync(
-        Guid eventId,
-        AttendanceUpsertRequest request,
+        string eventId,
+        HttpRequest httpRequest,
         UpsertAttendanceHandler handler,
         IPulseNotifier notifier,
         CancellationToken cancellationToken)
     {
-        if (eventId == Guid.Empty || request.UserId == Guid.Empty || !Enum.IsDefined(request.TransportMode))
+        var request = await ApiRequests.ReadJsonAsync<AttendanceUpsertRequest>(httpRequest, cancellationToken);
+        if (!RouteIds.TryParse(eventId, out var eventGuid) ||
+            request is null ||
+            request.UserId == Guid.Empty ||
+            !Enum.IsDefined(request.TransportMode))
         {
-            return BadRequest("Invalid attendance request.");
+            return ApiProblems.BadRequest("Invalid attendance request.");
         }
 
         var result = await handler.HandleAsync(
-            new UpsertAttendanceCommand(eventId, request.UserId, request.TransportMode), cancellationToken);
+            new UpsertAttendanceCommand(eventGuid, request.UserId, request.TransportMode), cancellationToken);
         if (result is null)
         {
-            return TypedResults.Problem(title: "Event or user not found.", statusCode: StatusCodes.Status404NotFound);
+            return ApiProblems.NotFound("Event or user not found.");
         }
 
         // Publikacja dopiero po zatwierdzeniu zapisu. Komunikat zawiera wylacznie agregaty.
@@ -60,18 +65,18 @@ public static class AttendanceEndpoints
     }
 
     private static async Task<IResult> DeleteAsync(
-        Guid eventId,
-        Guid userId,
+        string eventId,
+        string userId,
         DeleteAttendanceHandler handler,
         IPulseNotifier notifier,
         CancellationToken cancellationToken)
     {
-        if (eventId == Guid.Empty || userId == Guid.Empty)
+        if (!RouteIds.TryParse(eventId, out var eventGuid) || !RouteIds.TryParse(userId, out var userGuid))
         {
-            return BadRequest("Invalid attendance request.");
+            return ApiProblems.BadRequest("Invalid attendance request.");
         }
 
-        var result = await handler.HandleAsync(new DeleteAttendanceCommand(eventId, userId), cancellationToken);
+        var result = await handler.HandleAsync(new DeleteAttendanceCommand(eventGuid, userGuid), cancellationToken);
 
         // Brak deklaracji to no-op: nic sie nie zmienilo, wiec nie publikujemy.
         if (result.WasDeleted)
@@ -88,7 +93,4 @@ public static class AttendanceEndpoints
 
         return TypedResults.NoContent();
     }
-
-    private static IResult BadRequest(string title) =>
-        TypedResults.Problem(title: title, statusCode: StatusCodes.Status400BadRequest);
 }
