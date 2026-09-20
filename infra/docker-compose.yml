@@ -69,8 +69,11 @@ services:
       retries: 6
       start_period: 30s
 
+  # Jednorazowe narzedzie (docker compose --profile routing-tools run --rm routing-prepare). Celowo w osobnym profilu niz
+  # routing: przy profilu real-routing "up" uruchomilby tez routing-prepare, czyli ponownie pobieral OSM z Overpass i
+  # przebudowywal grafy, gdy routing je czyta.
   routing-prepare:
-    profiles: ["real-routing"]
+    profiles: ["routing-tools"]
     build:
       context: ../routing-service
     user: "0:0"

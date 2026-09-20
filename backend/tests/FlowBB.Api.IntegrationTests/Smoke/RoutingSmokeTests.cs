@@ -27,7 +27,7 @@ public sealed class RoutingSmokeTests : SmokeTestBase
         first.StatusCode.Should().Be(HttpStatusCode.OK);
         AssertPlannerSource(plan.GetProperty("plannerSource").GetString(), mode);
         plan.GetProperty("outbound").GetProperty("steps").GetArrayLength().Should().BeGreaterThan(0);
-        plan.GetProperty("returns").GetArrayLength().Should().BeGreaterThan(0);
+        AssertReturnGap(plan, mode);
         AssertGeometryMatchesTheSource(plan);
         (await second.Content.ReadAsStringAsync()).Should().Be(firstBody, "the planner is deterministic for the same data");
     }
@@ -43,6 +43,21 @@ public sealed class RoutingSmokeTests : SmokeTestBase
         }
 
         source.Should().BeOneOf("Demo", "RoadRouting");
+    }
+
+    // Wydarzenie Run konczy sie o 23:15 (Europe/Warsaw), wiec DemoReturnGapPolicy uznaje, ze uczestnik PublicTransport nie ma
+    // dogodnego powrotu: returnGap true i pusta lista returns. Pozostale tryby zachowuja powroty z planera.
+    private static void AssertReturnGap(JsonElement plan, string mode)
+    {
+        var expectGap = mode == "PublicTransport";
+        plan.GetProperty("returnGap").GetBoolean().Should().Be(expectGap);
+        if (expectGap)
+        {
+            plan.GetProperty("returns").GetArrayLength().Should().Be(0);
+            return;
+        }
+
+        plan.GetProperty("returns").GetArrayLength().Should().BeGreaterThan(0);
     }
 
     // RoadRouting niesie geometrie LineString i dystans; plan demo nie ma ani jednego, ani drugiego.
