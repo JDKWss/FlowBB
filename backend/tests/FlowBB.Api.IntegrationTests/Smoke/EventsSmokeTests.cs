@@ -105,9 +105,7 @@ public sealed class EventsSmokeTests : SmokeTestBase
         (await Api.GetJsonAsync("/api/events")).GetArrayLength().Should().Be(before, "a rejected request must not create an event");
     }
 
-    // Znana rozbieznosc (#120): POST /api/events zwraca 415 z pustym body zamiast 400 ProblemDetails, jak pozostale endpointy i
-    // kontrakt. Test opisuje oczekiwane zachowanie; Skip zdejmuje poprawka #120.
-    [SmokeFact(Skip = "Known bug #120: createEvent returns 415 with an empty body instead of 400 ProblemDetails for a non-JSON Content-Type.")]
+    [SmokeFact]
     public async Task CreateEvent_WithNonJsonContentType_Returns400()
     {
         using var response = await Api.PostRawAsync("/api/events", EventBody(), "text/plain");
