@@ -39,7 +39,7 @@ public sealed partial class Neo4jFlowBbGraphRepository
                 e.EventUrl = $EventUrl,
                 e.StartAt = $StartAt,
                 e.EndAt = $EndAt
-            REMOVE e.Title, e.DateTime, e.Source, e.Category
+            REMOVE e.Title, e.DateTime
             """;
 
         return ExecuteAsync(query, new

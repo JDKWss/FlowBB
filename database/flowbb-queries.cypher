@@ -87,18 +87,20 @@ RETURN count(t) AS TagsCreatedOrUpdated;
 // 6. WYDARZENIA
 
 UNWIND [
-  {EventId: '11111111-1111-1111-1111-111111111111', Name: 'Koncert na Rynku', Description: 'Wieczorny koncert w centrum Bielska-Białej.', EventUrl: 'https://example.invalid/koncert-na-rynku', StartAt: '2026-09-19T19:00:00+02:00', EndAt: '2026-09-19T22:00:00+02:00'},
-  {EventId: '22222222-2222-2222-2222-222222222222', Name: 'Wieczór z Planszówkami', Description: 'Spotkanie dla osób, które chcą poznać ludzi przy grach.', EventUrl: 'https://example.invalid/planszowki', StartAt: '2026-09-25T18:00:00+02:00', EndAt: '2026-09-25T22:00:00+02:00'},
-  {EventId: '33333333-3333-3333-3333-333333333333', Name: 'Hackathon Bielsko 2030', Description: 'Warsztaty i pomysły na przyszłość miasta.', EventUrl: 'https://example.invalid/hackathon', StartAt: '2026-09-28T09:00:00+02:00', EndAt: '2026-09-28T18:00:00+02:00'},
-  {EventId: '44444444-4444-4444-4444-444444444444', Name: 'Nocne wejście na Szyndzielnię', Description: 'Wspólny trekking z latarkami.', EventUrl: 'https://example.invalid/szyndzielnia', StartAt: '2026-10-02T20:00:00+02:00', EndAt: '2026-10-02T23:30:00+02:00'}
+  {EventId: '11111111-1111-1111-1111-111111111111', Name: 'Koncert na Rynku', Description: 'Wieczorny koncert w centrum Bielska-Białej.', EventUrl: 'https://example.invalid/koncert-na-rynku', StartAt: '2026-09-19T19:00:00+02:00', EndAt: '2026-09-19T22:00:00+02:00', Category: 'Culture', Source: 'Demo'},
+  {EventId: '22222222-2222-2222-2222-222222222222', Name: 'Wieczór z Planszówkami', Description: 'Spotkanie dla osób, które chcą poznać ludzi przy grach.', EventUrl: 'https://example.invalid/planszowki', StartAt: '2026-09-25T18:00:00+02:00', EndAt: '2026-09-25T22:00:00+02:00', Category: 'Community', Source: 'Demo'},
+  {EventId: '33333333-3333-3333-3333-333333333333', Name: 'Hackathon Bielsko 2030', Description: 'Warsztaty i pomysły na przyszłość miasta.', EventUrl: 'https://example.invalid/hackathon', StartAt: '2026-09-28T09:00:00+02:00', EndAt: '2026-09-28T18:00:00+02:00', Category: 'Education', Source: 'Demo'},
+  {EventId: '44444444-4444-4444-4444-444444444444', Name: 'Nocne wejście na Szyndzielnię', Description: 'Wspólny trekking z latarkami.', EventUrl: 'https://example.invalid/szyndzielnia', StartAt: '2026-10-02T20:00:00+02:00', EndAt: '2026-10-02T23:30:00+02:00', Category: 'Sport', Source: 'Demo'}
 ] AS row
 MERGE (e:Event {EventId: row.EventId})
 SET e.Name = row.Name,
     e.Description = row.Description,
     e.EventUrl = row.EventUrl,
     e.StartAt = datetime(row.StartAt),
-    e.EndAt = datetime(row.EndAt)
-REMOVE e.Title, e.DateTime, e.Source, e.Category
+    e.EndAt = datetime(row.EndAt),
+    e.Category = row.Category,
+    e.Source = row.Source
+REMOVE e.Title, e.DateTime
 RETURN count(e) AS EventsCreatedOrUpdated;
 
 // 7. MIKROGRUPY CREW
@@ -173,15 +175,19 @@ RETURN count(*) AS LikesTagRelationships;
 // 12. USER -[:IS_GOING_TO]-> EVENT
 
 UNWIND [
-  {UserId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', EventId: '11111111-1111-1111-1111-111111111111'},
-  {UserId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', EventId: '33333333-3333-3333-3333-333333333333'},
-  {UserId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', EventId: '11111111-1111-1111-1111-111111111111'},
-  {UserId: 'cccccccc-cccc-cccc-cccc-cccccccccccc', EventId: '22222222-2222-2222-2222-222222222222'},
-  {UserId: 'dddddddd-dddd-dddd-dddd-dddddddddddd', EventId: '44444444-4444-4444-4444-444444444444'}
+  {UserId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', EventId: '11111111-1111-1111-1111-111111111111', Mode: 'Walking'},
+  {UserId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', EventId: '33333333-3333-3333-3333-333333333333', Mode: 'PublicTransport'},
+  {UserId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', EventId: '11111111-1111-1111-1111-111111111111', Mode: 'Bike'},
+  {UserId: 'cccccccc-cccc-cccc-cccc-cccccccccccc', EventId: '22222222-2222-2222-2222-222222222222', Mode: 'Car'},
+  {UserId: 'dddddddd-dddd-dddd-dddd-dddddddddddd', EventId: '44444444-4444-4444-4444-444444444444', Mode: 'Walking'}
 ] AS row
 MATCH (u:User {UserId: row.UserId})
 MATCH (e:Event {EventId: row.EventId})
-MERGE (u)-[:IS_GOING_TO]->(e)
+MERGE (u)-[attendance:IS_GOING_TO]->(e)
+SET attendance.TransportMode = row.Mode,
+    attendance.OriginLatitude = u.DefaultOriginLatitude,
+    attendance.OriginLongitude = u.DefaultOriginLongitude,
+    attendance.UpdatedAt = datetime('2026-09-19T12:00:00Z')
 RETURN count(*) AS GoingToRelationships;
 
 // 13. USER -[:IS_INTERESTED_IN]-> EVENT

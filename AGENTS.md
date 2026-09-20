@@ -231,7 +231,7 @@ EVENT  PulseUpdated
 ### Persystencja: Neo4j
 
 - Neo4j jest jedyna baza runtime aplikacji w MVP. Przechowuje dane Events, Attendance, Crew oraz dane zrodlowe do agregacji PULSE. Nie wprowadzamy drugiej bazy runtime dla tych samych funkcji.
-- Uzytkownik ma wewnetrzne, demonstracyjne `HomeLatitude` i `HomeLongitude`. Relacja `IS_GOING_TO` przechowuje snapshot: `TransportMode`, `OriginLatitude`, `OriginLongitude`, `UpdatedAt`. Wspolrzedne sa danymi wewnetrznymi i nie opuszczaja backendu.
+- Uzytkownik ma wewnetrzne, demonstracyjne `DefaultOriginLatitude` i `DefaultOriginLongitude`. Relacja `IS_GOING_TO` przechowuje snapshot: `TransportMode`, `OriginLatitude`, `OriginLongitude`, `UpdatedAt`. Wspolrzedne sa danymi wewnetrznymi i nie opuszczaja backendu.
 - Na granicy Application/API identyfikatory sa typu `Guid`. Adapter Neo4j moze przechowywac je jako string i odpowiada za konwersje.
 - Idempotencja Attendance: `MERGE` relacji dla pary user-event i unikalne constraints wezlow. Zapis i odczyt danych do komunikatu `PulseUpdated` wykonuj w jednej transakcji; wiadomosc publikuj dopiero po jej zatwierdzeniu.
 - Repozytoria i zapytania Cypher naleza do `Infrastructure/Neo4j`. Nie tworz generycznego `Repository<TEntity>`.

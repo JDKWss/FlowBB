@@ -7,7 +7,15 @@ public sealed partial class Neo4jFlowBbGraphRepository
         const string query = """
             MATCH (u:User {UserId: $UserId})
             MATCH (e:Event {EventId: $EventId})
-            MERGE (u)-[:IS_GOING_TO]->(e)
+            MERGE (u)-[attendance:IS_GOING_TO]->(e)
+            ON CREATE SET attendance.TransportMode = 'Unknown',
+                          attendance.OriginLatitude = u.DefaultOriginLatitude,
+                          attendance.OriginLongitude = u.DefaultOriginLongitude,
+                          attendance.UpdatedAt = datetime()
+            ON MATCH SET attendance.TransportMode = coalesce(attendance.TransportMode, 'Unknown'),
+                         attendance.OriginLatitude = coalesce(attendance.OriginLatitude, u.DefaultOriginLatitude),
+                         attendance.OriginLongitude = coalesce(attendance.OriginLongitude, u.DefaultOriginLongitude),
+                         attendance.UpdatedAt = coalesce(attendance.UpdatedAt, datetime())
             RETURN count(*) AS Matches
             """;
 

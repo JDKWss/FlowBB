@@ -21,16 +21,15 @@ Rola integracyjna nalezy do Core Backend Ownera: integracja backendu, `Program.c
 
 | Modul | Docelowe warstwy | Stan na `develop` 2026-09-20 | Podpiecie w `Program.cs` |
 |---|---|---|---|
-| Events | Domain, Application (`Events/*`), Api (`Endpoints/Events`), Infrastructure/Neo4j (odczyt) | istnieje ogolny model grafu `Event`; brak modulu Events, `IEventLookup` i endpointow | nie |
-| Attendance | Application, Api, SignalR (`Hubs`) | sa encja, handlery, abstrakcja repozytorium, endpointy i testy; brak adaptera `IAttendanceRepository` dla Neo4j | nie |
+| Events | Domain, Application (`Events/*`), Api (`Endpoints/Events`), Infrastructure/Neo4j (odczyt) | domena, `IEventLookup`, endpointy i adapter Neo4j sa zaimplementowane | tak |
+| Attendance | Application, Api, SignalR (`Hubs`) | encja, handlery, endpointy, testy i adapter `IAttendanceRepository` dla Neo4j sa zaimplementowane | tak |
 | Crew | Domain (`Crews`), Application (`Crews/*`), Api | istnieje model grafu `Crew` i operacje ogolnego repozytorium; brak modulu Application/API | nie |
-| PULSE | Application (`Pulse/*`), Api, `Hubs` | sa handlery agregacji, endpointy i testy; brak adaptera `IPulseDataReader` dla Neo4j | nie |
-| Routing | Application (`Abstractions/Routing`), Infrastructure (`Routing`) | kontrakt GET jest w OpenAPI; brak `IRoutePlanner`, `DemoRoutePlanner`, handlera i endpointu w kodzie | nie |
+| PULSE | Application (`Pulse/*`), Api, `Hubs` | handlery agregacji, endpointy, testy i adapter `IPulseDataReader` dla Neo4j sa zaimplementowane | tak |
+| Routing | Application (`Abstractions/Routing`), Infrastructure (`Routing`) | `IRoutePlanner`, `DemoRoutePlanner`, handler i endpoint sa zaimplementowane | tak |
 | SignalR | Api (`Hubs`) | hub i notifier istnieja; `/hubs/pulse` jest mapowany | tak |
 
-Uruchamiany host mapuje obecnie `/health`, `/hubs/pulse` oraz dokumentacje API
-w srodowisku Development. Obecnosc klas endpointow Attendance/PULSE nie oznacza,
-ze ich trasy sa dostepne w tym hoscie.
+Uruchamiany host mapuje `/health`, Events, Attendance, PULSE, Routing,
+`/hubs/pulse` oraz dokumentacje API w srodowisku Development.
 
 Zasady: agent pracujacy nad Attendance nie implementuje Events (uzywa `IEventLookup`, w testach fake'a). Nie tworzymy produkcyjnego `DemoEventLookup`.
 
@@ -53,7 +52,7 @@ Ponizsza tabela definiuje kryteria bramek, a nie deklaruje ich ukonczenia.
 | 1 | Dokumentacja i architektura sa spojne, `develop` jest zielony | brak sprzecznych odniesien do bazy w `AGENTS.md`, `START_HERE.md`, `.agents`; `dotnet build` i `dotnet test` przechodza |
 | 2 | Crew Domain jest scalone po przejsciu testow | `feature/crew-domain` w `develop`, testy jednostkowe zielone |
 | 3 | Testy kontraktowe Events trafiaja na branch wlasciciela Events, a nie osobno na `develop`, jesli sa czerwone | `develop` nie zawiera czerwonych testow; `test/events-contract` scala Backend Events razem z implementacja |
-| 4 | Schemat Neo4j ma pola wymagane przez Events i Attendance | zgodnosc z `NEO4J_CONTRACT.md`: pola Event, `IS_GOING_TO` ze snapshotem, `Home*` uzytkownika. Schemat Crew dopiero po zatwierdzeniu propozycji przez wlasciciela Crew i Data/Neo4j |
+| 4 | Schemat Neo4j ma pola wymagane przez Events i Attendance | zgodnosc z `NEO4J_CONTRACT.md`: pola Event, `IS_GOING_TO` ze snapshotem, `DefaultOrigin*` uzytkownika. Schemat Crew dopiero po zatwierdzeniu propozycji przez wlasciciela Crew i Data/Neo4j |
 | 5 | Events dziala i udostepnia stabilny kontrakt dla Attendance | `GET /api/events` i `/{id}` zgodne z OpenAPI; `IEventLookup` dostepny |
 | 6 | Attendance jest idempotentne i integruje sie z SignalR | drugi identyczny POST nie zwieksza licznika; DELETE jest idempotentny; `PulseUpdated` po zatwierdzeniu transakcji; test idempotencji na prawdziwej instancji Neo4j |
 | 7 | Frontend obsluguje dashboard oraz aktualizacje `count + 1` | klik "Ide" w `/client` zmienia licznik w `/dashboard` bez odswiezania |
@@ -80,19 +79,21 @@ Tej zmiany nie robi sie w ramach dokumentacji. Kazda pozycja wymaga osobnego zad
 |---|---|---|---|
 | 1 | `FlowBB.Infrastructure.csproj` nadal zawiera `Npgsql.EntityFrameworkCore.PostgreSQL`, `...NetTopologySuite` i `Microsoft.EntityFrameworkCore.*`. Osobny maly task porzadkowy po potwierdzeniu, ze kod runtime ich nie uzywa | Porzadki | Data/Neo4j (zgoda Core Backend Owner) |
 | 2 | `IFlowBbGraphRepository` i modele w `FlowBB.Domain/Repositories` i `Models`: interfejs powinien docelowo trafic do `Application/Abstractions/Persistence`. Decyzja po MVP albo przy pierwszej implementacji repozytorium; nie blokuje MVP | Po MVP | Core Backend Owner + Data/Neo4j |
-| 3 | `SetUserGoingToEventAsync` nadal zapisuje gola relacje bez `TransportMode`, `OriginLatitude`, `OriginLongitude` i `UpdatedAt`. Application ma juz `IAttendanceRepository` i handlery zapisu/usuwania, ale Infrastructure nie implementuje tego interfejsu | MVP | Data/Neo4j |
-| 4 | Model i seed uzywaja `DefaultOriginLatitude/Longitude`, podczas gdy ADR 001 i `AGENTS.md` wymagaja `HomeLatitude/Longitude` oraz snapshotu punktu na relacji. Nazwy trzeba ujednolicic przy adapterze Attendance | MVP | Data/Neo4j + Core Backend Owner |
-| 5 | `Venue.VenueId` to tekstowe slugi, a nie Guid | MVP (decyzja) | Core Backend Owner |
-| 6 | Seed ma czterech uzytkownikow w roznych punktach; nie zapewnia gestosci potrzebnej do widocznych heksagonow przy progu `count >= 10` | MVP | Data/Neo4j |
-| 7 | `PLAN_EVENTS_LOAD.md` zachowuje historyczny plan PostGIS/EF Core; aktualny importer wydarzen do Neo4j nie istnieje | MVP | Backend Events + Data/Neo4j |
-| 8 | Dane MZK nie maja pelnych trips, kolejnosci przystankow, powiazania kursow i wszystkich wspolrzednych; nie sa grafem routingu | Po MVP | Core Backend Owner |
-| 9 | Attendance i PULSE maja kod modulow oraz testy na fake'ach, ale brak adapterow Neo4j i rejestracji/mapowania w `Program.cs` | MVP | Core Backend Owner + Data/Neo4j |
-| 10 | Events, Crew i Routing nie maja jeszcze kompletnych modulow Application/API na `develop`; routing ma jedynie zatwierdzony kontrakt GET w OpenAPI | MVP | wlasciciele modulow |
+| 3 | Stary model `FlowBB.Domain.Models.Event` pozostaje do posprzatania po MVP | Porzadki | Data/Neo4j + Backend Events |
+| 4 | `PLAN_EVENTS_LOAD.md` zachowuje historyczny plan PostGIS/EF Core; aktualny importer wydarzen do Neo4j nie istnieje | MVP | Backend Events + Data/Neo4j |
+| 5 | Dane MZK nie maja pelnych trips, kolejnosci przystankow, powiazania kursow i wszystkich wspolrzednych; nie sa grafem routingu | Po MVP | Core Backend Owner |
+| 6 | Crew nie ma jeszcze adaptera Application ani rejestracji endpointow w uruchamianym API | MVP | Core Backend Owner + Data/Neo4j |
 
 ### Rozwiazane od utworzenia planu
 
-- `Event` uzywa `Name`, `StartAt` i opcjonalnego `EndAt`; `Category` i `Source`
-  nie naleza do modelu grafu zgodnie z `NEO4J_CONTRACT.md`.
+- `Event` uzywa `Name`, `StartAt`, opcjonalnego `EndAt` oraz kanonicznych
+  `Category` i `Source`.
+- `User` uzywa `DefaultOriginLatitude/Longitude`, a `IS_GOING_TO` przechowuje
+  pelny snapshot wymagany przez Attendance, PULSE i Routing.
+- Adaptery Events, Attendance i PULSE dla Neo4j sa zarejestrowane w API.
+- Seed zawiera 82 syntetycznych uzytkownikow w gestych obszarach i daje
+  widoczne komorki PULSE przy progu `count >= 10`.
+- `VenueId` pozostaje zaakceptowanym tekstowym slugiem.
 - Adapter ogolnego grafu konwertuje identyfikatory wezlow `Guid` do/z tekstu Neo4j.
 - Repozytorium zawiera `.env.example`, `infra/docker-compose.yml` i
   `infra/smoke-test.ps1`.

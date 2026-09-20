@@ -1,5 +1,9 @@
 using FlowBB.Api.ExceptionHandling;
+using FlowBB.Api.Endpoints.Events;
+using FlowBB.Api.Endpoints.Pulse;
+using FlowBB.Api.Endpoints.Routing;
 using FlowBB.Api.Hubs;
+using FlowBB.Infrastructure.Neo4j;
 using Scalar.AspNetCore;
 using Serilog;
 
@@ -15,6 +19,11 @@ builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddPulseHub();
+builder.Services.AddNeo4jPersistence();
+builder.Services.AddEventsModule();
+builder.Services.AddAttendanceModule();
+builder.Services.AddPulseModule();
+builder.Services.AddRoutingModule();
 
 var allowedOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins")
@@ -33,6 +42,12 @@ builder.Services.AddCors(options => options.AddPolicy(
 
 var app = builder.Build();
 
+if (builder.Configuration.GetValue<bool>(Neo4jDatabaseInitializer.SeedOnStartupVariable))
+{
+    app.Logger.LogInformation("Initializing Neo4j schema and idempotent seed data.");
+    await Neo4jDatabaseInitializer.InitializeAsync();
+}
+
 app.UseSerilogRequestLogging();
 app.UseExceptionHandler();
 app.UseCors(FrontendCorsPolicy);
@@ -44,9 +59,11 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapPulseHub();
+app.MapEventsEndpoints();
+app.MapAttendanceEndpoints();
+app.MapPulseEndpoints();
+app.MapRoutingEndpoints();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
-
-// TODO(#21): Register and map Attendance, Pulse, Events, Crew and Routing after their adapters are available.
 
 app.Run();
 

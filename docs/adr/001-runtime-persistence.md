@@ -18,7 +18,7 @@ Dane FlowBB maja charakter grafowy (uzytkownik -> wydarzenie -> miejsce, uzytkow
 ## Decision
 
 1. **Neo4j jest jedyna baza runtime aplikacji w MVP.** Przechowuje Events, Attendance, Crew oraz dane zrodlowe do agregacji PULSE.
-2. **Attendance** to relacja `(User)-[:IS_GOING_TO]->(Event)` ze snapshotem `TransportMode`, `OriginLatitude`, `OriginLongitude`, `UpdatedAt`. Uzytkownik ma wewnetrzne, demonstracyjne `HomeLatitude` i `HomeLongitude`. Wspolrzedne nie sa czescia publicznego API.
+2. **Attendance** to relacja `(User)-[:IS_GOING_TO]->(Event)` ze snapshotem `TransportMode`, `OriginLatitude`, `OriginLongitude`, `UpdatedAt`. Uzytkownik ma wewnetrzne, demonstracyjne `DefaultOriginLatitude` i `DefaultOriginLongitude`. Wspolrzedne nie sa czescia publicznego API.
 3. **PULSE** jest agregowany w backendzie C# na podstawie wspolrzednych pobranych wewnetrznie z Neo4j. Frontend dostaje tylko zagregowane komorki. Nie zwracamy `userId`, dokladnych wspolrzednych ani komorek z `count < 10`.
 4. **PostgreSQL/PostGIS pozostaje wylacznie odseparowanym PoC** w `data/gtfs/mzk/`. Nie jest baza aplikacji, nie przechowuje Events ani Attendance i nie jest zaleznoscia backendu.
 5. **Routing MVP** korzysta z deterministycznego `DemoRoutePlanner`. Obecne dane MZK to odjazdy z przystankow, bez pelnych trips, kolejnosci przystankow, kompletnego powiazania kursow i wszystkich wspolrzednych, wiec nie wystarczaja do planowania podrozy.
