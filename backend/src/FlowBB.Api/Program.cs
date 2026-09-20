@@ -1,3 +1,4 @@
+using FlowBB.Api.ExceptionHandling;
 using FlowBB.Api.Hubs;
 using Scalar.AspNetCore;
 using Serilog;
@@ -11,6 +12,8 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Services(services));
 
 builder.Services.AddOpenApi();
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddPulseHub();
 
 var allowedOrigins = builder.Configuration
@@ -31,6 +34,7 @@ builder.Services.AddCors(options => options.AddPolicy(
 var app = builder.Build();
 
 app.UseSerilogRequestLogging();
+app.UseExceptionHandler();
 app.UseCors(FrontendCorsPolicy);
 
 if (app.Environment.IsDevelopment())
