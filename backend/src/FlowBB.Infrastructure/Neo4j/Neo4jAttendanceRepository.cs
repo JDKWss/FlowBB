@@ -1,27 +1,55 @@
 using FlowBB.Application.Abstractions.Persistence;
 using FlowBB.Application.Pulse;
-using FlowBB.Application.Routing;
 using FlowBB.Domain.Attendance;
 using FlowBB.Domain.Common;
 using Neo4j.Driver;
 
 namespace FlowBB.Infrastructure.Neo4j;
 
-public sealed class Neo4jAttendanceRepository(
-    IDriver driver,
-    Neo4jOptions options) : IAttendanceRepository, IAttendanceOriginLookup
+/// <summary>
+/// Adapter <see cref="IAttendanceRepository"/>. Zapis relacji <c>IS_GOING_TO</c> i odczyt licznika oraz modal splitu
+/// dzieja sie w jednej transakcji, wiec wynik nie moze pochodzic z innego stanu niz zapis. <c>MERGE</c> na relacji
+/// blokuje oba wezly, wiec rownolegle zapisy tej samej pary nie tworza duplikatu.
+/// </summary>
+public sealed class Neo4jAttendanceRepository(IDriver driver, Neo4jOptions options) : IAttendanceRepository
 {
-    private const string ModalSplitProjection = """
-        count(attendance) AS ParticipantsCount,
-        count(CASE WHEN attendance.TransportMode = 'PublicTransport' THEN 1 END) AS PublicTransport,
-        count(CASE WHEN attendance.TransportMode = 'Walking' THEN 1 END) AS Walking,
-        count(CASE WHEN attendance.TransportMode = 'Bike' THEN 1 END) AS Bike,
-        count(CASE WHEN attendance.TransportMode = 'Car' THEN 1 END) AS Car,
-        count(CASE
-          WHEN attendance.TransportMode IS NULL
-            OR NOT (attendance.TransportMode IN ['PublicTransport', 'Walking', 'Bike', 'Car'])
-          THEN 1
-        END) AS Unknown
+    // Punkt startu: docelowo User.HomeLatitude/HomeLongitude; DefaultOrigin* to zamiennik dla seedu demonstracyjnego z develop
+    // (docs/NEO4J_ADAPTER_RECONCILIATION.md). Znacznik r.__IsNew istnieje tylko w obrebie tej instrukcji: jest ustawiany, odczytywany i usuwany przed commitem,
+    // wiec inna transakcja nigdy go nie widzi. Pozwala odroznic utworzenie relacji od dopasowania istniejacej.
+    private const string UpsertQuery = """
+        MATCH (u:User {UserId: $userId})
+        MATCH (e:Event {EventId: $eventId})
+        WITH u, e, coalesce(u.HomeLatitude, u.DefaultOriginLatitude) AS HomeLat,
+                   coalesce(u.HomeLongitude, u.DefaultOriginLongitude) AS HomeLon
+        MERGE (u)-[r:IS_GOING_TO]->(e)
+        ON CREATE SET r.__IsNew = true
+        ON MATCH SET r.__IsNew = false
+        SET r.TransportMode = $mode,
+            r.OriginLatitude = HomeLat,
+            r.OriginLongitude = HomeLon,
+            r.UpdatedAt = $updatedAt
+        WITH r, r.__IsNew AS IsNew, (HomeLat IS NULL OR HomeLon IS NULL) AS MissingHome
+        REMOVE r.__IsNew
+        RETURN IsNew, MissingHome
+        """;
+
+    // Rownolegle usuniecia tej samej pary: bez blokady kazde z nich widzi relacje i zglasza WasDeleted = true.
+    // No-op SET zaklada blokade zapisu na wezle uzytkownika, wiec kolejne usuniecie czeka na commit poprzedniego
+    // i dopiero potem czyta relacje (Read Committed).
+    private const string LockUserQuery = """
+        MATCH (u:User {UserId: $userId})
+        SET u.UserId = u.UserId
+        """;
+
+    private const string DeleteQuery = """
+        MATCH (:User {UserId: $userId})-[r:IS_GOING_TO]->(:Event {EventId: $eventId})
+        DELETE r
+        RETURN count(r) AS Deleted
+        """;
+
+    private const string AggregateQuery = """
+        MATCH (:User)-[g:IS_GOING_TO]->(:Event {EventId: $eventId})
+        RETURN g.TransportMode AS Mode, count(g) AS Total
         """;
 
     public async Task<AttendanceUpsertPersistenceResult?> UpsertAsync(
@@ -29,44 +57,18 @@ public sealed class Neo4jAttendanceRepository(
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(attendance);
-        cancellationToken.ThrowIfCancellationRequested();
 
-        var query = $$"""
-            MATCH (u:User {UserId: $UserId})
-            MATCH (e:Event {EventId: $EventId})
-            OPTIONAL MATCH (u)-[existing:IS_GOING_TO]->(e)
-            WITH u, e, existing IS NULL AS IsNew
-            MERGE (u)-[saved:IS_GOING_TO]->(e)
-            SET saved.TransportMode = $TransportMode,
-                saved.OriginLatitude = u.DefaultOriginLatitude,
-                saved.OriginLongitude = u.DefaultOriginLongitude,
-                saved.UpdatedAt = datetime($UpdatedAt)
-            WITH e, IsNew
-            OPTIONAL MATCH (:User)-[attendance:IS_GOING_TO]->(e)
-            RETURN IsNew,
-                   {{ModalSplitProjection}}
-            """;
-
-        await using var session = driver.AsyncSession(config => config.WithDatabase(options.Database));
-        return await session.ExecuteWriteAsync(async transaction =>
+        await using var session = OpenSession();
+        return await session.ExecuteWriteAsync(async tx =>
         {
-            var cursor = await transaction.RunAsync(query, new
-            {
-                UserId = attendance.UserId.ToString("D"),
-                EventId = attendance.EventId.ToString("D"),
-                TransportMode = attendance.TransportMode.ToString(),
-                UpdatedAt = attendance.UpdatedAt.ToString("O")
-            });
-
-            if (!await cursor.FetchAsync())
+            var isNew = await WriteSnapshotAsync(tx, attendance, cancellationToken);
+            if (isNew is null)
             {
                 return null;
             }
 
-            return new AttendanceUpsertPersistenceResult(
-                cursor.Current.Get<bool>("IsNew"),
-                ToInt(cursor.Current, "ParticipantsCount"),
-                MapModalSplit(cursor.Current));
+            var (participants, split) = await ReadAggregatesAsync(tx, attendance.EventId, cancellationToken);
+            return new AttendanceUpsertPersistenceResult(isNew.Value, participants, split);
         });
     }
 
@@ -75,85 +77,82 @@ public sealed class Neo4jAttendanceRepository(
         Guid userId,
         CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var query = $$"""
-            OPTIONAL MATCH (e:Event {EventId: $EventId})
-            OPTIONAL MATCH (:User {UserId: $UserId})-[deleted:IS_GOING_TO]->(e)
-            WITH e, deleted, deleted IS NOT NULL AS WasDeleted
-            DELETE deleted
-            WITH e, WasDeleted
-            OPTIONAL MATCH (:User)-[attendance:IS_GOING_TO]->(e)
-            RETURN WasDeleted,
-                   {{ModalSplitProjection}}
-            """;
-
-        await using var session = driver.AsyncSession(config => config.WithDatabase(options.Database));
-        return await session.ExecuteWriteAsync(async transaction =>
+        await using var session = OpenSession();
+        return await session.ExecuteWriteAsync(async tx =>
         {
-            var cursor = await transaction.RunAsync(query, new
-            {
-                EventId = eventId.ToString("D"),
-                UserId = userId.ToString("D")
-            });
-            await cursor.FetchAsync();
+            var parameters = IdParameters(eventId, userId);
+            await (await tx.RunAsync(LockUserQuery, parameters)).ConsumeAsync();
 
-            return new AttendanceDeletePersistenceResult(
-                cursor.Current.Get<bool>("WasDeleted"),
-                ToInt(cursor.Current, "ParticipantsCount"),
-                MapModalSplit(cursor.Current));
+            var cursor = await tx.RunAsync(DeleteQuery, parameters);
+            var deleted = (await cursor.ToListAsync(cancellationToken))[0]["Deleted"].As<long>();
+
+            var (participants, split) = await ReadAggregatesAsync(tx, eventId, cancellationToken);
+            return new AttendanceDeletePersistenceResult(deleted > 0, participants, split);
         });
     }
 
-    public async Task<AttendanceOrigin?> FindAsync(
-        Guid eventId,
-        Guid userId,
-        CancellationToken cancellationToken = default)
+    private IAsyncSession OpenSession()
     {
-        const string query = """
-            MATCH (:User {UserId: $UserId})-[attendance:IS_GOING_TO]->(:Event {EventId: $EventId})
-            RETURN attendance.OriginLatitude AS Latitude,
-                   attendance.OriginLongitude AS Longitude,
-                   attendance.TransportMode AS TransportMode
-            """;
+        return driver.AsyncSession(config => config.WithDatabase(options.Database));
+    }
 
-        cancellationToken.ThrowIfCancellationRequested();
-        var result = await driver.ExecutableQuery(query)
-            .WithParameters(new
-            {
-                EventId = eventId.ToString("D"),
-                UserId = userId.ToString("D")
-            })
-            .WithConfig(new QueryConfig(database: options.Database, routing: RoutingControl.Readers))
-            .ExecuteAsync(cancellationToken);
+    private static Dictionary<string, object?> IdParameters(Guid eventId, Guid userId)
+    {
+        return new Dictionary<string, object?>
+        {
+            ["eventId"] = Neo4jValueConversions.ToDatabaseId(eventId),
+            ["userId"] = Neo4jValueConversions.ToDatabaseId(userId)
+        };
+    }
 
-        var record = result.Result.SingleOrDefault();
-        if (record is null || record["Latitude"] is null || record["Longitude"] is null)
+    /// <returns><c>true</c> dla nowej relacji, <c>false</c> dla zaktualizowanej, <c>null</c> gdy brak uzytkownika lub wydarzenia.</returns>
+    private static async Task<bool?> WriteSnapshotAsync(
+        IAsyncQueryRunner tx,
+        AttendanceIntent attendance,
+        CancellationToken cancellationToken)
+    {
+        var parameters = IdParameters(attendance.EventId, attendance.UserId);
+        parameters["mode"] = attendance.TransportMode.ToString();
+        parameters["updatedAt"] = attendance.UpdatedAt;
+
+        var cursor = await tx.RunAsync(UpsertQuery, parameters);
+        var records = await cursor.ToListAsync(cancellationToken);
+        if (records.Count == 0)
         {
             return null;
         }
 
-        return new AttendanceOrigin(
-            new GeoPoint(record.Get<double>("Latitude"), record.Get<double>("Longitude")),
-            ParseTransportMode(record.Get<string?>("TransportMode")));
+        if (records[0]["MissingHome"].As<bool>())
+        {
+            // Wyjatek w transakcji cofa zapis: snapshot bez punktu startu zepsulby modal split i trase.
+            throw new InvalidOperationException(
+                $"User {attendance.UserId:D} has no HomeLatitude/HomeLongitude (nor DefaultOrigin*), so the attendance snapshot cannot be built.");
+        }
+
+        return records[0]["IsNew"].As<bool>();
     }
 
-    private static ModalSplit MapModalSplit(IRecord record)
+    private static async Task<(int Participants, ModalSplit Split)> ReadAggregatesAsync(
+        IAsyncQueryRunner tx,
+        Guid eventId,
+        CancellationToken cancellationToken)
     {
-        return new ModalSplit(
-            ToInt(record, "PublicTransport"),
-            ToInt(record, "Walking"),
-            ToInt(record, "Bike"),
-            ToInt(record, "Car"),
-            ToInt(record, "Unknown"));
-    }
+        var parameters = new Dictionary<string, object?> { ["eventId"] = Neo4jValueConversions.ToDatabaseId(eventId) };
+        var cursor = await tx.RunAsync(AggregateQuery, parameters);
+        var rows = await cursor.ToListAsync(cancellationToken);
 
-    private static int ToInt(IRecord record, string key) => checked((int)record.Get<long>(key));
+        var counts = rows.ToDictionary(
+            row => Neo4jValueConversions.ToTransportModeOrUnknown(row["Mode"]),
+            row => Convert.ToInt32(row["Total"].As<long>()));
 
-    private static TransportMode ParseTransportMode(string? value)
-    {
-        return Enum.TryParse<TransportMode>(value, ignoreCase: false, out var parsed) && Enum.IsDefined(parsed)
-            ? parsed
-            : TransportMode.Unknown;
+        int Count(TransportMode mode) => counts.GetValueOrDefault(mode);
+        var split = new ModalSplit(
+            Count(TransportMode.PublicTransport),
+            Count(TransportMode.Walking),
+            Count(TransportMode.Bike),
+            Count(TransportMode.Car),
+            Count(TransportMode.Unknown));
+
+        return (counts.Values.Sum(), split);
     }
 }

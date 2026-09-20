@@ -1,87 +1,94 @@
 using FlowBB.Application.Abstractions.Persistence;
 using FlowBB.Application.Pulse;
-using FlowBB.Domain.Common;
 using Neo4j.Driver;
 
 namespace FlowBB.Infrastructure.Neo4j;
 
-public sealed class Neo4jPulseDataReader(
-    IDriver driver,
-    Neo4jOptions options) : IPulseDataReader
+/// <summary>
+/// Adapter <see cref="IPulseDataReader"/>. Zwraca surowe punkty snapshotu <c>IS_GOING_TO</c> bez identyfikatora
+/// uzytkownika; agregacje (licznik, modal split, heksagony) wykonuje Application. Adapter niczego nie loguje,
+/// a komunikaty bledow nie zawieraja wspolrzednych.
+/// </summary>
+public sealed class Neo4jPulseDataReader(IDriver driver, Neo4jOptions options) : IPulseDataReader
 {
+    // Celowo bez u.UserId: identyfikator uzytkownika nie opuszcza tego zapytania.
+    private const string PointsQuery = """
+        MATCH (:User)-[r:IS_GOING_TO]->(:Event {EventId: $eventId})
+        RETURN r.OriginLatitude AS Latitude, r.OriginLongitude AS Longitude, r.TransportMode AS Mode
+        """;
+
+    private const string EventQuery = """
+        MATCH (e:Event {EventId: $eventId})
+        RETURN e.EventId AS EventId, e.Name AS Name
+        """;
+
+    private const string EventsQuery = """
+        MATCH (e:Event)
+        RETURN e.EventId AS EventId, e.Name AS Name
+        ORDER BY e.StartAt ASC, e.EventId ASC
+        """;
+
     public async Task<IReadOnlyList<PulsePoint>> GetPointsAsync(
         Guid eventId,
         CancellationToken cancellationToken = default)
     {
-        const string query = """
-            MATCH (:User)-[attendance:IS_GOING_TO]->(:Event {EventId: $EventId})
-            WHERE attendance.OriginLatitude IS NOT NULL
-              AND attendance.OriginLongitude IS NOT NULL
-            RETURN attendance.OriginLatitude AS Latitude,
-                   attendance.OriginLongitude AS Longitude,
-                   attendance.TransportMode AS TransportMode
-            """;
-
-        var records = await ReadAsync(query, new { EventId = eventId.ToString("D") }, cancellationToken);
-        return records.Select(record => new PulsePoint(
-                record.Get<double>("Latitude"),
-                record.Get<double>("Longitude"),
-                ParseTransportMode(record.Get<string?>("TransportMode"))))
-            .ToList();
+        var records = await ReadAsync(PointsQuery, EventIdParameter(eventId), cancellationToken);
+        return records.Select(record => MapPoint(record, eventId)).ToList();
     }
 
-    public async Task<PulseEventInfo?> GetEventAsync(
-        Guid eventId,
-        CancellationToken cancellationToken = default)
+    public async Task<PulseEventInfo?> GetEventAsync(Guid eventId, CancellationToken cancellationToken = default)
     {
-        const string query = """
-            MATCH (e:Event {EventId: $EventId})
-            RETURN e.EventId AS EventId, e.Name AS Name
-            """;
-
-        var records = await ReadAsync(query, new { EventId = eventId.ToString("D") }, cancellationToken);
-        var record = records.SingleOrDefault();
-        return record is null ? null : MapEvent(record);
+        var records = await ReadAsync(EventQuery, EventIdParameter(eventId), cancellationToken);
+        return records.Count == 0 ? null : MapEvent(records[0]);
     }
 
-    public async Task<IReadOnlyList<PulseEventInfo>> GetEventsAsync(
-        CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<PulseEventInfo>> GetEventsAsync(CancellationToken cancellationToken = default)
     {
-        const string query = """
-            MATCH (e:Event)
-            RETURN e.EventId AS EventId, e.Name AS Name
-            ORDER BY e.StartAt, e.EventId
-            """;
-
-        var records = await ReadAsync(query, new { }, cancellationToken);
+        var records = await ReadAsync(EventsQuery, new Dictionary<string, object?>(), cancellationToken);
         return records.Select(MapEvent).ToList();
+    }
+
+    private static Dictionary<string, object?> EventIdParameter(Guid eventId)
+    {
+        return new Dictionary<string, object?> { ["eventId"] = Neo4jValueConversions.ToDatabaseId(eventId) };
     }
 
     private async Task<IReadOnlyList<IRecord>> ReadAsync(
         string query,
-        object parameters,
+        Dictionary<string, object?> parameters,
         CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        var result = await driver.ExecutableQuery(query)
-            .WithParameters(parameters)
-            .WithConfig(new QueryConfig(database: options.Database, routing: RoutingControl.Readers))
-            .ExecuteAsync(cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-        return result.Result;
+        await using var session = driver.AsyncSession(config => config.WithDatabase(options.Database));
+        return await session.ExecuteReadAsync(async tx =>
+        {
+            var cursor = await tx.RunAsync(query, parameters);
+            return await cursor.ToListAsync(cancellationToken);
+        });
+    }
+
+    private static PulsePoint MapPoint(IRecord record, Guid eventId)
+    {
+        try
+        {
+            return new PulsePoint(
+                record["Latitude"].As<double>(),
+                record["Longitude"].As<double>(),
+                Neo4jValueConversions.ToTransportModeOrUnknown(record["Mode"]));
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidCastException)
+        {
+            // Bez wyjatku wewnetrznego: jego komunikat zawieralby wartosc wspolrzednej.
+            throw new InvalidOperationException($"Event {eventId:D} has an attendance snapshot with invalid coordinates.");
+        }
     }
 
     private static PulseEventInfo MapEvent(IRecord record)
     {
-        return new PulseEventInfo(
-            Guid.ParseExact(record.Get<string>("EventId"), "D"),
-            record.Get<string>("Name"));
-    }
+        var id = Neo4jValueConversions.FromDatabaseId(record["EventId"].As<string>());
+        var name = record["Name"].As<string?>();
 
-    private static TransportMode ParseTransportMode(string? value)
-    {
-        return Enum.TryParse<TransportMode>(value, ignoreCase: false, out var parsed) && Enum.IsDefined(parsed)
-            ? parsed
-            : TransportMode.Unknown;
+        return string.IsNullOrWhiteSpace(name)
+            ? throw new InvalidOperationException($"Event {id:D} in Neo4j has no Name.")
+            : new PulseEventInfo(id, name);
     }
 }

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Text.Json;
 using FlowBB.Api.ExceptionHandling;
+using FlowBB.Api.IntegrationTests.Infrastructure;
 using FluentAssertions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics;
@@ -26,14 +27,6 @@ public sealed class ExceptionHandlingTests(WebApplicationFactory<Program> factor
     private sealed class TraceCapture
     {
         public string? TraceId { get; set; }
-    }
-
-    // Program.cs czyta ILogEventSink z DI (ReadFrom.Services), wiec test przechwytuje prawdziwe zdarzenia logowania.
-    private sealed class CapturingSink : ILogEventSink
-    {
-        public List<LogEvent> Events { get; } = [];
-
-        public void Emit(LogEvent logEvent) => Events.Add(logEvent);
     }
 
     // Dodaje na koncu pipeline'u (wewnatrz UseExceptionHandler) middleware, ktory rzuca wyjatek dla nieobsluzonej sciezki.

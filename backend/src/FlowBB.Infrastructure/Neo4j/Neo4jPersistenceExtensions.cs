@@ -20,13 +20,11 @@ public static class Neo4jPersistenceExtensions
                 AuthTokens.Basic(options.Username, options.Password));
         });
 
-        services.AddScoped<Neo4jAttendanceRepository>();
-        services.AddScoped<IAttendanceRepository>(provider =>
-            provider.GetRequiredService<Neo4jAttendanceRepository>());
-        services.AddScoped<IAttendanceOriginLookup>(provider =>
-            provider.GetRequiredService<Neo4jAttendanceRepository>());
-        services.AddScoped<IPulseDataReader, Neo4jPulseDataReader>();
+        services.AddScoped<IAttendanceRepository, Neo4jAttendanceRepository>();
+        services.AddScoped<IAttendanceOriginLookup, Neo4jAttendanceOriginLookup>();
+        services.AddNeo4jPulseDataReader();
         services.AddScoped<IEventRepository, Neo4jEventRepository>();
+        services.AddScoped<ICrewRepository, Neo4jCrewRepository>();
 
         return services;
     }

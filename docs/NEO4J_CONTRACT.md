@@ -25,8 +25,8 @@ Wlasciciele: **Data/Neo4j** (schemat, constraints, seed, Cypher, adaptery), **Co
 |---|---|---|---|---|
 | `UserId` | string (Guid) | tak | jest | unikalne |
 | `Name` | string | tak | jest | |
-| `DefaultOriginLatitude` | float | tak | jest | wewnetrzny domyslny punkt rozpoczecia podrozy, `[-90, 90]` |
-| `DefaultOriginLongitude` | float | tak | jest | wewnetrzny domyslny punkt rozpoczecia podrozy, `[-180, 180]` |
+| `HomeLatitude` | float | tak | jest w schemacie, seedzie `flowbb-queries.cypher` i adapterach | wewnetrzny domyslny punkt rozpoczecia podrozy, `[-90, 90]`. Nazwa docelowa (ADR 001, AGENTS.md sekcja 8). Adaptery czytaja tez zamiennik `DefaultOriginLatitude` (patrz [NEO4J_ADAPTER_RECONCILIATION.md](NEO4J_ADAPTER_RECONCILIATION.md)) |
+| `HomeLongitude` | float | tak | jak wyzej | wewnetrzny domyslny punkt rozpoczecia podrozy, `[-180, 180]`. Zamiennik: `DefaultOriginLongitude` |
 | `Email`, `PasswordHash` | string | nie | sa | pozostalosc po wczesniejszym modelu. Logowanie jest poza zakresem MVP; pola nie moga byc uzywane do uwierzytelniania ani zwracane przez API. |
 
 Dokladny punkt startowy jest danymi wewnetrznymi i nie moze byc zwracany przez publiczne API.
@@ -41,12 +41,12 @@ Dokladny punkt startowy jest danymi wewnetrznymi i nie moze byc zwracany przez p
 | `StartAt` | datetime | tak | jest | |
 | `EndAt` | datetime | nie | jest | opcjonalne |
 | `EventUrl` | string | tak | jest | link do strony zrodlowej wydarzenia |
-| `Category` | string | tak | jest | dokladna nazwa `EventCategory`: `Culture`, `Sport`, `Education`, `Community`, `Other` |
-| `Source` | string | tak | jest | dokladna nazwa `EventSource`: `Demo`, `City`, `External` |
+| `Category` | string | tak | jest w seedzie | nazwa wartosci `EventCategory` z domeny: `Culture`, `Sport`, `Education`, `Community`, `Other` |
+| `Source` | string | tak | jest w seedzie | nazwa wartosci `EventSource` z domeny: `Demo`, `City`, `External` |
 
 Powiazanie z miejscem: relacja `(Event)-[:HOSTED_AT]->(Venue)` (jest). Kazde wydarzenie ma dokladnie jedno miejsce.
 
-Węzły `Tag` i relacje `(Event)-[:HAS_TAG]->(Tag)` służą do dodatkowych, swobodnych tagów. Nie zastępują kanonicznych pól `Category` i `Source`, które adapter mapuje 1:1 na enumy domenowe.
+`Category` i `Source` to pola wezla `Event` (1:1 z enumami domeny `Event`), a nie wezly `Tag`. Wezly `Tag` i relacja `(Event)-[:HAS_TAG]->(Tag)` pozostaja w seedzie, ale sa poza P0 i adapter Events ich nie czyta. `VenueName` i `Location` wydarzenia adapter odczytuje z wezla `Venue` przez `HOSTED_AT`.
 
 ### `Venue`
 
@@ -76,6 +76,8 @@ Mikrogrupa zgodna z `GroupSummary` z OpenAPI.
 
 Relacje: `(Crew)-[:FOR_EVENT]->(Event)` oraz `(User)-[:MEMBER_OF]->(Crew)`.
 
+Relacja `MEMBER_OF` ma wlasciwosc `JoinedAt` (datetime z offsetem, UTC), ustawiana przy pierwszym dolaczeniu. Ponowne dolaczenie jej nie zmienia (port `ICrewRepository.TryJoinAsync`).
+
 ## Relacje
 
 ### `(User)-[:IS_GOING_TO]->(Event)` - Attendance
@@ -86,10 +88,10 @@ nie zmienia to odpowiedzialnosci relacji za dane wejsciowe.
 
 | Pole relacji | Typ | Wymagane | Stan w repo | Uwagi |
 |---|---|---|---|---|
-| `TransportMode` | string | tak | jest | dokladna nazwa enuma: `Walking`, `PublicTransport`, `Bike`, `Car`, `Unknown` |
-| `OriginLatitude` | float | tak | jest | snapshot `User.DefaultOriginLatitude`, `[-90, 90]` |
-| `OriginLongitude` | float | tak | jest | snapshot `User.DefaultOriginLongitude`, `[-180, 180]` |
-| `UpdatedAt` | datetime z offsetem | tak | jest | czas ostatniego zapisu deklaracji, UTC |
+| `TransportMode` | string | tak | jest w obu seedach i w adapterze Attendance | dokladna nazwa enuma: `Walking`, `PublicTransport`, `Bike`, `Car`, `Unknown` |
+| `OriginLatitude` | float | tak | jak wyzej | snapshot `User.HomeLatitude` (lub zamiennika `DefaultOriginLatitude`), `[-90, 90]` |
+| `OriginLongitude` | float | tak | jak wyzej | snapshot `User.HomeLongitude` (lub zamiennika `DefaultOriginLongitude`), `[-180, 180]` |
+| `UpdatedAt` | datetime z offsetem | tak | jak wyzej | czas ostatniego zapisu deklaracji, UTC |
 
 Reguly:
 
@@ -108,11 +110,15 @@ Reguly:
 
 ## Constraints i indeksy
 
-| Constraint | Stan |
+Definicja: `database/schema.cypher` (idempotentny, uruchomienie: [database/README.md](../database/README.md)).
+
+| Constraint / indeks | Stan |
 |---|---|
-| `User.UserId`, `Event.EventId`, `Venue.VenueId` - unikalne | jest |
-| `Crew.CrewId` - unikalne | jest |
-| Indeks na `Event.StartAt` | opcjonalnie |
+| `User.UserId`, `Event.EventId`, `Venue.VenueId`, `Crew.CrewId` - unikalne | jest |
+| `Tag.TagId` - unikalne | jest (poza P0) |
+| Indeks zakresu na `Event.StartAt` | jest |
+
+Neo4j Community nie obsluguje constraintow istnienia (`IS NOT NULL`), wiec schemat ich nie zawiera. Kolumna „Wymagane” oznacza, ze pole musi zapisac adapter lub seed; baza tego nie wymusza, wymusza tylko unikalnosc identyfikatorow.
 
 Unikalnosc relacji `IS_GOING_TO` zapewnia `MERGE`. Test na docelowej instancji Aura potwierdzil, ze 10 rownoleglych zapisow tej samej pary tworzy jedna relacje i nie zwieksza licznika wielokrotnie.
 
@@ -128,4 +134,7 @@ PULSE nie przechowuje niezależnych liczników. Po zatwierdzeniu transakcji Atte
 |---|---|---|
 | 1 | Rozbudowa seedu po otrzymaniu realnych danych ze scrapera | Data/Neo4j |
 | 2 | Idempotentny importer realnych wydarzen | Data/Neo4j + Backend Events |
-| 3 | Usuniecie pakietow EF Core/Npgsql z Infrastructure: osobny maly task porzadkowy po potwierdzeniu, ze kod runtime ich nie uzywa | Data/Neo4j (zgoda Core Backend Owner) |
+| 3 | Interfejsy repozytoriow z Domain do `Application/Abstractions`: decyzja po MVP albo przy pierwszej implementacji repozytorium, nie blokuje MVP | Core Backend Owner + Data/Neo4j |
+| 4 | Usuniecie pakietow EF Core/Npgsql z Infrastructure: osobny maly task porzadkowy po potwierdzeniu, ze kod runtime ich nie uzywa | Data/Neo4j (zgoda Core Backend Owner) |
+| 5 | Ujednolicenie nazw wspolrzednych uzytkownika (`Home*` docelowo, `DefaultOrigin*` w seedzie demonstracyjnym, `Domain/Models/User.cs` i starym adapterze grafu). Do tego czasu adaptery czytaja obie nazwy; plan: [NEO4J_ADAPTER_RECONCILIATION.md](NEO4J_ADAPTER_RECONCILIATION.md) | Data/Neo4j + Core Backend Owner |
+| 6 | Adaptery Neo4j (Events, Attendance, PULSE, Crew): zrobione, testy na prawdziwej instancji w `FlowBB.Infrastructure.Tests` | Data/Neo4j |

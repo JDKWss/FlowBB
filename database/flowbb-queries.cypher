@@ -2,47 +2,24 @@
 // Dane syntetyczne: DEMO DATA / SYMULACJA.
 // WAŻNE: uruchamiaj po jednym pełnym bloku, od pierwszego słowa do średnika.
 
-// 1. OGRANICZENIA — każde polecenie uruchom osobno
-
-CREATE CONSTRAINT user_id_unique IF NOT EXISTS
-FOR (n:User) REQUIRE n.UserId IS UNIQUE;
-
-CREATE CONSTRAINT user_email_unique IF NOT EXISTS
-FOR (n:User) REQUIRE n.Email IS UNIQUE;
-
-CREATE CONSTRAINT event_id_unique IF NOT EXISTS
-FOR (n:Event) REQUIRE n.EventId IS UNIQUE;
-
-CREATE CONSTRAINT venue_id_unique IF NOT EXISTS
-FOR (n:Venue) REQUIRE n.VenueId IS UNIQUE;
-
-CREATE CONSTRAINT owner_id_unique IF NOT EXISTS
-FOR (n:BusinessOwner) REQUIRE n.OwnerId IS UNIQUE;
-
-CREATE CONSTRAINT owner_email_unique IF NOT EXISTS
-FOR (n:BusinessOwner) REQUIRE n.Email IS UNIQUE;
-
-CREATE CONSTRAINT tag_id_unique IF NOT EXISTS
-FOR (n:Tag) REQUIRE n.TagId IS UNIQUE;
-
-CREATE CONSTRAINT crew_id_unique IF NOT EXISTS
-FOR (n:Crew) REQUIRE n.CrewId IS UNIQUE;
+// 1. OGRANICZENIA I INDEKSY — przeniesione do database/schema.cypher
+// Najpierw uruchom schema.cypher (patrz database/README.md), potem poniższy seed.
 
 // 2. UŻYTKOWNICY — zaznacz od UNWIND do średnika i uruchom
 
 UNWIND [
-  {UserId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', Email: 'ania.demo@flowbb.local', Name: 'Ania Nowak', DefaultOriginLatitude: 49.8225, DefaultOriginLongitude: 19.0444},
-  {UserId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', Email: 'bartek.demo@flowbb.local', Name: 'Bartek Kowalski', DefaultOriginLatitude: 49.8155, DefaultOriginLongitude: 19.0340},
-  {UserId: 'cccccccc-cccc-cccc-cccc-cccccccccccc', Email: 'celina.demo@flowbb.local', Name: 'Celina Wiśniewska', DefaultOriginLatitude: 49.8330, DefaultOriginLongitude: 19.0520},
-  {UserId: 'dddddddd-dddd-dddd-dddd-dddddddddddd', Email: 'dawid.demo@flowbb.local', Name: 'Dawid Pietrzyk', DefaultOriginLatitude: 49.8050, DefaultOriginLongitude: 19.0340}
+  {UserId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', Email: 'ania.demo@flowbb.local', Name: 'Ania Nowak', HomeLatitude: 49.8225, HomeLongitude: 19.0444},
+  {UserId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', Email: 'bartek.demo@flowbb.local', Name: 'Bartek Kowalski', HomeLatitude: 49.8155, HomeLongitude: 19.0340},
+  {UserId: 'cccccccc-cccc-cccc-cccc-cccccccccccc', Email: 'celina.demo@flowbb.local', Name: 'Celina Wiśniewska', HomeLatitude: 49.8330, HomeLongitude: 19.0520},
+  {UserId: 'dddddddd-dddd-dddd-dddd-dddddddddddd', Email: 'dawid.demo@flowbb.local', Name: 'Dawid Pietrzyk', HomeLatitude: 49.8050, HomeLongitude: 19.0340}
 ] AS row
 MERGE (u:User {UserId: row.UserId})
 SET u.Email = row.Email,
     u.PasswordHash = 'DEMO_HASH_NOT_FOR_AUTHENTICATION',
     u.Name = row.Name,
-    u.DefaultOriginLatitude = row.DefaultOriginLatitude,
-    u.DefaultOriginLongitude = row.DefaultOriginLongitude
-REMOVE u.HomeLatitude, u.HomeLongitude, u.DemoData
+    u.HomeLatitude = row.HomeLatitude,
+    u.HomeLongitude = row.HomeLongitude
+REMOVE u.DefaultOriginLatitude, u.DefaultOriginLongitude, u.DemoData
 RETURN count(u) AS UsersCreatedOrUpdated;
 
 // 3. MIEJSCA
@@ -87,19 +64,19 @@ RETURN count(t) AS TagsCreatedOrUpdated;
 // 6. WYDARZENIA
 
 UNWIND [
-  {EventId: '11111111-1111-1111-1111-111111111111', Name: 'Koncert na Rynku', Description: 'Wieczorny koncert w centrum Bielska-Białej.', EventUrl: 'https://example.invalid/koncert-na-rynku', StartAt: '2026-09-19T19:00:00+02:00', EndAt: '2026-09-19T22:00:00+02:00', Category: 'Culture', Source: 'Demo'},
-  {EventId: '22222222-2222-2222-2222-222222222222', Name: 'Wieczór z Planszówkami', Description: 'Spotkanie dla osób, które chcą poznać ludzi przy grach.', EventUrl: 'https://example.invalid/planszowki', StartAt: '2026-09-25T18:00:00+02:00', EndAt: '2026-09-25T22:00:00+02:00', Category: 'Community', Source: 'Demo'},
-  {EventId: '33333333-3333-3333-3333-333333333333', Name: 'Hackathon Bielsko 2030', Description: 'Warsztaty i pomysły na przyszłość miasta.', EventUrl: 'https://example.invalid/hackathon', StartAt: '2026-09-28T09:00:00+02:00', EndAt: '2026-09-28T18:00:00+02:00', Category: 'Education', Source: 'Demo'},
-  {EventId: '44444444-4444-4444-4444-444444444444', Name: 'Nocne wejście na Szyndzielnię', Description: 'Wspólny trekking z latarkami.', EventUrl: 'https://example.invalid/szyndzielnia', StartAt: '2026-10-02T20:00:00+02:00', EndAt: '2026-10-02T23:30:00+02:00', Category: 'Sport', Source: 'Demo'}
+  {EventId: '11111111-1111-1111-1111-111111111111', Name: 'Koncert na Rynku', Category: 'Culture', Source: 'Demo', Description: 'Wieczorny koncert w centrum Bielska-Białej.', EventUrl: 'https://example.invalid/koncert-na-rynku', StartAt: '2026-09-19T19:00:00+02:00', EndAt: '2026-09-19T22:00:00+02:00'},
+  {EventId: '22222222-2222-2222-2222-222222222222', Name: 'Wieczór z Planszówkami', Category: 'Community', Source: 'Demo', Description: 'Spotkanie dla osób, które chcą poznać ludzi przy grach.', EventUrl: 'https://example.invalid/planszowki', StartAt: '2026-09-25T18:00:00+02:00', EndAt: '2026-09-25T22:00:00+02:00'},
+  {EventId: '33333333-3333-3333-3333-333333333333', Name: 'Hackathon Bielsko 2030', Category: 'Education', Source: 'Demo', Description: 'Warsztaty i pomysły na przyszłość miasta.', EventUrl: 'https://example.invalid/hackathon', StartAt: '2026-09-28T09:00:00+02:00', EndAt: '2026-09-28T18:00:00+02:00'},
+  {EventId: '44444444-4444-4444-4444-444444444444', Name: 'Nocne wejście na Szyndzielnię', Category: 'Sport', Source: 'Demo', Description: 'Wspólny trekking z latarkami.', EventUrl: 'https://example.invalid/szyndzielnia', StartAt: '2026-10-02T20:00:00+02:00', EndAt: '2026-10-02T23:30:00+02:00'}
 ] AS row
 MERGE (e:Event {EventId: row.EventId})
 SET e.Name = row.Name,
     e.Description = row.Description,
     e.EventUrl = row.EventUrl,
-    e.StartAt = datetime(row.StartAt),
-    e.EndAt = datetime(row.EndAt),
     e.Category = row.Category,
-    e.Source = row.Source
+    e.Source = row.Source,
+    e.StartAt = datetime(row.StartAt),
+    e.EndAt = datetime(row.EndAt)
 REMOVE e.Title, e.DateTime
 RETURN count(e) AS EventsCreatedOrUpdated;
 
@@ -172,22 +149,23 @@ MATCH (t:Tag {TagId: row.TagId})
 MERGE (u)-[:LIKES_TAG]->(t)
 RETURN count(*) AS LikesTagRelationships;
 
-// 12. USER -[:IS_GOING_TO]-> EVENT
+// 12. USER -[:IS_GOING_TO]-> EVENT — ze snapshotem (TransportMode, OriginLatitude/Longitude, UpdatedAt)
+// Punkt startu to kopia HomeLatitude/HomeLongitude użytkownika z chwili deklaracji.
 
 UNWIND [
-  {UserId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', EventId: '11111111-1111-1111-1111-111111111111', Mode: 'Walking'},
-  {UserId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', EventId: '33333333-3333-3333-3333-333333333333', Mode: 'PublicTransport'},
-  {UserId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', EventId: '11111111-1111-1111-1111-111111111111', Mode: 'Bike'},
-  {UserId: 'cccccccc-cccc-cccc-cccc-cccccccccccc', EventId: '22222222-2222-2222-2222-222222222222', Mode: 'Car'},
-  {UserId: 'dddddddd-dddd-dddd-dddd-dddddddddddd', EventId: '44444444-4444-4444-4444-444444444444', Mode: 'Walking'}
+  {UserId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', EventId: '11111111-1111-1111-1111-111111111111', TransportMode: 'PublicTransport'},
+  {UserId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', EventId: '33333333-3333-3333-3333-333333333333', TransportMode: 'Bike'},
+  {UserId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', EventId: '11111111-1111-1111-1111-111111111111', TransportMode: 'Walking'},
+  {UserId: 'cccccccc-cccc-cccc-cccc-cccccccccccc', EventId: '22222222-2222-2222-2222-222222222222', TransportMode: 'Car'},
+  {UserId: 'dddddddd-dddd-dddd-dddd-dddddddddddd', EventId: '44444444-4444-4444-4444-444444444444', TransportMode: 'PublicTransport'}
 ] AS row
 MATCH (u:User {UserId: row.UserId})
 MATCH (e:Event {EventId: row.EventId})
-MERGE (u)-[attendance:IS_GOING_TO]->(e)
-SET attendance.TransportMode = row.Mode,
-    attendance.OriginLatitude = u.DefaultOriginLatitude,
-    attendance.OriginLongitude = u.DefaultOriginLongitude,
-    attendance.UpdatedAt = datetime('2026-09-19T12:00:00Z')
+MERGE (u)-[r:IS_GOING_TO]->(e)
+SET r.TransportMode = row.TransportMode,
+    r.OriginLatitude = u.HomeLatitude,
+    r.OriginLongitude = u.HomeLongitude,
+    r.UpdatedAt = datetime('2026-09-20T08:00:00Z')
 RETURN count(*) AS GoingToRelationships;
 
 // 13. USER -[:IS_INTERESTED_IN]-> EVENT
@@ -250,7 +228,8 @@ UNWIND [
 ] AS row
 MATCH (u:User {UserId: row.UserId})
 MATCH (c:Crew {CrewId: row.CrewId})
-MERGE (u)-[:MEMBER_OF]->(c)
+MERGE (u)-[r:MEMBER_OF]->(c)
+SET r.JoinedAt = coalesce(r.JoinedAt, datetime('2026-09-20T08:00:00Z'))
 RETURN count(*) AS CrewMembershipRelationships;
 
 // 18. KONTROLA — oczekiwane: 20 węzłów i 41 relacji

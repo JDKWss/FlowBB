@@ -1,118 +1,87 @@
-using System.Globalization;
 using FlowBB.Application.Abstractions.Persistence;
 using FlowBB.Application.Events;
 using FlowBB.Domain.Common;
 using FlowBB.Domain.Events;
 using Neo4j.Driver;
-using DomainEvent = FlowBB.Domain.Events.Event;
 
 namespace FlowBB.Infrastructure.Neo4j;
 
-public sealed class Neo4jEventRepository(
-    IDriver driver,
-    Neo4jOptions options) : IEventRepository
+/// <summary>
+/// Adapter <see cref="IEventRepository"/>. Liczba uczestnikow jest wyliczana z relacji <c>IS_GOING_TO</c>.
+/// Wydarzenie bez miejsca (<c>HOSTED_AT</c>) nie jest zwracane: domena wymaga nazwy miejsca i lokalizacji.
+/// </summary>
+public sealed class Neo4jEventRepository(IDriver driver, Neo4jOptions options) : IEventRepository
 {
     private const string EventProjection = """
-        e.EventId AS EventId,
-        e.Name AS Name,
-        e.Description AS Description,
-        toString(e.StartAt) AS StartAt,
-        toString(e.EndAt) AS EndAt,
-        e.Category AS Category,
-        e.Source AS Source,
-        venue.Name AS VenueName,
-        venue.Latitude AS Latitude,
-        venue.Longitude AS Longitude,
-        count(attendance) AS ParticipantsCount
+        MATCH (e:Event)-[:HOSTED_AT]->(v:Venue)
+        WHERE {0}
+        OPTIONAL MATCH (:User)-[g:IS_GOING_TO]->(e)
+        WITH e, v, count(g) AS ParticipantsCount
+        RETURN e.EventId AS EventId, e.Name AS Name, coalesce(e.Description, '') AS Description,
+               e.StartAt AS StartAt, e.EndAt AS EndAt, e.Category AS Category, e.Source AS Source,
+               v.Name AS VenueName, v.Latitude AS Latitude, v.Longitude AS Longitude, ParticipantsCount
+        ORDER BY e.StartAt ASC, e.EventId ASC
         """;
+
+    private static readonly string ListQuery = string.Format(
+        EventProjection,
+        "($from IS NULL OR e.StartAt >= $from) AND ($to IS NULL OR e.StartAt <= $to)");
+
+    private static readonly string FindQuery = string.Format(EventProjection, "e.EventId = $eventId");
 
     public async Task<IReadOnlyList<EventWithParticipants>> ListAsync(
         DateTimeOffset? from,
         DateTimeOffset? to,
         CancellationToken cancellationToken = default)
     {
-        var query = $$"""
-            MATCH (e:Event)-[:HOSTED_AT]->(venue:Venue)
-            WHERE ($From IS NULL OR e.StartAt >= datetime($From))
-              AND ($To IS NULL OR e.StartAt <= datetime($To))
-            OPTIONAL MATCH (:User)-[attendance:IS_GOING_TO]->(e)
-            RETURN {{EventProjection}}
-            ORDER BY StartAt, EventId
-            """;
-
-        var records = await ReadAsync(query, new
-        {
-            From = from?.ToString("O"),
-            To = to?.ToString("O")
-        }, cancellationToken);
+        var parameters = new Dictionary<string, object?> { ["from"] = from, ["to"] = to };
+        var records = await ReadAsync(ListQuery, parameters, cancellationToken);
         return records.Select(MapEvent).ToList();
     }
 
-    public async Task<EventWithParticipants?> FindAsync(
-        Guid eventId,
-        CancellationToken cancellationToken = default)
+    public async Task<EventWithParticipants?> FindAsync(Guid eventId, CancellationToken cancellationToken = default)
     {
-        var query = $$"""
-            MATCH (e:Event {EventId: $EventId})-[:HOSTED_AT]->(venue:Venue)
-            OPTIONAL MATCH (:User)-[attendance:IS_GOING_TO]->(e)
-            RETURN {{EventProjection}}
-            """;
-
-        var records = await ReadAsync(query, new { EventId = eventId.ToString("D") }, cancellationToken);
-        var record = records.SingleOrDefault();
-        return record is null ? null : MapEvent(record);
+        var parameters = new Dictionary<string, object?> { ["eventId"] = Neo4jValueConversions.ToDatabaseId(eventId) };
+        var records = await ReadAsync(FindQuery, parameters, cancellationToken);
+        return records.Count == 0 ? null : MapEvent(records[0]);
     }
 
     private async Task<IReadOnlyList<IRecord>> ReadAsync(
         string query,
-        object parameters,
+        Dictionary<string, object?> parameters,
         CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        var result = await driver.ExecutableQuery(query)
-            .WithParameters(parameters)
-            .WithConfig(new QueryConfig(database: options.Database, routing: RoutingControl.Readers))
-            .ExecuteAsync(cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-        return result.Result;
+        await using var session = driver.AsyncSession(config => config.WithDatabase(options.Database));
+        return await session.ExecuteReadAsync(
+            async tx =>
+            {
+                var cursor = await tx.RunAsync(query, parameters);
+                return await cursor.ToListAsync(cancellationToken);
+            });
     }
 
     private static EventWithParticipants MapEvent(IRecord record)
     {
-        var @event = new DomainEvent(
-            Guid.ParseExact(record.Get<string>("EventId"), "D"),
-            record.Get<string>("Name"),
-            record.Get<string>("Description"),
-            ParseInstant(record.Get<string>("StartAt")),
-            ParseOptionalInstant(record.Get<string?>("EndAt")),
-            record.Get<string>("VenueName"),
-            ParseEnum<EventCategory>(record.Get<string>("Category"), "Category"),
-            ParseEnum<EventSource>(record.Get<string>("Source"), "Source"),
-            new GeoPoint(record.Get<double>("Latitude"), record.Get<double>("Longitude")));
+        var id = Neo4jValueConversions.FromDatabaseId(record["EventId"].As<string>());
 
-        return new EventWithParticipants(
-            @event,
-            checked((int)record.Get<long>("ParticipantsCount")));
-    }
-
-    private static DateTimeOffset ParseInstant(string value)
-    {
-        return DateTimeOffset.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
-    }
-
-    private static DateTimeOffset? ParseOptionalInstant(string? value)
-    {
-        return value is null ? null : ParseInstant(value);
-    }
-
-    private static TEnum ParseEnum<TEnum>(string value, string propertyName)
-        where TEnum : struct, Enum
-    {
-        if (Enum.TryParse<TEnum>(value, ignoreCase: false, out var parsed) && Enum.IsDefined(parsed))
+        try
         {
-            return parsed;
-        }
+            var @event = new Event(
+                id,
+                record["Name"].As<string>(),
+                record["Description"].As<string>(),
+                Neo4jValueConversions.ToDateTimeOffset(record["StartAt"], "StartAt"),
+                Neo4jValueConversions.ToNullableDateTimeOffset(record["EndAt"], "EndAt"),
+                record["VenueName"].As<string>(),
+                Neo4jValueConversions.ToEnum<EventCategory>(record["Category"], "Category"),
+                Neo4jValueConversions.ToEnum<EventSource>(record["Source"], "Source"),
+                new GeoPoint(record["Latitude"].As<double>(), record["Longitude"].As<double>()));
 
-        throw new InvalidOperationException($"Neo4j Event.{propertyName} has unsupported value '{value}'.");
+            return new EventWithParticipants(@event, Convert.ToInt32(record["ParticipantsCount"].As<long>()));
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidCastException)
+        {
+            throw new InvalidOperationException($"Event {id:D} in Neo4j violates the data contract: {ex.Message}", ex);
+        }
     }
 }

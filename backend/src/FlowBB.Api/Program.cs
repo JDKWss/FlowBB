@@ -3,6 +3,7 @@ using FlowBB.Api.Endpoints.Events;
 using FlowBB.Api.Endpoints.Pulse;
 using FlowBB.Api.Endpoints.Routing;
 using FlowBB.Api.Hubs;
+using FlowBB.Api.Logging;
 using FlowBB.Infrastructure.Neo4j;
 using FlowBB.Infrastructure.Routing;
 using Scalar.AspNetCore;
@@ -12,9 +13,13 @@ const string FrontendCorsPolicy = "Frontend";
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Host.UseSerilog((context, services, configuration) => configuration
-    .ReadFrom.Configuration(context.Configuration)
-    .ReadFrom.Services(services));
+// preserveStaticLogger: logger hosta nie nadpisuje globalnego Log.Logger (kod uzywa ILogger<T>, nie statycznego Log.*),
+// dzieki czemu kilka hostow w jednym procesie (np. testy integracyjne) nie zapisuje do swoich sinkow nawzajem.
+builder.Host.UseSerilog(
+    (context, services, configuration) => configuration
+        .ReadFrom.Configuration(context.Configuration)
+        .ReadFrom.Services(services),
+    preserveStaticLogger: true);
 
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
@@ -66,15 +71,20 @@ builder.Services.AddCors(options => options.AddPolicy(
 
 var app = builder.Build();
 
-if (builder.Configuration.GetValue<bool>(Neo4jDatabaseInitializer.SeedOnStartupVariable))
-{
-    app.Logger.LogInformation("Initializing Neo4j schema and idempotent seed data.");
-    await Neo4jDatabaseInitializer.InitializeAsync();
-}
+StartupSummary.Log(app.Services.GetRequiredService<ILogger<Program>>(), app.Configuration, app.Environment);
 
-app.UseSerilogRequestLogging();
-app.UseExceptionHandler();
-app.UseCors(FrontendCorsPolicy);
+if (builder.Configuration.GetValue<bool>(Neo4jDatabaseInitializer.SeedOnStartupVariable))
+ {
+      app.Logger.LogInformation("Initializing Neo4j schema and idempotent seed data.");
+      await Neo4jDatabaseInitializer.InitializeAsync();
+  }
+
+  // Kontekst logow (TraceId, FlowEventId, FlowCrewId) musi obejmowac takze podsumowanie zadania z UseSerilogRequestLogging.
+  app.UseMiddleware<RequestLogContextMiddleware>();
+  // Logger z DI zamiast globalnego Log.Logger (patrz preserveStaticLogger wyzej).
+  app.UseSerilogRequestLogging(options => options.Logger = app.Services.GetRequiredService<Serilog.ILogger>());
+  app.UseExceptionHandler();
+  app.UseCors(FrontendCorsPolicy);
 
 if (app.Environment.IsDevelopment())
 {

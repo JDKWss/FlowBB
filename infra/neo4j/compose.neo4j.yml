@@ -1,0 +1,29 @@
+# Usluga Neo4j dla FlowBB (lokalny kontener). Wlasciciel: Data/Neo4j.
+# Fragment do wlaczenia do glownego infra/docker-compose.yml przez Core Backend; instrukcja: README.md obok.
+# Uzycie samodzielne: docker compose -f infra/neo4j/compose.neo4j.yml up -d
+#
+# Konfiguracja wylacznie ze zmiennych srodowiskowych (.env). Sekretow tu nie ma.
+# Edycja Community: uzytkownik musi miec nazwe `neo4j`, a baza tez `neo4j` (jedna baza uzytkownika).
+
+services:
+  neo4j:
+    image: neo4j:5.26.30-community
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: ${NEO4J_USERNAME:?Set NEO4J_USERNAME in .env (must be neo4j)}/${NEO4J_PASSWORD:?Set NEO4J_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${NEO4J_HTTP_PORT:-7474}:7474"
+      - "127.0.0.1:${NEO4J_BOLT_PORT:-7687}:7687"
+    volumes:
+      - neo4j-data:/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'cypher-shell -a neo4j://localhost:7687 -u "$${NEO4J_AUTH%%/*}" -p "$${NEO4J_AUTH#*/}" "RETURN 1"'
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  neo4j-data:
