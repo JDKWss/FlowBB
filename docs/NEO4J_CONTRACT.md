@@ -120,7 +120,7 @@ Definicja: `database/schema.cypher` (idempotentny, uruchomienie: [database/READM
 
 Neo4j Community nie obsluguje constraintow istnienia (`IS NOT NULL`), wiec schemat ich nie zawiera. Kolumna „Wymagane” oznacza, ze pole musi zapisac adapter lub seed; baza tego nie wymusza, wymusza tylko unikalnosc identyfikatorow.
 
-Unikalnosc relacji `IS_GOING_TO` zapewnia `MERGE`. Test na docelowej instancji Aura potwierdzil, ze 10 rownoleglych zapisow tej samej pary tworzy jedna relacje i nie zwieksza licznika wielokrotnie.
+Unikalnosc relacji `IS_GOING_TO` zapewnia `MERGE` (blokuje oba wezly). Potwierdzone testem na prawdziwym Neo4j 5.26 Community: 25 rownoleglych zapisow tej samej pary daje jedna relacje i dokladnie jedno `IsNew` (`Neo4jAttendanceRepositoryTests`). Na Aurze nie sprawdzano.
 
 ## Odczyty PULSE
 
