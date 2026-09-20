@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using FlowBB.Api.IntegrationTests.Endpoints;
 using FlowBB.Api.IntegrationTests.Infrastructure;
 using FlowBB.Application.Pulse;
 using FlowBB.Domain.Common;
@@ -72,11 +73,19 @@ public class PulseEndpointsTests
         await using var host = await HostAsync();
 
         var response = await host.Client.GetAsync($"/api/pulse/events/{EventId}");
-        var json = await JsonAsync(response);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.NotFound);
+    }
 
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-        response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
-        json.GetProperty("status").GetInt32().Should().Be(404);
+    [Theory]
+    [InlineData("not-a-guid")]
+    [InlineData("00000000-0000-0000-0000-000000000000")]
+    public async Task EventPulse_WithInvalidEventId_Returns400ProblemDetails(string eventId)
+    {
+        await using var host = await HostAsync();
+
+        using var response = await host.Client.GetAsync($"/api/pulse/events/{eventId}");
+
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.BadRequest);
     }
 
     [Theory]
@@ -147,7 +156,7 @@ public class PulseEndpointsTests
 
         var response = await host.Client.GetAsync($"/api/pulse/hexagons?eventId={EventId}");
 
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.NotFound);
     }
 
     [Theory]
@@ -160,6 +169,6 @@ public class PulseEndpointsTests
 
         var response = await host.Client.GetAsync(url);
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.BadRequest);
     }
 }

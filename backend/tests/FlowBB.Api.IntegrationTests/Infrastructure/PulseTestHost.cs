@@ -28,6 +28,7 @@ public sealed class PulseTestHost : IAsyncDisposable
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseTestServer();
         builder.Logging.ClearProviders();
+        builder.Services.AddProblemDetails();
         builder.Services.AddPulseModule();
         builder.Services.AddSingleton(reader);
 

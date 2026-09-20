@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using FlowBB.Api.IntegrationTests.Endpoints;
 using FlowBB.Api.IntegrationTests.Infrastructure;
 using FluentAssertions;
 
@@ -20,12 +21,6 @@ public class CrewsEndpointsTests
     {
         await using var stream = await response.Content.ReadAsStreamAsync();
         return await JsonDocument.ParseAsync(stream);
-    }
-
-    private static void AssertProblem(HttpResponseMessage response, HttpStatusCode expected)
-    {
-        response.StatusCode.Should().Be(expected);
-        response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
     }
 
     [Fact]
@@ -100,20 +95,21 @@ public class CrewsEndpointsTests
 
         using var response = await host.Client.GetAsync(GroupsUrl(Guid.NewGuid()));
 
-        AssertProblem(response, HttpStatusCode.NotFound);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.NotFound);
     }
 
     [Theory]
     [InlineData("/api/events/not-a-guid/groups")]
     [InlineData("/api/events/00000000-0000-0000-0000-000000000000/groups")]
     [InlineData("/api/events/11111111-1111-1111-1111-111111111111/groups?userId=nope")]
+    [InlineData("/api/events/11111111-1111-1111-1111-111111111111/groups?userId=00000000-0000-0000-0000-000000000000")]
     public async Task GetGroups_WithInvalidIds_ReturnsBadRequestProblem(string url)
     {
         await using var host = await CrewsTestHost.StartAsync();
 
         using var response = await host.Client.GetAsync(url);
 
-        AssertProblem(response, HttpStatusCode.BadRequest);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.BadRequest);
     }
 
     [Fact]
@@ -176,7 +172,7 @@ public class CrewsEndpointsTests
 
         using var response = await JoinAsync(host, FakeCrewRepository.TinyCrewId, FakeCrewRepository.UserC);
 
-        AssertProblem(response, HttpStatusCode.Conflict);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.Conflict);
         host.Crews.CurrentMembers(FakeCrewRepository.TinyCrewId).Should().Be(2);
     }
 
@@ -188,7 +184,7 @@ public class CrewsEndpointsTests
 
         using var response = await JoinAsync(host, FakeCrewRepository.CyclistsCrewId, FakeCrewRepository.UserA);
 
-        AssertProblem(response, HttpStatusCode.Conflict);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.Conflict);
         host.Crews.CurrentMembers(FakeCrewRepository.CyclistsCrewId).Should().Be(0);
     }
 
@@ -200,14 +196,16 @@ public class CrewsEndpointsTests
         using var unknownGroup = await JoinAsync(host, Guid.NewGuid(), FakeCrewRepository.UserA);
         using var unknownUser = await JoinAsync(host, FakeCrewRepository.NewcomersCrewId, FakeCrewRepository.UnknownUser);
 
-        AssertProblem(unknownGroup, HttpStatusCode.NotFound);
-        AssertProblem(unknownUser, HttpStatusCode.NotFound);
+        await ProblemResponseAssertions.AssertAsync(unknownGroup, HttpStatusCode.NotFound);
+        await ProblemResponseAssertions.AssertAsync(unknownUser, HttpStatusCode.NotFound);
     }
 
     [Theory]
+    [InlineData("")]
     [InlineData("{}")]
     [InlineData("{\"userId\":\"not-a-guid\"}")]
     [InlineData("{\"userId\":\"00000000-0000-0000-0000-000000000000\"}")]
+    [InlineData("not json")]
     public async Task Join_WithMissingOrInvalidUserId_ReturnsBadRequestProblem(string json)
     {
         await using var host = await CrewsTestHost.StartAsync();
@@ -215,18 +213,20 @@ public class CrewsEndpointsTests
 
         using var response = await host.Client.PostAsync(MembersUrl(FakeCrewRepository.NewcomersCrewId), content);
 
-        AssertProblem(response, HttpStatusCode.BadRequest);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.BadRequest);
     }
 
-    [Fact]
-    public async Task Join_WithInvalidGroupId_ReturnsBadRequestProblem()
+    [Theory]
+    [InlineData("not-a-guid")]
+    [InlineData("00000000-0000-0000-0000-000000000000")]
+    public async Task Join_WithInvalidGroupId_ReturnsBadRequestProblem(string groupId)
     {
         await using var host = await CrewsTestHost.StartAsync();
 
         using var response = await host.Client.PostAsJsonAsync(
-            "/api/groups/not-a-guid/members", new { userId = FakeCrewRepository.UserA });
+            $"/api/groups/{groupId}/members", new { userId = FakeCrewRepository.UserA });
 
-        AssertProblem(response, HttpStatusCode.BadRequest);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.BadRequest);
     }
 
     [Fact]
@@ -257,25 +257,30 @@ public class CrewsEndpointsTests
         host.Crews.CurrentMembers(FakeCrewRepository.NewcomersCrewId).Should().Be(1);
     }
 
-    [Fact]
-    public async Task Leave_ForUnknownGroup_ReturnsNoContent()
+    // leaveGroup dokumentuje tylko 204 dla poprawnych UUID: nieznana grupa lub uzytkownik sa idempotentnym no-op.
+    [Theory]
+    [InlineData("99999999-9999-9999-9999-999999999999", "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")]
+    [InlineData("22222222-2222-2222-2222-222222222222", "99999999-9999-9999-9999-999999999999")]
+    public async Task Leave_ForUnknownResource_ReturnsNoContent(string groupId, string userId)
     {
         await using var host = await CrewsTestHost.StartAsync();
 
-        using var response = await host.Client.DeleteAsync($"{MembersUrl(Guid.NewGuid())}/{FakeCrewRepository.UserA}");
+        using var response = await host.Client.DeleteAsync($"/api/groups/{groupId}/members/{userId}");
 
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
     }
 
     [Theory]
     [InlineData("/api/groups/not-a-guid/members/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")]
+    [InlineData("/api/groups/00000000-0000-0000-0000-000000000000/members/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")]
     [InlineData("/api/groups/22222222-2222-2222-2222-222222222222/members/not-a-guid")]
+    [InlineData("/api/groups/22222222-2222-2222-2222-222222222222/members/00000000-0000-0000-0000-000000000000")]
     public async Task Leave_WithInvalidIds_ReturnsBadRequestProblem(string url)
     {
         await using var host = await CrewsTestHost.StartAsync();
 
         using var response = await host.Client.DeleteAsync(url);
 
-        AssertProblem(response, HttpStatusCode.BadRequest);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.BadRequest);
     }
 }

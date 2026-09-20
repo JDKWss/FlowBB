@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using FlowBB.Api.IntegrationTests.Endpoints;
 using FlowBB.Api.IntegrationTests.Infrastructure;
 using FlowBB.Application.Abstractions.Routing;
 using FlowBB.Application.Routing;
@@ -23,12 +24,6 @@ public class RoutingEndpointsTests
     {
         await using var stream = await response.Content.ReadAsStreamAsync();
         return await JsonDocument.ParseAsync(stream);
-    }
-
-    private static void AssertProblem(HttpResponseMessage response, HttpStatusCode expected)
-    {
-        response.StatusCode.Should().Be(expected);
-        response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
     }
 
     [Fact]
@@ -106,7 +101,7 @@ public class RoutingEndpointsTests
 
         using var response = await host.Client.GetAsync(ValidUrl);
 
-        AssertProblem(response, HttpStatusCode.BadRequest);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.BadRequest);
         planner.Requests.Should().BeEmpty();
     }
 
@@ -130,7 +125,7 @@ public class RoutingEndpointsTests
 
         using var response = await host.Client.GetAsync(ValidUrl);
 
-        AssertProblem(response, HttpStatusCode.NotFound);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.NotFound);
     }
 
     [Fact]
@@ -140,7 +135,7 @@ public class RoutingEndpointsTests
 
         using var response = await host.Client.GetAsync(ValidUrl);
 
-        AssertProblem(response, HttpStatusCode.NotFound);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.NotFound);
     }
 
     [Theory]
@@ -153,7 +148,7 @@ public class RoutingEndpointsTests
 
         using var response = await host.Client.GetAsync(RouteUrl(RoutingTestHost.EventId.ToString(), userId));
 
-        AssertProblem(response, HttpStatusCode.BadRequest);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.BadRequest);
     }
 
     [Theory]
@@ -165,7 +160,7 @@ public class RoutingEndpointsTests
 
         using var response = await host.Client.GetAsync(RouteUrl(eventId, RoutingTestHost.AttendingUserId.ToString()));
 
-        AssertProblem(response, HttpStatusCode.BadRequest);
+        await ProblemResponseAssertions.AssertAsync(response, HttpStatusCode.BadRequest);
     }
 
     private sealed class FixedPlanner : IRoutePlanner

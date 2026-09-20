@@ -1,3 +1,4 @@
+using FlowBB.Api.Endpoints;
 using FlowBB.Application.Pulse.GetActivityMap;
 using FlowBB.Application.Pulse.GetEventPulse;
 using FlowBB.Application.Pulse.GetPulseHexagons;
@@ -25,7 +26,7 @@ public static class PulseEndpoints
         var group = app.MapGroup("/api/pulse").WithTags("Pulse");
 
         group.MapGet("/summary", GetSummaryAsync).WithName("getPulseSummary");
-        group.MapGet("/events/{eventId:guid}", GetEventPulseAsync).WithName("getEventPulse");
+        group.MapGet("/events/{eventId}", GetEventPulseAsync).WithName("getEventPulse");
         group.MapGet("/hexagons", GetHexagonsAsync).WithName("getPulseHexagons");
 
         return app;
@@ -38,31 +39,28 @@ public static class PulseEndpoints
     }
 
     private static async Task<IResult> GetEventPulseAsync(
-        Guid eventId, GetEventPulseHandler handler, CancellationToken cancellationToken)
+        string eventId, GetEventPulseHandler handler, CancellationToken cancellationToken)
     {
-        if (eventId == Guid.Empty)
+        if (!RouteIds.TryParse(eventId, out var eventGuid))
         {
-            return EventNotFound();
+            return ApiProblems.BadRequest("Path parameter 'eventId' must be a non-empty UUID.");
         }
 
-        var pulse = await handler.HandleAsync(eventId, cancellationToken);
-        return pulse is null ? EventNotFound() : TypedResults.Ok(pulse.ToResponse());
+        var pulse = await handler.HandleAsync(eventGuid, cancellationToken);
+        return pulse is null ? ApiProblems.NotFound("Event not found.") : TypedResults.Ok(pulse.ToResponse());
     }
 
     private static async Task<IResult> GetHexagonsAsync(
-        Guid? eventId, GetPulseHexagonsHandler handler, CancellationToken cancellationToken)
+        string? eventId, GetPulseHexagonsHandler handler, CancellationToken cancellationToken)
     {
-        if (eventId is null || eventId == Guid.Empty)
+        if (!RouteIds.TryParse(eventId, out var eventGuid))
         {
-            return TypedResults.Problem(title: "Query parameter 'eventId' is required.", statusCode: StatusCodes.Status400BadRequest);
+            return ApiProblems.BadRequest("Query parameter 'eventId' is required and must be a non-empty UUID.");
         }
 
-        var cells = await handler.HandleAsync(eventId.Value, cancellationToken);
+        var cells = await handler.HandleAsync(eventGuid, cancellationToken);
         return cells is null
-            ? EventNotFound()
+            ? ApiProblems.NotFound("Event not found.")
             : TypedResults.Json(cells.ToFeatureCollection(), contentType: GeoJsonContentType);
     }
-
-    private static IResult EventNotFound() =>
-        TypedResults.Problem(title: "Event not found.", statusCode: StatusCodes.Status404NotFound);
 }

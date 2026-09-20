@@ -28,6 +28,7 @@ public sealed class EventsTestHost : IAsyncDisposable
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseTestServer();
         builder.Logging.ClearProviders();
+        builder.Services.AddProblemDetails();
         builder.Services.AddEventsModule();
         builder.Services.AddSingleton(repository);
 

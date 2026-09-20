@@ -29,6 +29,7 @@ public sealed class AttendanceTestHost : IAsyncDisposable
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseTestServer();
         builder.Logging.ClearProviders();
+        builder.Services.AddProblemDetails();
         builder.Services.AddAttendanceModule();
         builder.Services.AddSingleton(repository);
         builder.Services.AddSingleton(notifier);

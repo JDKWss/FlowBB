@@ -34,6 +34,7 @@ public sealed class CrewsTestHost : IAsyncDisposable
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseTestServer();
         builder.Logging.ClearProviders();
+        builder.Services.AddProblemDetails();
         builder.Services.AddSingleton<ICrewRepository>(crews);
         builder.Services.AddSingleton<IEventLookup>(
             new FakeEventLookup(

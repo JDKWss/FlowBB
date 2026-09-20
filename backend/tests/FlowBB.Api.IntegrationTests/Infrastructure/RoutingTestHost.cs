@@ -49,6 +49,7 @@ public sealed class RoutingTestHost : IAsyncDisposable
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseTestServer();
         builder.Logging.ClearProviders();
+        builder.Services.AddProblemDetails();
         builder.Services.AddSingleton<IEventLookup>(new FakeEventLookup(existingEvent));
         builder.Services.AddSingleton<IAttendanceOriginLookup>(new FakeAttendanceOriginLookup(attendance));
         if (planner is not null)

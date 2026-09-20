@@ -1,4 +1,5 @@
 using System.Globalization;
+using FlowBB.Api.Endpoints;
 using FlowBB.Application.Abstractions.Persistence;
 using FlowBB.Application.Events;
 using FlowBB.Application.Events.GetEvent;
@@ -32,13 +33,13 @@ public static class EventsEndpoints
     {
         if (!TryParseInstant(from, out var fromValue) || !TryParseInstant(to, out var toValue))
         {
-            return BadRequest("Query parameters 'from' and 'to' must be ISO 8601 date-times.");
+            return ApiProblems.BadRequest("Query parameters 'from' and 'to' must be ISO 8601 date-times.");
         }
 
         var query = new GetEventsQuery(fromValue, toValue);
         if (!query.HasValidRange())
         {
-            return BadRequest("Query parameter 'from' cannot be later than 'to'.");
+            return ApiProblems.BadRequest("Query parameter 'from' cannot be later than 'to'.");
         }
 
         var events = await handler.HandleAsync(query, cancellationToken);
@@ -49,13 +50,13 @@ public static class EventsEndpoints
     private static async Task<IResult> GetEventAsync(
         string eventId, GetEventHandler handler, CancellationToken cancellationToken)
     {
-        if (!Guid.TryParse(eventId, out var id) || id == Guid.Empty)
+        if (!RouteIds.TryParse(eventId, out var id))
         {
-            return BadRequest("Path parameter 'eventId' must be a non-empty UUID.");
+            return ApiProblems.BadRequest("Path parameter 'eventId' must be a non-empty UUID.");
         }
 
         var details = await handler.HandleAsync(id, cancellationToken);
-        return details is null ? EventNotFound() : TypedResults.Ok(details.ToResponse());
+        return details is null ? ApiProblems.NotFound("Event not found.") : TypedResults.Ok(details.ToResponse());
     }
 
     private static bool TryParseInstant(string? raw, out DateTimeOffset? value)
@@ -74,10 +75,4 @@ public static class EventsEndpoints
         value = parsed;
         return true;
     }
-
-    private static IResult BadRequest(string title) =>
-        TypedResults.Problem(title: title, statusCode: StatusCodes.Status400BadRequest);
-
-    private static IResult EventNotFound() =>
-        TypedResults.Problem(title: "Event not found.", statusCode: StatusCodes.Status404NotFound);
 }
