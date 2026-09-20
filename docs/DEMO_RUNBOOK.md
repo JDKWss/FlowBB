@@ -11,17 +11,19 @@ zmapowany w `Program.cs`, nie jest dostepny w uruchomionym API.
 |---|---|---|---|
 | 1 | Uzytkownik otwiera wydarzenie w `/client` | `GET /api/events`, `GET /api/events/{id}` | endpointy, adapter Neo4j i mapowanie sa gotowe |
 | 2 | Klika "Ide" i wybiera srodek transportu | `POST /api/events/{id}/attendance` | endpoint, adapter Neo4j i mapowanie sa gotowe |
-| 3 | API zapisuje deklaracje w Neo4j | relacja `IS_GOING_TO` ze snapshotem | zapis pelnego snapshotu zostal zweryfikowany na Aura |
+| 3 | API zapisuje deklaracje w Neo4j | relacja `IS_GOING_TO` ze snapshotem | zapis pelnego snapshotu zweryfikowany testami na lokalnym Neo4j 5.26 Community (`FlowBB.Infrastructure.Tests`); na Aurze niepotwierdzony |
 | 4 | Backend przelicza agregaty | logika PULSE w C# | handlery i `IPulseDataReader` sa zarejestrowane |
 | 5 | SignalR wysyla `PulseUpdated` | hub `/hubs/pulse` | hub i publikacja po zatwierdzeniu Attendance sa podlaczone |
 | 6 | Dashboard pokazuje licznik bez odswiezania (`82 -> 83`) | `/dashboard`, klient SignalR | backend jest gotowy; pelny przebieg z dashboardem wymaga weryfikacji wzrokowej |
 | 7 | Uzytkownik widzi trase z `IRoutePlanner` | `GET /api/events/{id}/route?userId={userId}` | endpoint i `DemoRoutePlanner` dzialaja ze snapshotem Neo4j |
 | 8 | Uzytkownik dolacza do mikrogrupy CREW | `GET groups`, `POST/DELETE members` | kontrakt i ogolny model grafu istnieja; brak modulu Application/API |
-| 9 | Dashboard pokazuje popyt na mapie heksagonalnej | `GET /api/pulse/hexagons` | endpoint i agregacja na danych Aura zostaly zweryfikowane |
+| 9 | Dashboard pokazuje popyt na mapie heksagonalnej | `GET /api/pulse/hexagons` | endpoint i agregacja dzialaja na danych seedu demonstracyjnego (sprawdzone na lokalnym Neo4j 5.26 Community); na Aurze niepotwierdzone |
 
-Na prawdziwej instancji Aura zweryfikowano Events, idempotentny i rownolegly
-zapis Attendance, PULSE, heksagony oraz Routing. **Niezweryfikowane:** Crew
-i pelny przebieg SignalR z frontendem.
+Na lokalnym Neo4j 5.26 Community (Docker) zweryfikowano Events, idempotentny
+i rownolegly zapis Attendance, PULSE, heksagony oraz Routing (uruchomione API
+z seedem demonstracyjnym i testy `FlowBB.Infrastructure.Tests`). **Niezweryfikowane:**
+Neo4j Aura, endpointy Crew przez HTTP i pelny przebieg SignalR z frontendem (sam
+komunikat `PulseUpdated` sprawdzono klientem SignalR z Node, bez dashboardu).
 
 ## 2. Wymagania
 

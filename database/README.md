@@ -24,7 +24,7 @@ Wynik kontrolny: `SHOW CONSTRAINTS` pokazuje 8 constraintow `UNIQUENESS`, a `MAT
 
 ## Uruchomienie na Neo4j Aura
 
-Aura nie daje dostepu do powloki kontenera, wiec sa dwie drogi:
+Instrukcja ponizej **nie byla sprawdzana na Aurze** (weryfikacja: lokalny Neo4j 5.26 Community). Aura nie daje dostepu do powloki kontenera, wiec sa dwie drogi:
 
 1. **Konsola Aura (Query)**: otworz plik, wklej i uruchom kazdy blok od pierwszego slowa do srednika. Bloki sa niezalezne, wiec w razie bledu mozna wznowic od dowolnego miejsca.
 2. **`cypher-shell` z lokalnego komputera**:
@@ -41,7 +41,7 @@ Aura nie daje dostepu do powloki kontenera, wiec sa dwie drogi:
 - Konsekwencja: baza przyjmie wezel `Event` bez `Name`. Kompletnosc pol wymaganych pilnuja adaptery w `Infrastructure/Neo4j`, a nie schemat. Unikalnosc `EventId`, `UserId`, `VenueId`, `CrewId` jest wymuszana przez baze (duplikat konczy sie bledem).
 - Edycja Community obsluguje jedna baze uzytkownika, o nazwie `neo4j`. Dla lokalnego kontenera ustaw `NEO4J_DATABASE=neo4j`. Kod ma domyslnie `flowbb`, wiec bez tej zmiennej polaczenie z Community sie nie uda.
 - Unikalnosci relacji `IS_GOING_TO` nie wymusza constraint: ma ja gwarantowac `MERGE` na parze wezlow. Do potwierdzenia testem rownoleglych zapisow na prawdziwej instancji w issue #17.
-- Zachowania na Aura nie sprawdzano. Schemat jest zgodny z Aura, bo nie uzywa constraintow Enterprise.
+- Aury nie sprawdzano: schemat, seed i testy zweryfikowano wylacznie na lokalnym Neo4j 5.26 Community.
 
 ## Migracja z poprzedniego seedu
 
