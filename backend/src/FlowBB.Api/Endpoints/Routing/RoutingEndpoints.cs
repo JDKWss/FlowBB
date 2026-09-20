@@ -8,6 +8,22 @@ namespace FlowBB.Api.Endpoints.Routing;
 
 public static class RoutingEndpoints
 {
+    /// <summary>
+    /// Rejestruje modul trasy dla wybranego trybu. W trybie <see cref="RoutingMode.Demo"/> <c>IRoutePlanner</c> to
+    /// <c>DemoRoutePlanner</c> (bez wywolan uslugi drogowej); w <see cref="RoutingMode.RoadRouting"/> planer zlozony z fallbackiem.
+    /// </summary>
+    public static IServiceCollection AddRoutingModule(this IServiceCollection services, RoutingMode mode)
+    {
+        if (mode == RoutingMode.Demo)
+        {
+            // Musi byc przed AddRoutingModule(): TryAdd zachowuje pierwsza rejestracje IRoutePlanner.
+            services.TryAddSingleton<DemoRoutePlanner>();
+            services.TryAddTransient<IRoutePlanner>(provider => provider.GetRequiredService<DemoRoutePlanner>());
+        }
+
+        return services.AddRoutingModule();
+    }
+
     public static IServiceCollection AddRoutingModule(this IServiceCollection services)
     {
         services.TryAddSingleton<DemoRoutePlanner>();
