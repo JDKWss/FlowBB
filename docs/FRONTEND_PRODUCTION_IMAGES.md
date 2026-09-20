@@ -40,34 +40,20 @@ docker run --rm -p 5174:8080 \
 
 Endpoint healthcheck obu obrazow: `GET /healthz`.
 
-## Fragment Compose dla issue #111
+## Domyslny Compose
 
-Ponizszy fragment jest gotowy do wpiecia przez Backend 1 do
-`infra/docker-compose.yml`. Adres API jest adresem widocznym z przegladarki, a
-nie nazwa uslugi w sieci Compose.
+Client i Dashboard sa czescia domyslnego `infra/docker-compose.yml`. Pelny
+lokalny stack uruchamia jedna komenda:
 
-```yaml
-services:
-  client:
-    build:
-      context: ../client
-      args:
-        VITE_API_URL: ${FLOWBB_PUBLIC_API_URL:-http://localhost:8080}
-    environment:
-      VITE_API_URL: ${FLOWBB_PUBLIC_API_URL:-http://localhost:8080}
-    ports:
-      - "5173:8080"
-
-  dashboard:
-    build:
-      context: ../dashboard
-      args:
-        VITE_API_URL: ${FLOWBB_PUBLIC_API_URL:-http://localhost:8080}
-    environment:
-      VITE_API_URL: ${FLOWBB_PUBLIC_API_URL:-http://localhost:8080}
-    ports:
-      - "5174:8080"
+```bash
+cd infra
+docker compose up --build -d
 ```
+
+Compose przekazuje obu aplikacjom publiczny adres
+`http://localhost:8080`. Jest to adres widoczny z przegladarki, a nie nazwa
+uslugi w prywatnej sieci Compose. Frontendy czekaja na zdrowe API przed
+startem.
 
 ## Zachowanie SPA i cache
 
@@ -76,4 +62,3 @@ services:
 - Haszowane assety Vite maja dlugi cache.
 - `index.html` oraz `runtime-config.js` nie sa trwale cache'owane, aby zmiana
   konfiguracji byla widoczna po restarcie kontenera.
-

@@ -37,42 +37,61 @@ przegladarce; proba prezentacji z timerem pozostaje do wykonania.
 - Wolne miejsce na dysku: obrazy API i Neo4j oraz ich warstwy zajmuja kilka GB. Przy pelnym dysku Neo4j nie startuje (`No space left on device` w `docker logs`, kod wyjscia 70), a API startuje bez niego.
 - Tylko dla opcjonalnego realnego routingu drogowego (profil `real-routing`): dostep do internetu i wolumen `routing-data`
   przygotowany jednorazowo komenda `routing-prepare` (krok 4 ponizej). Domyslne demo tego nie potrzebuje i dziala bez internetu.
-- Neo4j: instancja Aura (patrz `backend/README.md`) albo lokalny kontener (profil `local-db`; w `.env`: `NEO4J_URI=neo4j://neo4j:7687`).
 - Przegladarka desktopowa dla `/dashboard`, przegladarka w mobilnym viewporcie dla `/client`.
-- Zadnych sekretow w repozytorium: hasla i dane polaczenia tylko w `.env` (ignorowany przez git), wzor w `.env.example`.
+
+Lokalne wartosci Neo4j i Seq sa jawna konfiguracja developerska w Compose, a
+nie sekretami produkcyjnymi. Podstawowy start nie wymaga pliku `.env` ani
+recznej konfiguracji.
 
 ## 3. Uruchomienie od czystego srodowiska
 
-1. Sklonuj repozytorium i przejdz na `develop`: `git clone https://github.com/JDKWss/FlowBB.git` i `git switch develop`.
-2. Skopiuj `.env.example` do `.env` i uzupelnij `NEO4J_URI`, `NEO4J_DATABASE`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`
-   (dla lokalnego kontenera dowolne nowe haslo). Jesli port 5341 jest zajety (np. przez lokalny Seq), ustaw `SEQ_HOST_PORT`.
-3. `NEO4J_SEED_ON_STARTUP=true` (domyslnie w `.env.example`) sprawia, ze API przy starcie wykonuje constraints i
-   `database/flowbb-demo-seed.cypher`. Compose przekazuje te zmienna do kontenera `api`. Seed jest idempotentny, ale
-   **kazdy restart API przywraca stan seedu** (deklaracje i czlonkostwa dodane w trakcie demo znikaja).
-4. **Tylko dla realnego routingu drogowego** (domyslnie pomin): ustaw w `.env` `ROUTING_MODE=RoadRouting` i przygotuj grafy
-   Walking/Bike/Car (jednorazowo, wymaga sieci i Overpass):
-   `docker compose -f infra/docker-compose.yml --env-file .env --profile routing-tools run --rm routing-prepare`.
-5. Uruchom stos (z lokalnym Neo4j; dla Aury pomin `--profile local-db`):
-   `docker compose -f infra/docker-compose.yml --env-file .env --profile local-db up --build -d`.
-   API czeka na zdrowy kontener Neo4j (ok. 30 s), a potem wykonuje seed.
-   **Domyslny start (`ROUTING_MODE=Demo`) nie tworzy kontenera `routing`**, wiec nic nie jest `unhealthy`, a `/route` zwraca
-   `plannerSource: Demo` bez wywolan uslugi drogowej, timeoutow i ostrzezen. Dla `RoadRouting` dodaj drugi profil:
-   `--profile local-db --profile real-routing`; przy braku grafow lub niedostepnej uslugi API wraca do `DemoRoutePlanner`
-   (log `Road routing unavailable ...`), a bledy logiczne (np. `route_not_found`) nie sa ukrywane.
-   **Kilka kopii repozytorium (worktree) na jednej maszynie:** domyslna nazwa projektu Compose to nazwa katalogu `infra`, wiec
-   kazda kopia dzieli wolumeny (m.in. haslo Neo4j z pierwszego startu), co konczy sie bledem logowania do Neo4j. Dodaj do kazdej
-   komendy `docker compose` wlasna nazwe projektu, np. `-p flowbb-demo` (kontenery to wtedy `flowbb-demo-api-1` itd.), oraz osobny
-   `SEQ_HOST_PORT`.
-6. Sprawdz zdrowie API: `GET http://localhost:8080/health` powinno zwrocic `200 {"status":"Healthy","timestamp":"..."}` (`/health/ready` sprawdza dodatkowo Neo4j). Wewnetrzny `/health` kontenera `routing` ma status `ready` tylko po zaladowaniu wszystkich trzech grafow.
-7. Otworz Scalar z OpenAPI (srodowisko Development): `http://localhost:8080/scalar`.
-8. Uruchom klienta: `cd client && npm ci && VITE_API_URL=http://localhost:8080 npm run dev`.
-9. Uruchom dashboard: `cd dashboard && npm ci && VITE_API_URL=http://localhost:8080 npm run dev -- --port 5174`.
-10. Uruchom smoke test (sekcja 5).
+1. Sklonuj repozytorium i wejdz do katalogu Compose: `cd infra`.
+2. Uruchom caly lokalny stack:
 
-API mozna tez uruchomic recznie: `dotnet run --project backend/src/FlowBB.Api --urls http://localhost:8080`.
+   ```bash
+   docker compose up --build -d
+   ```
+
+3. Sprawdz status i logi:
+
+   ```bash
+   docker compose ps
+   docker compose logs -f
+   ```
+
+   API czeka na zdrowy kontener Neo4j, a potem wykonuje constraints i
+   idempotentny seed demo. Domyslny `Routing__Mode=Demo` nie tworzy kontenera
+   `routing` i nie wywoluje prywatnej uslugi FastAPI.
+
+4. Sprawdz `GET http://localhost:8080/health` oraz
+   `GET http://localhost:8080/health/ready`; oba endpointy powinny zwrocic 200.
+5. Otworz Scalar z OpenAPI: `http://localhost:8080/scalar`.
+6. Otworz Client na `http://localhost:5173` i Dashboard na
+   `http://localhost:5174`; oba sa uruchamiane przez ten sam Compose.
+7. Uruchom smoke test z sekcji 5.
+
+Stop i pelny reset danych developerskich:
+
+```bash
+docker compose down
+docker compose down -v
+```
+
+### Opcjonalny RoadRouting
+
+Domyslny stack nie pobiera OSM ani nie uruchamia FastAPI. Aby swiadomie wlaczyc
+realny routing, przygotuj grafy, a potem uruchom profil runtime:
+
+```bash
+docker compose --profile routing-tools run --rm routing-prepare
+ROUTING_MODE=RoadRouting docker compose --profile real-routing up --build -d
+```
+
+Przy braku grafow lub niedostepnej usludze API moze uzyc kontrolowanego
+`DemoRoutePlanner`; bledy logiczne, takie jak `route_not_found`, nie sa ukrywane.
+
+API mozna tez uruchomic recznie z katalogu repozytorium: `dotnet run --project backend/src/FlowBB.Api --urls http://localhost:8080`.
 Glowny host udostepnia `/health`, `/health/ready`, `/hubs/pulse` oraz endpointy Events, Attendance, Crew, PULSE i Routing.
-Zatrzymanie i pelny reset lokalnego stanu (wolumeny Neo4j, Seq, routing); uwzglednij oba profile, jesli uzywales `real-routing`:
-`docker compose -f infra/docker-compose.yml --env-file .env --profile local-db --profile real-routing down -v`.
 
 ## 4. Docelowy przebieg prezentacji (10 minut)
 
@@ -146,17 +165,17 @@ pokrywa `PulseUpdatedSmokeTests` w `Smoke/`), ani zachowania frontendu. Krok 4 s
 - Skrypt smoke testu usuwa swoja deklaracje (`DELETE attendance` jest idempotentne).
 - Po pokazie usun deklaracje uzytkownika demo: `DELETE /api/events/{eventId}/attendance/{userId}` (204 nawet gdy jej nie ma)
   oraz opusc mikrogrupe: `DELETE /api/groups/{groupId}/members/{userId}`.
-- Reset danych demonstracyjnych bez kasowania wolumenow: zrestartuj API z `NEO4J_SEED_ON_STARTUP=true`
-  (`docker restart infra-api-1`). Pelny reset: `down -v` (sekcja 3).
+- Reset danych demonstracyjnych bez kasowania wolumenow: `docker compose restart api`
+  uruchamia idempotentny seed ponownie. Pelny reset: `docker compose down -v` (sekcja 3).
 
 ## 7. Plan awaryjny
 
 | Awaria | Objaw | Co robisz |
 |---|---|---|
-| Neo4j niedostepne | `/health` 200, ale `/health/ready` 503, a Attendance/PULSE zwracaja 500 | Przelacz na lokalny kontener (`--profile local-db`) i zaladuj seed ponownie; ostatecznie pokaz nagranie z backupu |
+| Neo4j niedostepne | `/health` 200, ale `/health/ready` 503, a Attendance/PULSE zwracaja 500 | Sprawdz `docker compose ps` i `docker compose logs neo4j`; w razie potrzeby wykonaj `docker compose down -v` i uruchom stack ponownie |
 | Brak internetu | Aura lub kafle mapy nieosiagalne | Lokalny kontener Neo4j; `DemoRoutePlanner` dziala offline. Proponowana prywatna usluga FastAPI ma korzystac z wczesniej przygotowanego lokalnego grafu, ale OpenFreeMap wymaga sieci, dopoki kafle/style nie sa osobno cache'owane |
 | Usluga routingu niedostepna lub graf niezaladowany | Health uslugi nie jest ready albo ASP.NET przekracza timeout | Przy `ROUTING_DEMO_FALLBACK_ENABLED=true` kompozyt automatycznie zwraca jawne `plannerSource: Demo`; nie obejmuje to blednego trybu, nieprawidlowych danych, uszkodzonej odpowiedzi ani `route_not_found` |
-| SignalR nie laczy sie | Licznik nie zmienia sie na zywo | Odswiez dashboard (odpowiedz REST zawiera aktualny licznik); sprawdz CORS i adres API w `.env` |
+| SignalR nie laczy sie | Licznik nie zmienia sie na zywo | Odswiez dashboard (odpowiedz REST zawiera aktualny licznik); sprawdz CORS oraz adres API Client/Dashboard |
 | Telefon nie widzi API | `/client` bez danych | Uzyj mobilnego viewportu w przegladarce na laptopie; awaryjnie tunel `cloudflared` do API |
 | Mapa pusta | Brak komorek na `/api/pulse/hexagons` | Za malo osob w jednej komorce (prog 10): dosiej dane demo lub zmniejsz rozmiar siatki (obecnie 900 m) - to decyzja Core Ownera |
 | Test smoke FAIL na demo | Skrypt konczy sie kodem 1 | Nie prezentuj kroku, ktory zawiodl; napraw przed pokazem, backup nagrania jako zapas |

@@ -74,13 +74,11 @@ Druga sa adaptery Neo4j - patrz [PERSISTENCE_PORTS.md](PERSISTENCE_PORTS.md).
 
 | Zrodlo | Klucze |
 |---|---|
-| `.env` (wzor w `.env.example`, `.env` nie trafia do repo) | `NEO4J_URI`, `NEO4J_DATABASE`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`, `ASPNETCORE_ENVIRONMENT`, `Cors__AllowedOrigins__0/1` |
 | `appsettings.json` | Serilog (Console + Seq na `http://localhost:5341`), `Cors:AllowedOrigins` (domyslnie `5173` i `5174`), `AllowedHosts` |
-| `infra/docker-compose.yml` | serwis `api` (port 8080) oraz `neo4j` w profilu `local-db` (szkic; docelowa konfiguracja z issue #8) |
+| `infra/docker-compose.yml` | Client, Dashboard oraz lokalne wartosci Development dla API, Neo4j, CORS, seedu, Routing Demo i Seq |
 
 CORS wymaga jawnej listy origin, bo polityka uzywa `AllowCredentials()` - wymaga tego SignalR.
-Wszystkie zmienne w Compose sa oznaczone `:?`, wiec brak wartosci w `.env` zatrzymuje start
-zamiast po cichu uruchomic API z bledna konfiguracja.
+Domyslny lokalny stack nie wymaga zmiennych srodowiskowych ani pliku `.env`.
 
 ## Weryfikacja
 

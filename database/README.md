@@ -11,13 +11,13 @@ Kolejnosc: najpierw `schema.cypher`, potem seed. Oba pliki mozna uruchamiac wiel
 
 ## Uruchomienie na lokalnym kontenerze
 
-Przy kontenerze `neo4j` z profilu `local-db` (`infra/docker-compose.yml`), z katalogu glownego repozytorium i z wczytanym `.env`:
+Domyslny start API wykonuje schemat i seed automatycznie. Ponizsze komendy sa
+potrzebne tylko do ich recznego uruchomienia na dzialajacym lokalnym stacku:
 
 ```bash
-docker compose --profile local-db exec -T neo4j \
-  cypher-shell -u "$NEO4J_USERNAME" -p "$NEO4J_PASSWORD" < database/schema.cypher
-docker compose --profile local-db exec -T neo4j \
-  cypher-shell -u "$NEO4J_USERNAME" -p "$NEO4J_PASSWORD" < database/flowbb-queries.cypher
+cd infra
+docker compose exec -T neo4j cypher-shell < ../database/schema.cypher
+docker compose exec -T neo4j cypher-shell < ../database/flowbb-queries.cypher
 ```
 
 Wynik kontrolny: `SHOW CONSTRAINTS` pokazuje 8 constraintow `UNIQUENESS`, a `MATCH (n) RETURN count(n)` po seedzie zwraca 20.
