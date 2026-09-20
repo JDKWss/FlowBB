@@ -6,14 +6,24 @@ namespace FlowBB.Application.AirQuality.GetEventAirQuality;
 
 public sealed record AirQualityPolicyOptions
 {
-    public AirQualityPolicyOptions(TimeSpan cacheLifetime, TimeSpan sourceTimeout, TimeSpan freshnessThreshold)
+    /// <summary>Domyslny krotki czas cache dla wyniku Fallback, zeby po awarii GIOS szybko wrocic do zrodla.</summary>
+    public static readonly TimeSpan DefaultFallbackCacheLifetime = TimeSpan.FromSeconds(60);
+
+    public AirQualityPolicyOptions(
+        TimeSpan cacheLifetime,
+        TimeSpan sourceTimeout,
+        TimeSpan freshnessThreshold,
+        TimeSpan? fallbackCacheLifetime = null)
     {
         CacheLifetime = RequirePositive(cacheLifetime, nameof(cacheLifetime));
+        FallbackCacheLifetime = RequirePositive(fallbackCacheLifetime ?? DefaultFallbackCacheLifetime, nameof(fallbackCacheLifetime));
         SourceTimeout = RequirePositive(sourceTimeout, nameof(sourceTimeout));
         FreshnessThreshold = RequirePositive(freshnessThreshold, nameof(freshnessThreshold));
     }
 
     public TimeSpan CacheLifetime { get; }
+
+    public TimeSpan FallbackCacheLifetime { get; }
 
     public TimeSpan SourceTimeout { get; }
 
@@ -50,10 +60,13 @@ public sealed class GetEventAirQualityHandler(
 
         return await cache.GetOrCreateAsync(
             eventId,
-            options.CacheLifetime,
+            LifetimeFor,
             token => LoadAsync(eventId, @event.Location, token),
             cancellationToken);
     }
+
+    private TimeSpan LifetimeFor(EventAirQuality result) =>
+        result.Status == AirQualityStatus.Fallback ? options.FallbackCacheLifetime : options.CacheLifetime;
 
     private async Task<EventAirQuality> LoadAsync(
         Guid eventId,

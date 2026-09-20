@@ -10,7 +10,7 @@ public sealed class MemoryAirQualityCache(IMemoryCache cache) : IAirQualityCache
 
     public async Task<T> GetOrCreateAsync<T>(
         Guid eventId,
-        TimeSpan lifetime,
+        Func<T, TimeSpan> lifetimeFor,
         Func<CancellationToken, Task<T>> factory,
         CancellationToken cancellationToken = default)
         where T : class
@@ -30,7 +30,7 @@ public sealed class MemoryAirQualityCache(IMemoryCache cache) : IAirQualityCache
             }
 
             var created = await factory(cancellationToken);
-            cache.Set(eventId, created, lifetime);
+            cache.Set(eventId, created, lifetimeFor(created));
             return created;
         }
         finally
