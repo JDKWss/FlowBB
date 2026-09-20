@@ -1,0 +1,6 @@
+{
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+  "title": "Path parameter 'eventId' must be a non-empty UUID.",
+  "status": 400,
+  "traceId": "00-demo-trace-400-00"
+}

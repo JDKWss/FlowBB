@@ -1,0 +1,13 @@
+{
+  "generatedAt": "2026-09-25T12:00:00Z",
+  "eventsCount": 2,
+  "participantsCount": 12,
+  "modalSplit": {
+    "publicTransport": 6,
+    "walking": 0,
+    "bike": 4,
+    "car": 2,
+    "unknown": 0
+  },
+  "participantsWithoutReturn": 0
+}
