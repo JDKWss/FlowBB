@@ -1,0 +1,11 @@
+<Project>
+  <!--
+    Analizatory .NET w buildzie (issue #101). Domyslny poziom analizy zostaje (0 ostrzezen), a wybrane reguly sa
+    wlaczane jako warning w .editorconfig. Pelny raport: dotnet build -p:AnalysisMode=Recommended (docs/CODE_QUALITY.md).
+    TreatWarningsAsErrors zostaje wylaczone do czasu decyzji po prezentacji.
+  -->
+  <PropertyGroup>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+</Project>
