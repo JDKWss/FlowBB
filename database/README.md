@@ -61,7 +61,24 @@ dotnet test backend/FlowBB.sln
 
 Bez URI i hasla testy adapterow sa **pomijane (Skipped)**, a nie zaliczane. Gdy URI i haslo sa ustawione, ale brakuje potwierdzenia jednorazowej bazy, testy koncza sie bledem przed utworzeniem polaczenia i pierwszym zapisem. Zielony `dotnet test` bez bazy nie dowodzi, ze adapter dziala: sprawdz w wyniku, ze testy `FlowBB.Infrastructure.Tests` nie sa pominiete.
 
-W CI ustaw `FLOWBB_NEO4J_TEST_CONFIRM_DISPOSABLE=true` tylko w jobie z tworzona na czas przebiegu usluga Neo4j. Issue #92 doda te konfiguracje do workflow; ten harness celowo nie zmienia plikow CI.
+W CI robi to `.github/workflows/neo4j-integration.yml`: usluga Neo4j 5.26 Community tworzona na czas przebiegu, `FLOWBB_NEO4J_TEST_CONFIRM_DISPOSABLE=true` tylko w tym jobie oraz krok, ktory konczy job bledem, gdy jakikolwiek test zostal pominiety (Skipped).
+
+### Reset bazy testowej
+
+Testy same sprzataja swoje dane (`TestRunId`), ale po przerwanym przebiegu moga zostac wezly. Najprosciej wyrzucic jednorazowy kontener razem z danymi:
+
+```bash
+docker rm -f flowbb-neo4j-test
+docker run -d --name flowbb-neo4j-test -p 127.0.0.1:17687:7687 \n  -e NEO4J_AUTH=neo4j/<haslo> neo4j:5.26.30-community
+```
+
+Zeby wyczyscic dane bez zatrzymywania kontenera (**tylko jednorazowa baza testowa**, nigdy baza aplikacji ani Aura):
+
+```bash
+docker exec flowbb-neo4j-test cypher-shell -u neo4j -p <haslo> "MATCH (n) DETACH DELETE n"
+```
+
+Schemat zostaje (constraints i indeksy), a fixture i tak stosuje go przy kazdym przebiegu.
 
 ## Seed demonstracyjny i inicjalizacja przy starcie API (`flowbb-demo-seed.cypher`)
 

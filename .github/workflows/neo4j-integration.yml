@@ -1,0 +1,90 @@
+name: Neo4j Integration
+
+# Testy adapterow Neo4j na prawdziwej, jednorazowej instancji (AGENTS.md sekcja 10). Osobny workflow od backend.yml,
+# bo wymaga uslugi bazy; job konczy sie bledem, gdy jakikolwiek test Neo4j zostal pominiety (Skipped).
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - "database/**"
+      - ".github/workflows/neo4j-integration.yml"
+  push:
+    branches:
+      - develop
+      - main
+    paths:
+      - "backend/**"
+      - "database/**"
+      - ".github/workflows/neo4j-integration.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: neo4j-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  neo4j-adapters:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      neo4j:
+        image: neo4j:5.26.30-community
+        env:
+          # Haslo jednorazowej bazy w kontenerze CI, ktory znika po jobie; to nie jest sekret aplikacji.
+          NEO4J_AUTH: neo4j/ci-only-password
+        ports:
+          - 7687:7687
+        options: >-
+          --health-cmd "cypher-shell -a neo4j://localhost:7687 -u neo4j -p ci-only-password 'RETURN 1'"
+          --health-interval 5s
+          --health-timeout 10s
+          --health-retries 20
+          --health-start-period 20s
+
+    env:
+      FLOWBB_NEO4J_TEST_URI: neo4j://localhost:7687
+      FLOWBB_NEO4J_TEST_DATABASE: neo4j
+      FLOWBB_NEO4J_TEST_USERNAME: neo4j
+      FLOWBB_NEO4J_TEST_PASSWORD: ci-only-password
+      FLOWBB_NEO4J_TEST_CONFIRM_DISPOSABLE: "true"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('backend/**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        run: dotnet restore backend/tests/FlowBB.Infrastructure.Tests/FlowBB.Infrastructure.Tests.csproj
+
+      - name: Run Neo4j adapter tests
+        run: >-
+          dotnet test backend/tests/FlowBB.Infrastructure.Tests/FlowBB.Infrastructure.Tests.csproj
+          --no-restore --configuration Release
+          --logger "trx;LogFileName=neo4j-tests.trx" --results-directory "$RUNNER_TEMP/trx"
+
+      # Zielony przebieg z pominietymi testami nie dowodzi, ze adaptery dzialaja na bazie.
+      - name: Fail when any test was skipped
+        run: |
+          trx="$RUNNER_TEMP/trx/neo4j-tests.trx"
+          skipped=$(grep -c 'outcome="NotExecuted"' "$trx" || true)
+          echo "Wykonane: $(grep -c 'outcome="Passed"' "$trx"), pominiete: $skipped"
+          if [ "$skipped" -ne 0 ]; then
+            echo "::error::$skipped testow zostalo pominietych - Neo4j nie byl dostepny dla wszystkich testow."
+            exit 1
+          fi
