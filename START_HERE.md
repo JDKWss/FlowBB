@@ -66,12 +66,16 @@ Otworz repo jako workspace. W zadaniu wybierz wlasciwa persone z `.agents/agents
 Przeczytaj AGENTS.md i contracts/. Potwierdz granice roli @nazwa-roli. Nie edytuj plikow, dopoki nie podasz planu i testu akceptacyjnego.
 ```
 
-## 5. Pierwotne przypisania implementacyjne
+## 5. Przypisania implementacyjne
 
-1. Core Backend Owner (Kuba) + `@core-backend` i `@integration-backend`: integracja backendu i `Program.cs`, Attendance (po Events), SignalR i `PulseUpdated`, PULSE API, routing i `DemoRoutePlanner`, Docker Compose calej aplikacji.
-2. Backend Events + `@events-backend`: endpointy Events i `IEventLookup`.
-3. Frontend Lead + `@frontend`: dwa projekty React + Vite + TypeScript - `/client` z przeplywem Events -> Event -> Ide -> Route -> Crew oraz `/dashboard` z klientem SignalR.
-4. Data/Neo4j Owner + `@data`: schemat i seed Neo4j (pola Events i Attendance z `docs/NEO4J_CONTRACT.md`), gesty seed punktow startowych wystarczajacy do widocznych heksagonow oraz przygotowanie i konsultacje czesci Docker Compose dotyczacej Neo4j (do calego Compose wlacza ja Core Backend Owner).
+| Rola / persona | Odpowiedzialnosc | Wylaczna wlasnosc |
+|---|---|---|
+| Frontend Owner (`@frontend`) | Client i Dashboard | `client/**`, `dashboard/**` |
+| Backend 1 - Core/Integration (`@backend-core`, Kuba) | PULSE, Routing, SignalR, konfiguracja aplikacji i Compose | `Program.cs`, PULSE, Routing, SignalR, `infra/docker-compose.yml` |
+| Backend 2 - Features/Quality (`@backend-features`) | Events, Crew, OpenAPI, CI, testy black-box i dokumentacja | Events, Crew, `contracts/openapi.yaml`, `.github/workflows/**`, runbook |
+| Data/Neo4j Owner (`@data`) | model grafu, adaptery, Cypher, seed i testy na prawdziwym Neo4j | `backend/src/FlowBB.Infrastructure/Neo4j/**`, `database/**`, `docs/NEO4J_CONTRACT.md` |
+
+Kuba pozostaje liderem projektu oraz zatwierdza kontrakty i nowe zaleznosci. `contracts/openapi.yaml` edytuje Backend 2 po jego akceptacji.
 
 Pierwsza wspolna bramka: przegladarka `/client` -> API -> Neo4j -> SignalR -> dashboard.
 
@@ -79,7 +83,11 @@ Baza runtime to Neo4j ([ADR 001](docs/adr/001-runtime-persistence.md)); PostgreS
 
 ## 6. Bezpieczna praca rownolegla
 
-- Jedna osoba = jedna galaz i jeden worktree.
+- Jedno issue = jedna galaz = jeden PR; jedna osoba ma najwyzej jedno aktywne issue.
+- Testy potrzebne do ukonczenia funkcji sa czescia tego samego issue.
+- Dwa rownolegle zadania nie moga modyfikowac tych samych plikow.
+- Zmiana wspolnego kontraktu musi zostac scalona przed zalezna implementacja.
+- Jedna osoba = jeden worktree dla aktywnego zadania.
 - Agent moze edytowac tylko worktree wlasciciela zadania.
 - Czlowiek przeglada diff i wykonuje commit.
 - Integrujcie po malych pionowych fragmentach, nie dopiero na koniec.
