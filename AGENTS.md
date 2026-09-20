@@ -201,7 +201,7 @@ EVENT  PulseUpdated
 
 - Obecne dane MZK (`data/gtfs/mzk/parsed/`) to odjazdy z przystankow. Nie zawieraja jeszcze pelnych kursow (trips), kolejnosci przystankow, kompletnego powiazania kursow ani wspolrzednych wszystkich przystankow.
 - Nie opisuj ich jako kompletnego systemu routingu. Dane MZK moga pozniej wzbogacac informacje transportowe, ale nie zasilaja obecnego planera.
-- Routing drogowy Walking/Bike/Car dziala przez prywatna usluge Python/FastAPI w tym samym Docker Compose. Tylko ASP.NET komunikuje sie z nia przez wewnetrzny REST; przegladarka nigdy nie wywoluje jej bezposrednio. PublicTransport i kontrolowany fallback obsluguje `DemoRoutePlanner`. Szczegoly: `docs/ROUTING_SERVICE.md` i ADR 002 o statusie `Proposed`.
+- Routing drogowy Walking/Bike/Car dziala przez prywatna usluge Python/FastAPI w tym samym Docker Compose. Tylko ASP.NET komunikuje sie z nia przez wewnetrzny REST; przegladarka nigdy nie wywoluje jej bezposrednio. PublicTransport i kontrolowany fallback obsluguje `DemoRoutePlanner`. Szczegoly: `docs/ROUTING_SERVICE.md` i ADR 002 o statusie `Accepted for the MVP`.
 
 ### Ogolne
 

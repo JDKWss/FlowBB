@@ -16,7 +16,7 @@ popytu transportowego dla miasta (PULSE).
 - [docs/AIR_QUALITY.md](docs/AIR_QUALITY.md) — kontrakt, polityki i zweryfikowane warunki integracji Air Quality z GIOŚ.
 - [routing-service/README.md](routing-service/README.md) — przygotowanie grafow, uruchomienie i testy prywatnej uslugi FastAPI.
 - [dashboard/README.md](dashboard/README.md) — uruchomienie desktopowego PULSE i lekkiego przeplywu `Add event`.
-- [ADR 002](docs/adr/002-road-routing-engine.md) — propozycja prywatnej uslugi Python/FastAPI dla routingu Walking/Bike/Car; status `Proposed`.
+- [ADR 002](docs/adr/002-road-routing-engine.md) — prywatna usluga Python/FastAPI dla routingu Walking/Bike/Car; status `Accepted for the MVP` (produkcyjna akceptacja otwarta).
 
 Dokumenty planistyczne i ADR-y moga zachowywac kontekst historyczny. Biezacy
 stan implementacji zawsze nalezy weryfikowac w kodzie na `develop`.

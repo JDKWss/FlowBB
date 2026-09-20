@@ -1,13 +1,14 @@
 # FlowBB road-routing service
 
-Status: **Integrated for the local end-to-end demo; ADR 002 remains Proposed**
+Status: **Integrated for the local end-to-end demo; ADR 002 accepted for the MVP (2026-09-20), production acceptance open**
 Decision record: [ADR 002](adr/002-road-routing-engine.md)
 
 Implementation status on `develop` (2026-09-20): the private FastAPI service,
 OSMnx artifact builder, private Compose services, ASP.NET adapter and composite
 planner are wired. Walking/Bike/Car return `RoadRouting` with distance and
 GeoJSON; PublicTransport and controlled transient fallback use `Demo`.
-ADR 002 remains `Proposed`; integration does not change its governance status.
+ADR 002 is accepted for the MVP with `DemoRoutePlanner` as the default mode and fallback; the measured gate in
+section 15 and production acceptance are tracked in #127 and #110, OSM attribution in #128.
 
 ## 1. Purpose
 
@@ -521,7 +522,8 @@ defer real routing.
 - worker count, given that each worker may duplicate in-memory graphs;
 - whether P0 requires maneuvers or allows `steps: []`;
 - OSM attribution presentation and artifact refresh owner;
-- production acceptance of ADR 002 and the operational ownership that follows.
+- production acceptance of ADR 002 and the operational ownership that follows (#110; measured gate: #127;
+  OSM attribution: #128). The MVP acceptance is recorded in ADR 002, section "Decision record".
 
 The public contract delta is implemented: `PlannerSource.RoadRouting`, total
 distance and GeoJSON LineString are mapped without exposing engine-specific
