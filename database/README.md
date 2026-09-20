@@ -43,6 +43,12 @@ Instrukcja ponizej **nie byla sprawdzana na Aurze** (weryfikacja: lokalny Neo4j 
 - Unikalnosci relacji `IS_GOING_TO` nie wymusza constraint: ma ja gwarantowac `MERGE` na parze wezlow. Do potwierdzenia testem rownoleglych zapisow na prawdziwej instancji w issue #17.
 - Aury nie sprawdzano: schemat, seed i testy zweryfikowano wylacznie na lokalnym Neo4j 5.26 Community.
 
+## Przeglad indeksow PULSE (#102)
+
+Plany `EXPLAIN` i `PROFILE` sprawdzono na Neo4j 5.26.30 Community. Odczyt pojedynczego wydarzenia po `EventId` korzysta z `NodeUniqueIndexSeek` na istniejacym `event_id_unique`, a potem przechodzi relacje `IS_GOING_TO` przez `Expand(All)`. Zbiorczy odczyt summary celowo obejmuje wszystkie wydarzenia: plan uzywa `NodeByLabelScan` dla `Event`, a nastepnie `OptionalExpand(All)` po `IS_GOING_TO`.
+
+Nie dodano nowego indeksu. Zbiorczy odczyt nie ma selektywnego predykatu, wiec indeksy na `TransportMode`, wspolrzednych relacji ani `Event.StartAt` nie ograniczylyby liczby odczytywanych rekordow. `event_start_at` pozostaje potrzebny zapytaniom listy wydarzen, ale summary nie sortuje wynikow, poniewaz kolejnosc nie wplywa na agregaty. Ponowny przeglad ma sens po dodaniu filtrowania summary po czasie lub obszarze.
+
 ## Migracja z poprzedniego seedu
 
 Seed przenosi dane ze starszych wersji: ustawia `DefaultOriginLatitude`/`DefaultOriginLongitude` i usuwa `HomeLatitude`/`HomeLongitude` oraz `DemoData`. Ponowne uruchomienie na bazie po starszym seedzie nie wymaga czyszczenia danych. Snapshot `IS_GOING_TO` (`TransportMode`, `OriginLatitude`, `OriginLongitude`, `UpdatedAt`) i `MEMBER_OF.JoinedAt` sa uzupelniane na istniejacych relacjach.
