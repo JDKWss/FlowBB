@@ -5,7 +5,9 @@ using FlowBB.Application.Events;
 using FlowBB.Application.Events.CreateEvent;
 using FlowBB.Application.Events.GetEvent;
 using FlowBB.Application.Events.GetEvents;
+using Microsoft.AspNetCore.OpenApi;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.OpenApi;
 
 namespace FlowBB.Api.Endpoints.Events;
 
@@ -27,13 +29,26 @@ public static class EventsEndpoints
         group.MapGet("/", GetEventsAsync).WithName("getEvents");
         group.MapPost("/", CreateEventAsync)
             .WithName("createEvent")
-            .Accepts<CreateEventRequest>("application/json")
+            // Bez .Accepts(): routing odrzucalby inny Content-Type kodem 415 bez ProblemDetails. Body czytamy recznie
+            // (ApiRequests), a blad zwracamy jako 400 problem+json, jak pozostale endpointy; opis body dodaje transformer.
+            .AddOpenApiOperationTransformer(DescribeCreateEventBodyAsync)
             .Produces<EventDetailsResponse>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status500InternalServerError);
         group.MapGet("/{eventId}", GetEventAsync).WithName("getEventById");
 
         return app;
+    }
+
+    private static async Task DescribeCreateEventBodyAsync(
+        OpenApiOperation operation, OpenApiOperationTransformerContext context, CancellationToken cancellationToken)
+    {
+        var schema = await context.GetOrCreateSchemaAsync(typeof(CreateEventRequest), parameterDescription: null, cancellationToken);
+        operation.RequestBody = new OpenApiRequestBody
+        {
+            Required = true,
+            Content = new Dictionary<string, OpenApiMediaType> { ["application/json"] = new() { Schema = schema } }
+        };
     }
 
     private static async Task<IResult> GetEventsAsync(

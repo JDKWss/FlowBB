@@ -54,6 +54,21 @@ public sealed class RuntimeApiDocumentationTests(WebApplicationFactory<Program> 
     }
 
     [Fact]
+    public async Task GeneratedDocument_DescribesTheCreateEventRequestBody()
+    {
+        using var client = CreateClient("Development");
+
+        var document = await client.GetFromJsonAsync<JsonElement>("/openapi/v1.json");
+
+        var body = document.GetProperty("paths").GetProperty("/api/events").GetProperty("post").GetProperty("requestBody");
+        body.GetProperty("required").GetBoolean().Should().BeTrue();
+        var schema = body.GetProperty("content").GetProperty("application/json").GetProperty("schema");
+        schema.GetProperty("properties").EnumerateObject().Select(property => property.Name).Should().Contain(
+            ["name", "description", "startAt", "venueName", "category", "location"],
+            "the body is documented by an operation transformer, since the endpoint no longer declares Accepts()");
+    }
+
+    [Fact]
     public async Task Scalar_IsServedInDevelopment()
     {
         using var client = CreateClient("Development");
