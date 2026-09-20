@@ -55,6 +55,10 @@ Task<PulseEventInfo?>              GetEventAsync(Guid eventId, CancellationToken
 Task<IReadOnlyList<PulseEventInfo>> GetEventsAsync(CancellationToken ct = default);
 ```
 
+`PulseEventInfo.EndAt` (`DateTimeOffset?`, domyslnie `null`) to wejscie reguly luki powrotowej
+([MODULE_PULSE.md](MODULE_PULSE.md)). Adapter powinien je wypelniac koncem wydarzenia; do czasu #86 adapter Neo4j
+zwraca `null`, co oznacza brak luki.
+
 `GetPointsAsync` zwraca **jeden punkt na deklaracje**, bez `userId`. To jedyne miejsce,
 w ktorym wspolrzedne uzytkownikow wchodza do backendu; dalej sa juz tylko agregowane.
 

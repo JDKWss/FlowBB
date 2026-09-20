@@ -6,11 +6,11 @@ namespace FlowBB.Api.IntegrationTests.Infrastructure;
 /// <summary>Fake portu odczytu PULSE dla testow integracyjnych API (bez prawdziwego Neo4j).</summary>
 public sealed class FakePulseDataReader : IPulseDataReader
 {
-    private readonly Dictionary<Guid, (string Name, List<PulsePoint> Points)> _events = [];
+    private readonly Dictionary<Guid, (string Name, List<PulsePoint> Points, DateTimeOffset? EndAt)> _events = [];
 
-    public FakePulseDataReader AddEvent(Guid id, string name, IEnumerable<PulsePoint> points)
+    public FakePulseDataReader AddEvent(Guid id, string name, IEnumerable<PulsePoint> points, DateTimeOffset? endAt = null)
     {
-        _events[id] = (name, points.ToList());
+        _events[id] = (name, points.ToList(), endAt);
         return this;
     }
 
@@ -18,8 +18,8 @@ public sealed class FakePulseDataReader : IPulseDataReader
         Task.FromResult<IReadOnlyList<PulsePoint>>(_events.TryGetValue(eventId, out var e) ? e.Points : []);
 
     public Task<PulseEventInfo?> GetEventAsync(Guid eventId, CancellationToken cancellationToken = default) =>
-        Task.FromResult(_events.TryGetValue(eventId, out var e) ? new PulseEventInfo(eventId, e.Name) : null);
+        Task.FromResult(_events.TryGetValue(eventId, out var e) ? new PulseEventInfo(eventId, e.Name, e.EndAt) : null);
 
     public Task<IReadOnlyList<PulseEventInfo>> GetEventsAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult<IReadOnlyList<PulseEventInfo>>(_events.Select(e => new PulseEventInfo(e.Key, e.Value.Name)).ToList());
+        Task.FromResult<IReadOnlyList<PulseEventInfo>>(_events.Select(e => new PulseEventInfo(e.Key, e.Value.Name, e.Value.EndAt)).ToList());
 }
