@@ -25,8 +25,6 @@ param(
     [Guid]$CrewEventId = '11111111-1111-1111-1111-111111111111',
     [ValidateSet('Walking', 'PublicTransport', 'Bike', 'Car', 'Unknown')]
     [string]$TransportMode = 'PublicTransport',
-    [double]$OriginLatitude = 49.82245,
-    [double]$OriginLongitude = 19.04431,
     [switch]$KeepData
 )
 
@@ -199,20 +197,23 @@ Test-Step 'GET /api/pulse/hexagons (GeoJSON, prywatnosc count >= 10)' {
     "$shown komorek, wszystkie >= 10 osob, bez userId"
 }
 
-# 9. Trasa (Demo planner). Kontrakt: GET ?userId= (develop) lub POST z origin (develop-client) - probujemy obu.
-Test-Step 'Trasa z DemoRoutePlanner (deterministyczna)' {
-    $path = "/api/events/$EventId/route"
-    $get = { Invoke-Api GET "$path`?userId=$UserId" }
-    $post = { Invoke-Api POST $path @{ userId = "$UserId"; origin = @{ latitude = $OriginLatitude; longitude = $OriginLongitude } } }
-    $r = & $get
-    if ($r.Status -eq 405 -or $r.Status -eq 400) { $call = $post; $r = & $call } else { $call = $get }
+# 9. Trasa. Kontrakt: GET /api/events/{id}/route?userId=. Domyslny tryb transportu to PublicTransport, ktory zawsze idzie przez
+# planer demo; dla Walking/Bike/Car plannerSource moze byc tez RoadRouting (usluga routingu z przygotowanymi grafami).
+Test-Step 'Trasa z planera (deterministyczna)' {
+    $call = { Invoke-Api GET "/api/events/$EventId/route?userId=$UserId" }
+    $r = & $call
     if (-not $r.Mounted) { return $null }
     Assert-That ($r.Status -eq 200) "oczekiwano 200, jest $($r.Status): $($r.Raw)"
-    Assert-That ($r.Json.plannerSource -eq 'Demo') "plannerSource=$($r.Json.plannerSource), oczekiwano Demo"
+    if ($TransportMode -eq 'PublicTransport') {
+        Assert-That ($r.Json.plannerSource -eq 'Demo') "plannerSource=$($r.Json.plannerSource), oczekiwano Demo"
+    }
+    else {
+        Assert-That ($r.Json.plannerSource -in @('Demo', 'RoadRouting')) "plannerSource=$($r.Json.plannerSource), oczekiwano Demo lub RoadRouting"
+    }
     Assert-That ($null -ne $r.Json.outbound -and $null -ne $r.Json.returns) 'brak outbound lub returns'
     $again = & $call
     Assert-That ($again.Raw -eq $r.Raw) 'dwa wywolania daly rozne trasy (planer nie jest deterministyczny)'
-    "plannerSource=Demo, wynik powtarzalny"
+    "plannerSource=$($r.Json.plannerSource), wynik powtarzalny"
 }
 
 # 10. Crew: lista, dolaczenie (idempotentne), opuszczenie
