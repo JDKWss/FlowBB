@@ -128,13 +128,24 @@ boundary is documented in [ROUTING_SERVICE.md](ROUTING_SERVICE.md).
 
 Current dashboard runtime path
 
-- `VITE_API_URL` is normalized once in `dashboardService`.
+- Runtime `VITE_API_URL` is written to `/runtime-config.js` by the production
+  container and takes precedence over the build-time `VITE_API_URL`; the
+  selected value is normalized once in the frontend API config.
 - TanStack Query owns Events and PULSE server state.
 - Zod validates all REST responses and the `PulseUpdated` message.
 - SignalR uses automatic reconnect; REST remains usable while it is offline.
 - Client i Dashboard pobieraja Air Quality wylacznie z endpointu FlowBB;
   stany `Fresh`, `Stale` i `Fallback` nie blokuja pozostalych widokow.
 - The default runtime has no fixture fallback.
+
+Production images
+
+- `/client` and `/dashboard` have independent multi-stage Docker images that
+  serve their Vite builds through Nginx on port `8080`.
+- Both images support SPA fallback, `GET /healthz`, a build-time API URL
+  default and a runtime override without rebuilding the image.
+- Build, run and Compose handoff instructions are in
+  [FRONTEND_PRODUCTION_IMAGES.md](FRONTEND_PRODUCTION_IMAGES.md).
    API and contract rules
    For both applications:
 
