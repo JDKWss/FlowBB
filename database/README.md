@@ -49,16 +49,19 @@ Seed przenosi dane ze starszych wersji: ustawia `DefaultOriginLatitude`/`Default
 
 ## Testy adapterow na prawdziwym Neo4j
 
-Testy w `backend/tests/FlowBB.Infrastructure.Tests` lacza sie z prawdziwa instancja, ustawiana zmiennymi `FLOWBB_NEO4J_TEST_URI`, `FLOWBB_NEO4J_TEST_PASSWORD` (oraz opcjonalnie `..._USERNAME` i `..._DATABASE`, domyslnie `neo4j`). Sa to celowo inne zmienne niz `NEO4J_*`, zeby testy nie trafily przypadkiem w baze aplikacji: **wskazuj tylko jednorazowa instancje**, bo testy zapisuja i usuwaja dane. Fixture stosuje prawdziwy `schema.cypher`, a dane testowe usuwa po przebiegu.
+Testy w `backend/tests/FlowBB.Infrastructure.Tests` lacza sie z prawdziwa instancja, ustawiana zmiennymi `FLOWBB_NEO4J_TEST_URI`, `FLOWBB_NEO4J_TEST_PASSWORD` (oraz opcjonalnie `..._USERNAME` i `..._DATABASE`, domyslnie `neo4j`). Sa to celowo inne zmienne niz `NEO4J_*`, zeby testy nie trafily przypadkiem w baze aplikacji. Testy zapisuja i usuwaja dane, dlatego wymagaja tez jawnego `FLOWBB_NEO4J_TEST_CONFIRM_DISPOSABLE=true`. Fixture odmawia pracy z Neo4j Aura nawet przy takim potwierdzeniu. Wskazuj wylacznie jednorazowa instancje; fixture stosuje prawdziwy `schema.cypher`, a dane testowe usuwa po przebiegu.
 
 ```bash
 docker run -d --name flowbb-neo4j-test -p 127.0.0.1:17687:7687 \
   -e NEO4J_AUTH=neo4j/<haslo> neo4j:5.26.30-community
 export FLOWBB_NEO4J_TEST_URI=neo4j://127.0.0.1:17687 FLOWBB_NEO4J_TEST_PASSWORD=<haslo>
+export FLOWBB_NEO4J_TEST_CONFIRM_DISPOSABLE=true
 dotnet test backend/FlowBB.sln
 ```
 
-Bez tych zmiennych testy adapterow sa **pomijane (Skipped)**, a nie zaliczane. Zielony `dotnet test` bez bazy nie dowodzi, ze adapter dziala: sprawdz w wyniku, ze testy `FlowBB.Infrastructure.Tests` nie sa pominiete.
+Bez URI i hasla testy adapterow sa **pomijane (Skipped)**, a nie zaliczane. Gdy URI i haslo sa ustawione, ale brakuje potwierdzenia jednorazowej bazy, testy koncza sie bledem przed utworzeniem polaczenia i pierwszym zapisem. Zielony `dotnet test` bez bazy nie dowodzi, ze adapter dziala: sprawdz w wyniku, ze testy `FlowBB.Infrastructure.Tests` nie sa pominiete.
+
+W CI ustaw `FLOWBB_NEO4J_TEST_CONFIRM_DISPOSABLE=true` tylko w jobie z tworzona na czas przebiegu usluga Neo4j. Issue #92 doda te konfiguracje do workflow; ten harness celowo nie zmienia plikow CI.
 
 ## Seed demonstracyjny i inicjalizacja przy starcie API (`flowbb-demo-seed.cypher`)
 
@@ -112,4 +115,4 @@ PULSE nie jest osobną bazą ani zapisanym licznikiem. API odczytuje snapshoty r
 
 ### Testy integracyjne Neo4j
 
-Testy `FlowBB.Infrastructure.Tests` lacza sie z jednorazowa instancja Neo4j ustawiana zmiennymi `FLOWBB_NEO4J_TEST_URI` i `FLOWBB_NEO4J_TEST_PASSWORD` (opcjonalnie `..._USERNAME`, `..._DATABASE`, domyslnie `neo4j`). Sa to celowo inne zmienne niz `NEO4J_*`, zeby testy nie trafily w baze aplikacji (np. Aura z `.env`). Bez nich testy sa pomijane (`Skipped`), a zwykly `dotnet test` nie wymaga bazy. Szczegoly i przyklad uruchomienia: sekcja „Testy adapterow na prawdziwym Neo4j" wyzej. Testy tworza izolowane dane i usuwaja je po sobie, nie wypisuja sekretow ani dokladnych wspolrzednych.
+Testy `FlowBB.Infrastructure.Tests` lacza sie z jednorazowa instancja Neo4j ustawiana zmiennymi `FLOWBB_NEO4J_TEST_URI`, `FLOWBB_NEO4J_TEST_PASSWORD` i `FLOWBB_NEO4J_TEST_CONFIRM_DISPOSABLE=true` (opcjonalnie `..._USERNAME`, `..._DATABASE`, domyslnie `neo4j`). Sa to celowo inne zmienne niz `NEO4J_*`, zeby testy nie trafily w baze aplikacji. Hosty Aura sa zawsze odrzucane. Bez URI i hasla testy sa pomijane (`Skipped`), a zwykly `dotnet test` nie wymaga bazy; konfiguracja polaczenia bez potwierdzenia konczy sie bledem przed pierwszym zapisem. Szczegoly i przyklad uruchomienia: sekcja „Testy adapterow na prawdziwym Neo4j" wyzej. Testy tworza izolowane dane i usuwaja je po sobie, nie wypisuja sekretow ani dokladnych wspolrzednych.
