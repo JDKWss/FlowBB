@@ -23,13 +23,14 @@ Rola integracyjna nalezy do Core Backend Ownera: integracja backendu, `Program.c
 |---|---|---|---|
 | Events | Domain, Application (`Events/*`), Api (`Endpoints/Events`), Infrastructure/Neo4j (odczyt) | domena, `IEventLookup`, endpointy i adapter Neo4j sa zaimplementowane | tak |
 | Attendance | Application, Api, SignalR (`Hubs`) | encja, handlery, endpointy, testy i adapter `IAttendanceRepository` dla Neo4j sa zaimplementowane | tak |
-| Crew | Domain (`Crews`), Application (`Crews/*`), Api, Infrastructure/Neo4j | handlery, endpointy i adapter Neo4j sa zaimplementowane | tak |
+| Crew | Domain (`Crews`), Application (`Crews/*`), Api, Infrastructure/Neo4j | domena, handlery, endpointy (`GET groups`, `POST/DELETE members`) i adapter Neo4j sa zaimplementowane | tak |
 | PULSE | Application (`Pulse/*`), Api, `Hubs` | handlery agregacji, endpointy, testy i adapter `IPulseDataReader` dla Neo4j sa zaimplementowane | tak |
 | Routing | Domain (`Routing`), Application (`Abstractions/Routing`, `Routing`), Infrastructure (`Routing`), Api (`Endpoints/Routing`); prywatna usluga Python/FastAPI | kompozyt kieruje Walking/Bike/Car do FastAPI, PublicTransport do `DemoRoutePlanner`; publiczna odpowiedz zawiera opcjonalny dystans i GeoJSON | tak, `CompositeRoutePlanner` |
 | SignalR | Api (`Hubs`) | hub i notifier istnieja; `/hubs/pulse` jest mapowany | tak |
 
-Uruchamiany host mapuje `/health`, Events, Attendance, PULSE, Routing,
-`/hubs/pulse` oraz dokumentacje API w srodowisku Development.
+Uruchamiany host mapuje `/health`, `/health/ready`, Events, Attendance, Crew, PULSE, Routing,
+`/hubs/pulse` oraz dokumentacje API w srodowisku Development. Start calego stosu i smoke test:
+[`DEMO_RUNBOOK.md`](DEMO_RUNBOOK.md), sekcja 10.
 
 Zasady: agent pracujacy nad Attendance nie implementuje Events (uzywa `IEventLookup`, w testach fake'a). Nie tworzymy produkcyjnego `DemoEventLookup`.
 
@@ -88,8 +89,16 @@ Tej zmiany nie robi sie w ramach dokumentacji. Kazda pozycja wymaga osobnego zad
 | 3 | Stary model `FlowBB.Domain.Models.Event` pozostaje do posprzatania po MVP | Porzadki | Data/Neo4j + Backend Events |
 | 4 | `PLAN_EVENTS_LOAD.md` zachowuje historyczny plan PostGIS/EF Core; aktualny importer wydarzen do Neo4j nie istnieje | MVP | Backend Events + Data/Neo4j |
 | 5 | Dane MZK nie maja pelnych trips, kolejnosci przystankow, powiazania kursow i wszystkich wspolrzednych; nie sa grafem routingu | Po MVP | Core Backend Owner |
+| 6 | Kontener `routing` jest `unhealthy` bez recznego `routing-prepare` (brak grafow). Nie blokuje API; do decyzji, czy Compose ma go pomijac w trybie demo | Porzadki | Core Backend Owner |
 
 ### Rozwiazane od utworzenia planu
+
+- Crew: domena, Application, endpointy i adapter Neo4j sa zarejestrowane w API (#54).
+- `/health` i `/health/ready` (Neo4j) zgodne z `HealthResponse` z OpenAPI (#55, #52).
+- Compose przekazuje `NEO4J_SEED_ON_STARTUP` do `api`, a API czeka na zdrowy lokalny Neo4j (#57).
+- Seed ma 84 syntetycznych uzytkownikow: 82 uczestnikow oraz dwa wolne konta demo. Smoke test uzywa `aaaaaaaa-...`, a klient `dddddddd-...`; pierwszy POST na `1111...` pokazuje `82 -> 83`.
+- Zweryfikowane: start od czystego srodowiska, seed, restart API i `infra/smoke-test.ps1` (13 PASS, 0 FAIL, 0 SKIP)
+  na lokalnym Neo4j; wynik w `DEMO_RUNBOOK.md`, sekcja 10.
 
 - `Event` uzywa `Name`, `StartAt`, opcjonalnego `EndAt` oraz kanonicznych
   `Category` i `Source`.
@@ -98,8 +107,8 @@ Tej zmiany nie robi sie w ramach dokumentacji. Kazda pozycja wymaga osobnego zad
 - Adaptery Events, Attendance i PULSE dla Neo4j sa zarejestrowane w API.
 - Crew ma handlery, endpointy i adapter Neo4j z idempotentnym join/leave.
 - Realny routing drogowy jest podlaczony do publicznego endpointu przez prywatny FastAPI; kontrolowany fallback zachowuje `PlannerSource.Demo`.
-- Seed zawiera 82 poczatkowych uczestnikow koncertu oraz osobnego uzytkownika
-  demo bez deklaracji; gesty obszary daja
+- Seed zawiera 82 poczatkowych uczestnikow koncertu oraz dwa konta demo bez
+  deklaracji; gesty obszary daja
   widoczne komorki PULSE przy progu `count >= 10`.
 - `VenueId` pozostaje zaakceptowanym tekstowym slugiem.
 - Adapter ogolnego grafu konwertuje identyfikatory wezlow `Guid` do/z tekstu Neo4j.

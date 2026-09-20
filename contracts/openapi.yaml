@@ -16,7 +16,9 @@ info:
 
 servers:
   - url: http://localhost:5000
-    description: Lokalne API podczas developmentu i prezentacji
+    description: Lokalne API uruchomione przez `dotnet run`
+  - url: http://localhost:8080
+    description: API uruchomione przez Docker Compose (port hosta 8080)
 
 tags:
   - name: Health
@@ -36,15 +38,50 @@ paths:
   /health:
     get:
       tags: [Health]
-      summary: Sprawdza gotowosc API
+      summary: Sprawdza zywotnosc procesu API
+      description: |
+        Test zywotnosci (liveness): nie zalezy od bazy danych i zawsze zwraca 200,
+        dopoki proces API odpowiada. Gotowosc wraz z Neo4j sprawdza `/health/ready`.
       operationId: getHealth
       responses:
         "200":
-          description: API dziala
+          description: Proces API dziala
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
+              example:
+                status: Healthy
+                timestamp: "2026-09-19T17:20:00Z"
+
+  /health/ready:
+    get:
+      tags: [Health]
+      summary: Sprawdza gotowosc API (polaczenie z Neo4j)
+      description: |
+        Test gotowosci (readiness): 200, gdy API laczy sie z Neo4j, 503, gdy nie.
+        Odpowiedz nie zawiera szczegolow bledu (adresow, danych logowania ani
+        komunikatow wyjatkow) i nie jest cache'owana. Uzywa go healthcheck kontenera `api`.
+      operationId: getReadiness
+      responses:
+        "200":
+          description: API jest gotowe do obslugi zadan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                status: Healthy
+                timestamp: "2026-09-19T17:20:00Z"
+        "503":
+          description: Neo4j jest niedostepne albo nie odpowiada w limicie czasu
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                status: Unhealthy
+                timestamp: "2026-09-19T17:20:00Z"
 
   /api/events:
     get:
@@ -307,7 +344,9 @@ paths:
         Klient nie przesyla wspolrzednych: backend czyta punkt startu ze
         snapshotu Attendance. Profil ani osobne pole origin nie sa ujawniane;
         mieszkaniec moze otrzymac GeoJSON swojej wyliczonej trasy. Brak
-        deklaracji dla pary uzytkownik-wydarzenie oznacza 404.
+        deklaracji dla pary uzytkownik-wydarzenie oznacza 404. Zapisany
+        srodek transportu `Unknown` (brakujacy lub niepoprawny) oznacza 400,
+        bo nie mozna zaplanowac trasy.
       operationId: getEventRoute
       parameters:
         - $ref: "#/components/parameters/RequiredUserIdQuery"
@@ -401,6 +440,14 @@ paths:
                   - code: ReturnGap
                     severity: Warning
                     message: "21 osob nie ma dogodnego powrotu po 22:00."
+        "400":
+          description: |
+            `eventId` nie jest niepustym UUID (odrozniane od poprawnego UUID
+            nieistniejacego wydarzenia, ktore daje 404).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
@@ -498,7 +545,10 @@ components:
 
   responses:
     BadRequest:
-      description: Nieprawidlowe dane wejsciowe
+      description: |
+        Nieprawidlowe dane wejsciowe: pusty lub niepoprawny identyfikator (UUID),
+        niepoprawny albo pusty JSON, brak naglowka `Content-Type: application/json`,
+        nieznany `transportMode` lub nieprawidlowy zakres `from`/`to`.
       content:
         application/problem+json:
           schema:
@@ -526,7 +576,10 @@ components:
       properties:
         status:
           type: string
-          enum: [Healthy]
+          enum: [Healthy, Unhealthy]
+          description: |
+            `Healthy` dla `/health` (zawsze) i dla `/health/ready` z osiagalna baza,
+            `Unhealthy` tylko dla `/health/ready` z kodem 503.
         timestamp:
           type: string
           format: date-time
@@ -1025,9 +1078,12 @@ components:
 
     ProblemDetails:
       type: object
-      description: Odpowiedz zgodna z RFC 7807 / ASP.NET Core ProblemDetails
+      description: |
+        Odpowiedz zgodna z RFC 7807 / ASP.NET Core ProblemDetails. Kazdy blad API
+        (400, 404, 409 i 500 z globalnego handlera) zawiera `traceId`; 500 nie ujawnia
+        szczegolow wyjatku.
       additionalProperties: true
-      required: [title, status]
+      required: [title, status, traceId]
       properties:
         type:
           type: string
@@ -1047,7 +1103,7 @@ components:
           nullable: true
         traceId:
           type: string
-          nullable: true
+          description: Identyfikator do skorelowania odpowiedzi z logami (Seq)
 
 x-signalr:
   hub: /hubs/pulse

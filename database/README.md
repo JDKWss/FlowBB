@@ -85,7 +85,7 @@ Startup czeka na zakończenie inicjalizacji. Błąd połączenia albo błąd Cyp
 ### Dane zgodne z frontendem
 
 - 4 wydarzenia z `client/src/mocks/data.ts` wraz z tymi samymi identyfikatorami, nazwami, terminami, miejscami i współrzędnymi;
-- 82 syntetycznych użytkowników, w tym `DEMO_USER_ID` klienta, oraz liczniki uczestników `82`, `46`, `28`, `64` odwzorowane relacjami `IS_GOING_TO`;
+- 83 syntetycznych użytkowników; `DEMO_USER_ID` klienta nie ma początkowej deklaracji ani członkostwa w Crew, a liczniki uczestników `82`, `46`, `28`, `64` są odwzorowane relacjami `IS_GOING_TO` pozostałych użytkowników;
 - 2 grupy CREW z tymi samymi identyfikatorami, limitami, tagami, punktami spotkania i liczbą członków `4` oraz `6`;
 - dodatkowe swobodne tagi, miejsca i syntetyczny organizator.
 
@@ -95,12 +95,13 @@ Użytkownicy mają nazwy `Uzytkownik XXX`, adresy email w zarezerwowanej domenie
 
 ### Uruchomienie ręczne i kontrola
 
-W Aura Query można nadal wkleić kolejne ponumerowane bloki z pliku. Backend automatycznie wykonuje tylko bloki przed znacznikiem `__FLOWBB_SEED_END__`; zapytania 16-21 są kontrolne.
+W Aura Query można nadal wkleić kolejne ponumerowane bloki z pliku. Backend automatycznie wykonuje tylko bloki przed znacznikiem `__FLOWBB_SEED_END__`; zapytania 16-22 są kontrolne.
 
 Oczekiwane wyniki:
 
-- liczba węzłów seedu: `User=82`, `Event=4`, `Venue=4`, `BusinessOwner=1`, `Tag=4`, `Crew=2`;
+- liczba węzłów seedu: `User=83`, `Event=4`, `Venue=4`, `BusinessOwner=1`, `Tag=4`, `Crew=2`;
 - uczestnicy wydarzeń: `82`, `46`, `28`, `64`;
+- użytkownik demo `aaaaaaaa-...`: zero relacji `IS_GOING_TO` i `MEMBER_OF`;
 - kontrola `HOSTED_AT`: zero wierszy;
 - `InvalidCoordinates=0`;
 - `InvalidEvents=0` i `InvalidAttendanceSnapshots=0`.

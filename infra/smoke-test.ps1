@@ -20,8 +20,9 @@
 param(
     [string]$BaseUrl = 'http://localhost:8080',
     [Guid]$EventId = '11111111-1111-1111-1111-111111111111',
-    # Uzytkownik z seedu, ktory NIE deklaruje jeszcze udzialu w tym wydarzeniu, zeby sprzatanie nie usuwalo danych seedu.
-    [Guid]$UserId = 'dddddddd-dddd-dddd-dddd-dddddddddddd',
+    [Guid]$UserId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    # Wydarzenie z mikrogrupami (w seedzie tylko 1111...); uzytkownik demo nie nalezy do zadnej grupy.
+    [Guid]$CrewEventId = '11111111-1111-1111-1111-111111111111',
     [ValidateSet('Walking', 'PublicTransport', 'Bike', 'Car', 'Unknown')]
     [string]$TransportMode = 'PublicTransport',
     [double]$OriginLatitude = 49.82245,
@@ -100,8 +101,9 @@ if (-not $health.Reachable) {
 }
 Test-Step 'API /health' {
     Assert-That ($health.Status -eq 200) "oczekiwano 200, jest $($health.Status)"
-    Assert-That ($health.Json.status -eq 'ok') 'oczekiwano status=ok'
-    'status=ok'
+    Assert-That ($health.Json.status -eq 'Healthy') 'oczekiwano status=Healthy'
+    Assert-That ($null -ne $health.Json.timestamp) 'oczekiwano pola timestamp'
+    'status=Healthy'
 }
 
 # 2. Wydarzenia (Events)
@@ -125,9 +127,9 @@ Test-Step 'POST attendance (pierwszy zapis)' {
     Assert-That ($r.Status -eq 200) "oczekiwano 200, jest $($r.Status): $($r.Raw)"
     Assert-That ($r.Json.transportMode -eq $TransportMode) "tryb w odpowiedzi: $($r.Json.transportMode)"
     Assert-That ($r.Json.participantsCount -ge 1) 'participantsCount < 1'
+    Assert-That ([bool]$r.Json.isNew) 'uzytkownik demo ma juz deklaracje w seedzie (oczekiwano isNew=true)'
     $script:FirstCount = [int]$r.Json.participantsCount
     $script:CreatedByThisRun = [bool]$r.Json.isNew
-    if (-not $r.Json.isNew) { Write-Host '  uwaga: uzytkownik juz deklarowal udzial (isNew=false); sprzatanie zostanie pominiete' -ForegroundColor Yellow }
     "isNew=$($r.Json.isNew), participantsCount=$($r.Json.participantsCount)"
 }
 
@@ -193,7 +195,7 @@ Test-Step 'GET /api/pulse/hexagons (GeoJSON, prywatnosc count >= 10)' {
     }
     Assert-That ($r.Raw -notmatch '(?i)userid') 'odpowiedz zawiera userId'
     $shown = @($r.Json.features).Count
-    if ($shown -eq 0) { Write-Host '  uwaga: brak komorek >= 10 osob (za maly seed?) - mapa demo bedzie pusta' -ForegroundColor Yellow }
+    Assert-That ($shown -gt 0) 'brak komorek >= 10 osob - mapa demo jest pusta'
     "$shown komorek, wszystkie >= 10 osob, bez userId"
 }
 
@@ -215,11 +217,11 @@ Test-Step 'Trasa z DemoRoutePlanner (deterministyczna)' {
 
 # 10. Crew: lista, dolaczenie (idempotentne), opuszczenie
 Test-Step 'Crew: lista, dolaczenie, ponowienie i opuszczenie' {
-    $groups = Invoke-Api GET "/api/events/$EventId/groups?userId=$UserId"
+    $groups = Invoke-Api GET "/api/events/$CrewEventId/groups?userId=$UserId"
     if (-not $groups.Mounted) { return $null }
     Assert-That ($groups.Status -eq 200) "oczekiwano 200, jest $($groups.Status)"
     $joinable = @($groups.Json | Where-Object { -not $_.joinedByCurrentUser -and $_.currentMembers -lt $_.maxMembers }) | Select-Object -First 1
-    if ($null -eq $joinable) { Write-Host '  uwaga: brak grupy do dolaczenia' -ForegroundColor Yellow; return 'brak grupy do dolaczenia (pominieto)' }
+    Assert-That ($null -ne $joinable) "brak grupy z wolnym miejscem dla uzytkownika $UserId w wydarzeniu $CrewEventId (seed?)"
 
     $membersPath = "/api/groups/$($joinable.id)/members"
     $join = Invoke-Api POST $membersPath @{ userId = "$UserId" }

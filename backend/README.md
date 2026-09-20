@@ -40,13 +40,13 @@ a Bolt na porcie `7687`. Stan API sprawdzisz poleceniem:
 Invoke-RestMethod http://localhost:8080/health
 ```
 
-Oczekiwana odpowiedz to `{"status":"ok"}`.
+Oczekiwana odpowiedz to `{"status":"Healthy","timestamp":"..."}`.
 
 ### Zywotnosc i gotowosc
 
 | Endpoint | Znaczenie | Odpowiedz |
 |---|---|---|
-| `GET /health` | zywotnosc procesu, nie zalezy od bazy | zawsze `200 {"status":"ok"}` |
+| `GET /health` | zywotnosc procesu, nie zalezy od bazy | zawsze `200 {"status":"Healthy",...}` |
 | `GET /health/ready` | gotowosc: API laczy sie z Neo4j | `200 {"status":"Healthy",...}` albo `503 {"status":"Unhealthy",...}` |
 
 Odpowiedz gotowosci nie zawiera szczegolow bledu (host, komunikat wyjatku, dane logowania); przyczyna trafia tylko do logu
