@@ -87,7 +87,7 @@ export function AppShell({
           ) : null}
         </header> : null}
 
-        <main className={bare ? 'min-h-0 flex-1 overflow-y-auto bg-slate-950' : 'min-h-0 flex-1 overflow-y-auto px-5 py-6'}>{children}</main>
+        <main className={bare ? 'flowbb-scroll-area min-h-0 flex-1 overflow-y-auto bg-slate-950' : 'flowbb-scroll-area min-h-0 flex-1 overflow-y-auto px-5 py-6'}>{children}</main>
 
         {!bare && footer ? (
           <footer className="sticky bottom-0 z-20 shrink-0 border-t border-line/80 bg-surface/95 px-5 pb-[var(--phone-safe-bottom,1rem)] pt-4 backdrop-blur-xl">

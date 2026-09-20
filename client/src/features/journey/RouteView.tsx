@@ -3,6 +3,7 @@ import {
   BusFront,
   CarFront,
   ChevronRight,
+  Circle,
   Clock3,
   Footprints,
   MapPin,
@@ -121,9 +122,9 @@ function JourneyTimes({ journey }: { journey: JourneyOption }) {
         <p className="text-xs text-slate-500">Departure</p>
       </div>
       <div className="flex flex-1 items-center gap-2" aria-hidden="true">
-        <span className="size-2 rounded-full bg-primary" />
-        <span className="h-px flex-1 bg-neutral-600" />
-        <span className="size-2 rounded-full bg-white" />
+        <Circle className="size-2 shrink-0 fill-primary text-primary" strokeWidth={0} />
+        <Separator className="min-w-0 flex-1 bg-neutral-600" />
+        <Circle className="size-2 shrink-0 fill-white text-white" strokeWidth={0} />
       </div>
       <div className="text-right">
         <p className="text-2xl font-bold tracking-tight text-white">
@@ -227,7 +228,7 @@ export function RouteView({
               <details
                 open={index === 0}
                 key={`${journey.departureAt}-${index}`}
-                className="group rounded-2xl bg-card p-4 open:ring-1 open:ring-primary/25"
+                className="group rounded-2xl bg-card p-4"
               >
                 <summary className="flex cursor-pointer list-none items-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                   <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/[0.06] text-primary">
