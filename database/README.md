@@ -25,6 +25,33 @@ docker compose --profile local-db exec -T neo4j \
 
 Wynik kontrolny: `SHOW CONSTRAINTS` pokazuje 9 constraintow `UNIQUENESS`, a `MATCH (version:SchemaVersion {Key: 'flowbb'}) RETURN version.Version, version.Name` zwraca `2` i `002_event_start_at_index`. Wynik seedu obejmuje dodatkowy wezel znacznika schematu.
 
+## Backup i restore Neo4j Community
+
+`neo4j-admin database dump` oraz `neo4j-admin database load` wymagaja zatrzymanej bazy. Nie wykonuj ich wewnatrz dzialajacego procesu Neo4j. Ponizszy przyklad zaklada, ze kontener ma podmontowany katalog `/backups`; kontener pomocniczy dziedziczy jego wolumeny, ale nie uruchamia serwera:
+
+```powershell
+docker stop <nazwa-kontenera>
+docker run --rm --volumes-from <nazwa-kontenera> neo4j:5.26.30-community `
+  neo4j-admin database dump neo4j --to-path=/backups --overwrite-destination=true
+
+# load nadpisuje pliki bazy; nadal musi byc zatrzymana
+docker run --rm --volumes-from <nazwa-kontenera> neo4j:5.26.30-community `
+  neo4j-admin database load neo4j --from-path=/backups --overwrite-destination=true
+docker start <nazwa-kontenera>
+```
+
+Automatyczny test [test-backup-restore.ps1](test-backup-restore.ps1) sam tworzy jednorazowy kontener i tymczasowy katalog backupu, stosuje migracje oraz seed, wykonuje dump, uruchamia baze tylko po to, aby usunac wszystkie wezly, ponownie ja zatrzymuje i wykonuje load. Po restore porownuje liczby wezlow, relacji oraz `SchemaVersion`, uruchamia wszystkie `FlowBB.Infrastructure.Tests` i ponownie sprawdza snapshot. Na koncu usuwa kontener, anonimowy wolumen i dump.
+
+Skrypt odmawia pracy bez jawnego potwierdzenia bazy jednorazowej. Nie kieruj go do Aury ani bazy aplikacji:
+
+```powershell
+$env:FLOWBB_NEO4J_TEST_PASSWORD = '<lokalne-haslo-jednorazowe>'
+$env:FLOWBB_NEO4J_TEST_CONFIRM_DISPOSABLE = 'true'
+pwsh database/test-backup-restore.ps1
+```
+
+Wynik z 2026-09-20 na Neo4j `5.26.30-community`: przed dumpem, po restore i po testach adapterow uzyskano identyczny snapshot `100` wezlow, `411` relacji, wersja schematu `2` (`002_event_start_at_index`). Testy adapterow: `72 passed`, `0 failed`, `0 skipped`.
+
 ## Reczna weryfikacja na jednorazowej instancji Neo4j Aura
 
 > **Status: procedura nie zostala wykonana w ramach #114, poniewaz nie udostepniono danych dostepowych do bezpiecznej, pustej instancji Aura.**
@@ -80,6 +107,31 @@ dotnet test backend/FlowBB.sln
 Bez URI i hasla testy adapterow sa **pomijane (Skipped)**, a nie zaliczane. Gdy URI i haslo sa ustawione, ale brakuje potwierdzenia jednorazowej bazy, testy koncza sie bledem przed utworzeniem polaczenia i pierwszym zapisem. Zielony `dotnet test` bez bazy nie dowodzi, ze adapter dziala: sprawdz w wyniku, ze testy `FlowBB.Infrastructure.Tests` nie sa pominiete.
 
 W CI robi to `.github/workflows/neo4j-integration.yml`: usluga Neo4j 5.26 Community tworzona na czas przebiegu, `FLOWBB_NEO4J_TEST_CONFIRM_DISPOSABLE=true` tylko w tym jobie oraz krok, ktory konczy job bledem, gdy jakikolwiek test zostal pominiety (Skipped).
+
+### Test obciazeniowy Attendance i PULSE
+
+`Neo4jPulseLoadTests` uruchamia na prawdziwym Neo4j 89 syntetycznych uzytkownikow i 4 syntetyczne wydarzenia. Wykonuje 89 rownoleglych zapisow Attendance, 40 odczytow PULSE (`summary` i `hexagons`) podczas zapisow, a nastepnie ponawia wszystkie 89 zapisow. Maksymalna rownoleglosc zapisow wynosi 12, odczytow 8. Test sprawdza, ze pierwsze zapisy sa nowe, powtorzenia nie tworza dodatkowych relacji, a koncowy licznik wzrasta dokladnie o 89.
+
+Jedna komorka wydarzenia zawiera 20 osob, a odseparowana komorka 9 osob. Wynik musi zawierac tylko komorke 20-osobowa, co potwierdza zachowanie progu `count >= 10` pod obciazeniem. Test nie wypisuje identyfikatorow ani wspolrzednych.
+
+Uruchomienie tylko tego scenariusza:
+
+```powershell
+dotnet test backend/tests/FlowBB.Infrastructure.Tests/FlowBB.Infrastructure.Tests.csproj `
+  --filter FullyQualifiedName~Neo4jPulseLoadTests --logger "console;verbosity=detailed"
+```
+
+Progi regresji sa celowo konserwatywne dla lokalnego kontenera: przepustowosc co najmniej `5 ops/s`, p95 zapisu najwyzej `5000 ms`, p95 odczytu najwyzej `3000 ms`. Pomiar z 2026-09-20: AMD Ryzen 7 7735HS (8 rdzeni/16 watkow), 31,2 GB RAM, Docker 29.2.1, .NET SDK 10.0.400, Neo4j 5.26.30 Community:
+
+| Metryka | Wynik |
+|---|---:|
+| Przepustowosc laczna | 220,5 ops/s |
+| Zapis Attendance, mediana | 24,7 ms |
+| Zapis Attendance, p95 | 380,9 ms |
+| Odczyt PULSE, mediana | 40,3 ms |
+| Odczyt PULSE, p95 | 232,2 ms |
+
+Wynik miesci sie w progach; test nie wykryl problemu wymagajacego osobnego issue. Liczby sa punktem odniesienia dla tego sprzetu, a nie SLA produkcyjnym.
 
 ### Reset bazy testowej
 
