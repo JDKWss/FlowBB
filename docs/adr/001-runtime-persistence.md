@@ -8,7 +8,7 @@ Wlasciciel decyzji: Core Backend (Kuba)
 
 Poczatkowe instrukcje (`AGENTS.md`, `START_HERE.md`, `PLAN_EVENTS_LOAD.md`) zakladaly PostgreSQL + PostGIS z EF Core, migracjami i `ST_HexagonGrid`. Rownolegle w repozytorium powstaly:
 
-- implementacja Neo4j: `Neo4j.Driver`, `Neo4jFlowBbGraphRepository`, model wezlow i relacji, schemat oraz seed w `database/flowbb-queries.cypher`;
+- implementacja Neo4j: `Neo4j.Driver`, adaptery w `Infrastructure/Neo4j`, model wezlow i relacji, schemat oraz seed w `database/flowbb-queries.cypher`;
 - odseparowany PoC pipeline'u rozkladow MZK, ktory laduje odjazdy do PostGIS (`data/gtfs/mzk/`).
 
 W efekcie dokumentacja opisywala dwie rozne bazy jako glowna. Agenci (Claude Code, Codex) i czlonkowie zespolu dostawali sprzeczne instrukcje, a `AGENTS.md` jednoczesnie wskazywal PostgreSQL jako baze i Neo4j jako element poza zakresem.

@@ -84,11 +84,9 @@ Tej zmiany nie robi sie w ramach dokumentacji. Kazda pozycja wymaga osobnego zad
 
 | # | Problem | Priorytet | Wlasciciel |
 |---|---|---|---|
-| 1 | `IFlowBbGraphRepository` i modele w `FlowBB.Domain/Repositories` i `Models`: interfejs powinien docelowo trafic do `Application/Abstractions/Persistence`. Decyzja po MVP albo przy pierwszej implementacji repozytorium; nie blokuje MVP | Po MVP | Core Backend Owner + Data/Neo4j |
-| 2 | Stary model `FlowBB.Domain.Models.Event` pozostaje do posprzatania po MVP | Porzadki | Data/Neo4j + Backend Events |
-| 3 | `PLAN_EVENTS_LOAD.md` zachowuje historyczny plan PostGIS/EF Core; aktualny importer wydarzen do Neo4j nie istnieje | MVP | Backend Events + Data/Neo4j |
-| 4 | Dane MZK nie maja pelnych trips, kolejnosci przystankow, powiazania kursow i wszystkich wspolrzednych; nie sa grafem routingu | Po MVP | Core Backend Owner |
-| 5 | Kontener `routing` jest `unhealthy` bez recznego `routing-prepare` (brak grafow). Nie blokuje API; do decyzji, czy Compose ma go pomijac w trybie demo | Porzadki | Core Backend Owner |
+| 1 | `PLAN_EVENTS_LOAD.md` zachowuje historyczny plan PostGIS/EF Core; aktualny importer wydarzen do Neo4j nie istnieje | MVP | Backend Events + Data/Neo4j |
+| 2 | Dane MZK nie maja pelnych trips, kolejnosci przystankow, powiazania kursow i wszystkich wspolrzednych; nie sa grafem routingu | Po MVP | Core Backend Owner |
+| 3 | Kontener `routing` jest `unhealthy` bez recznego `routing-prepare` (brak grafow). Nie blokuje API; do decyzji, czy Compose ma go pomijac w trybie demo | Porzadki | Core Backend Owner |
 
 ### Rozwiazane od utworzenia planu
 
@@ -97,6 +95,8 @@ Tej zmiany nie robi sie w ramach dokumentacji. Kazda pozycja wymaga osobnego zad
 - `/health` i `/health/ready` (Neo4j) zgodne z `HealthResponse` z OpenAPI (#55, #52).
 - Compose przekazuje `NEO4J_SEED_ON_STARTUP` do `api`, a API czeka na zdrowy lokalny Neo4j (#57).
 - Seed ma 83 syntetycznych uzytkownikow; `DEMO_USER_ID` `aaaaaaaa-...` pozostaje poza wydarzeniami i Crew, wiec pierwszy POST na `1111...` pokazuje `82 -> 83` (#72).
+- Szeroki `IFlowBbGraphRepository`, `Neo4jFlowBbGraphRepository*` i modele `Domain/Models/*` (w tym stary `Event`) usuniete (#59). `Neo4jDatabaseInitializer`
+  korzysta bezposrednio z `IDriver` (te same constraints i seed); `Domain` nie zawiera interfejsow repozytoriow.
 - Zweryfikowane: start od czystego srodowiska, seed, restart API i `infra/smoke-test.ps1` (13 PASS, 0 FAIL, 0 SKIP)
   na lokalnym Neo4j; wynik w `DEMO_RUNBOOK.md`, sekcja 10.
 

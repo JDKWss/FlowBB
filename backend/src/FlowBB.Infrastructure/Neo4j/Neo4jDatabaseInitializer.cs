@@ -10,12 +10,50 @@ public static class Neo4jDatabaseInitializer
     private const string SeedResourceName = "FlowBB.Database.flowbb-demo-seed.cypher";
     private const string SeedEndMarker = "// __FLOWBB_SEED_END__";
 
+    private static readonly string[] SchemaQueries =
+    [
+        "CREATE CONSTRAINT user_id_unique IF NOT EXISTS FOR (n:User) REQUIRE n.UserId IS UNIQUE",
+        "CREATE CONSTRAINT user_email_unique IF NOT EXISTS FOR (n:User) REQUIRE n.Email IS UNIQUE",
+        "CREATE CONSTRAINT event_id_unique IF NOT EXISTS FOR (n:Event) REQUIRE n.EventId IS UNIQUE",
+        "CREATE CONSTRAINT venue_id_unique IF NOT EXISTS FOR (n:Venue) REQUIRE n.VenueId IS UNIQUE",
+        "CREATE CONSTRAINT owner_id_unique IF NOT EXISTS FOR (n:BusinessOwner) REQUIRE n.OwnerId IS UNIQUE",
+        "CREATE CONSTRAINT owner_email_unique IF NOT EXISTS FOR (n:BusinessOwner) REQUIRE n.Email IS UNIQUE",
+        "CREATE CONSTRAINT tag_id_unique IF NOT EXISTS FOR (n:Tag) REQUIRE n.TagId IS UNIQUE",
+        "CREATE CONSTRAINT crew_id_unique IF NOT EXISTS FOR (n:Crew) REQUIRE n.CrewId IS UNIQUE"
+    ];
+
     public static async Task InitializeAsync()
     {
-        await using var repository = Neo4jFlowBbGraphRepository.FromEnvironment();
-        await repository.VerifyConnectivityAsync();
-        await repository.EnsureSchemaAsync();
-        await repository.ApplySeedAsync(LoadSeedStatements());
+        var options = Neo4jOptions.FromEnvironment();
+        await using var driver = Neo4jDriverFactory.Create(options);
+
+        await RunAsync(driver, options.Database, "RETURN 1");
+        foreach (var query in SchemaQueries)
+        {
+            await RunAsync(driver, options.Database, query);
+        }
+
+        await ApplySeedAsync(driver, options.Database, LoadSeedStatements());
+    }
+
+    private static async Task RunAsync(IDriver driver, string database, string query)
+    {
+        await driver.ExecutableQuery(query)
+            .WithConfig(new QueryConfig(database: database))
+            .ExecuteAsync();
+    }
+
+    private static async Task ApplySeedAsync(IDriver driver, string database, IReadOnlyList<string> statements)
+    {
+        await using var session = driver.AsyncSession(config => config.WithDatabase(database));
+        await session.ExecuteWriteAsync(async transaction =>
+        {
+            foreach (var statement in statements)
+            {
+                var cursor = await transaction.RunAsync(statement);
+                await cursor.ConsumeAsync();
+            }
+        });
     }
 
     private static IReadOnlyList<string> LoadSeedStatements()
@@ -38,22 +76,5 @@ public static class Neo4jDatabaseInitializer
         return executableScript
             .Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
             .ToArray();
-    }
-}
-
-public sealed partial class Neo4jFlowBbGraphRepository
-{
-    internal async Task ApplySeedAsync(IReadOnlyList<string> statements)
-    {
-        ArgumentNullException.ThrowIfNull(statements);
-        await using var session = driver.AsyncSession(config => config.WithDatabase(database));
-        await session.ExecuteWriteAsync(async transaction =>
-        {
-            foreach (var statement in statements)
-            {
-                var cursor = await transaction.RunAsync(statement);
-                await cursor.ConsumeAsync();
-            }
-        });
     }
 }

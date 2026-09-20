@@ -1,8 +1,8 @@
 # Runbook demo FlowBB
 
 Instrukcja uruchomienia i przeprowadzenia krytycznego scenariusza demo (AGENTS.md, sekcja 2) oraz plan awaryjny.
-**Status: 2026-09-20 (`develop` + #72).** Stos uruchamia sie od zera jedna komenda Compose, a `infra/smoke-test.ps1`
-konczy sie wynikiem 13 PASS / 0 FAIL / 0 SKIP (szczegoly w sekcji 10). Uzytkownik demo `aaaaaaaa-...` nie ma
+**Status: 2026-09-20 (`develop` + #72, ponownie po #58/#59).** Stos uruchamia sie od zera jedna komenda Compose, a `infra/smoke-test.ps1`
+konczy sie wynikiem 13 PASS / 0 FAIL / 0 SKIP (szczegoly w sekcji 10, przebiegi na Windows i na Linuksie). Uzytkownik demo `aaaaaaaa-...` nie ma
 poczatkowej deklaracji ani czlonkostwa w Crew, wiec pierwszy klik "Ide" pokazuje `82 -> 83`.
 
 ## 1. Status krokow scenariusza
@@ -25,7 +25,8 @@ sprawdzono klientem SignalR z Node i testami integracyjnymi, bez przegladarki) o
 ## 2. Wymagania
 
 - Docker (Compose v2) albo .NET SDK 10 do uruchomienia API lokalnie.
-- PowerShell 7 (`pwsh`) do skryptu smoke testu.
+- PowerShell 7 (`pwsh`) do skryptu smoke testu. Na Linuksie: `dotnet tool install --global PowerShell` albo pakiet z repozytorium dystrybucji.
+- Wolne miejsce na dysku: obrazy API i Neo4j oraz ich warstwy zajmuja kilka GB. Przy pelnym dysku Neo4j nie startuje (`No space left on device` w `docker logs`, kod wyjscia 70), a API startuje bez niego.
 - Dla opcjonalnego realnego routingu drogowego: przygotowany wolumen
   `routing-data` (jednorazowa komenda w kroku 4 ponizej).
 - Neo4j: instancja Aura (patrz `backend/README.md`) albo lokalny kontener (profil `local-db`; w `.env`: `NEO4J_URI=neo4j://neo4j:7687`).
@@ -186,3 +187,27 @@ czyste srodowisko (bez woluminow, obrazy zbudowane od zera).
 | Scenariusz demo z timerem, dwa razy | **niewykonane** (wymaga czlowieka, `/client` i `/dashboard` w przegladarce) |
 | `+1` na dashboardzie przez SignalR w przegladarce | **niewykonane wzrokowo**; backend i seed daja `82 -> 83`, komunikat pokrywaja testy integracyjne |
 
+### Powtorzenie na Linuksie po #58 i #59 (issue #57)
+
+Data: 2026-09-20. Srodowisko: Ubuntu 26.04, Docker 29.8.0 (Compose 5.5.1), lokalny Neo4j 5.26.30 Community (`--profile local-db`),
+wolumeny Neo4j i Seq utworzone od zera, obrazy `api` zbudowane od zera na kodzie po usunieciu EF Core/Npgsql (#58) i starego repozytorium grafu (#59).
+Skrypt smoke uruchomiono przez `pwsh` 7.6.6.
+
+| Sprawdzenie | Wynik |
+|---|---|
+| `docker compose -f infra/docker-compose.yml --env-file .env --profile local-db up --build -d` | obraz `api` buduje sie i startuje; Neo4j i API `healthy`, `/health` i `/health/ready` 200 |
+| Inicjalizator po #59 (`Neo4jDatabaseInitializer` na `IDriver`) | log `Initializing Neo4j schema and idempotent seed data.` bez bledow; `SHOW CONSTRAINTS` zwraca osiem oczekiwanych constraintow; `User=83`, `Event=4`, `Venue=4`, `Crew=2`, `BusinessOwner=1`, `Tag=4`; uczestnicy `82/46/28/64`; uzytkownik `aaaaaaaa-...` bez relacji |
+| `infra/smoke-test.ps1` (dwa przebiegi z rzedu) | 13 PASS, 0 FAIL, 0 SKIP, kod 0 |
+| `dotnet test backend/tests/FlowBB.Api.IntegrationTests --filter Smoke` z `FLOWBB_SMOKE_BASE_URL` | 59 PASS, 0 FAIL, 0 SKIP (w tym `PulseUpdatedSmokeTests`: klient huba odbiera `PulseUpdated`) |
+| `dotnet test backend/FlowBB.sln` z `FLOWBB_NEO4J_TEST_*` | Domain 93, Application 88, Infrastructure 53 (wszystkie wykonane na prawdziwym Neo4j, 0 pominietych), Api.IntegrationTests 236 PASS + 38 pominietych (smoke, ktore uruchomiono osobno linia wyzej); 0 FAIL |
+| Testy Infrastructure (prawdziwy Neo4j) i smoke uruchomione **rownolegle** na tej samej instancji | **niestabilne**: `GET /api/pulse/summary` zwraca 500 w 4 z 6 przebiegow. Testy `Neo4jEventRepositoryTests` celowo wstawiaja wydarzenia z nieznana kategoria i bez miejsca, a lista wydarzen rzuca `InvalidOperationException` na uszkodzonym wydarzeniu (`NEO4J_ADAPTER_RECONCILIATION.md`, 3.D). Uruchomione **po kolei** (Infrastructure 53/53, potem `Api.IntegrationTests` 295/295 ze smoke) przechodza; nie uruchamiaj ich rownolegle na jednej bazie |
+| Reczny POST Attendance `aaaa...` na `1111...`, potem restart API (`docker restart infra-api-1`) | `isNew: true`, `82 -> 83`; po restarcie API `healthy`, licznik znowu `82` (seed przywraca stan) |
+| `dotnet build backend/FlowBB.sln` | OK, 0 ostrzezen i 0 bledow |
+| `dotnet format backend/FlowBB.sln --verify-no-changes` | OK |
+| API bez kontenera `routing` | `DemoRoutePlanner` zwraca trase (`plannerSource: Demo`); API nie zalezy od `routing` |
+| Scalar i OpenAPI | `/scalar/v1` 200, `/openapi/v1.json` 200 z 12 sciezkami; **rozbieznosc:** `/health/ready` jest w `contracts/openapi.yaml`, ale brakuje go w wygenerowanym dokumencie |
+| Neo4j Aura | **niezweryfikowane** (brak dostepu); tylko `docker compose config` |
+| Analiza Sonar | **nie uruchomiona** (repozytorium nie ma konfiguracji SonarQube); zero ostrzezen kompilatora nie zastepuje analizy |
+| Scenariusz demo z timerem, dwa razy | **niewykonane** (wymaga czlowieka, `/client` i `/dashboard` w przegladarce) |
+| `+1` na dashboardzie w przegladarce | **niewykonane wzrokowo**; backend, seed i dostarczenie `PulseUpdated` sprawdzone testami |
+| Kontener `routing` | w tym przebiegu **nie uruchomiony** (zbudowany obraz usunieto, bo dysk byl pelny); zachowanie `unhealthy` bez `routing-prepare` opisuje przebieg z Windows |
