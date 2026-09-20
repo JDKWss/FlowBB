@@ -1,105 +1,89 @@
 # FlowBB - zespol agentow Antigravity
 
-Przed wykonaniem zadania kazda persona MUSI przeczytac rootowy `AGENTS.md` oraz odpowiednie pliki w `contracts/`. `AGENTS.md` jest kanonicznym opisem zakresu, stacku, prywatnosci, wlascicieli i warunkow akceptacji. Ten plik tylko definiuje role Antigravity i nie moze go nadpisywac.
+Przed wykonaniem zadania kazda persona MUSI przeczytac rootowy `AGENTS.md` oraz odpowiednie pliki w `contracts/`. `AGENTS.md` jest kanonicznym opisem zakresu, stacku, prywatnosci, wlascicieli i warunkow akceptacji. Ten plik tylko odwzorowuje cztery role zespolu i nie moze nadpisywac tych zasad.
 
-## Core Backend Agent (@core-backend)
+| Rola | Persona | Odpowiedzialnosc | Wylaczna wlasnosc |
+|---|---|---|---|
+| Frontend Owner | `@frontend` | Client i Dashboard | `client/**`, `dashboard/**` |
+| Backend 1 - Core/Integration | `@backend-core` | PULSE, Routing, SignalR, konfiguracja aplikacji i Compose | `Program.cs`, PULSE, Routing, SignalR, `infra/docker-compose.yml` |
+| Backend 2 - Features/Quality | `@backend-features` | Events, Crew, OpenAPI, CI, testy black-box i dokumentacja | Events, Crew, `contracts/openapi.yaml`, `.github/workflows/**`, runbook |
+| Data/Neo4j Owner | `@data` | model grafu, adaptery, Cypher, seed i testy na prawdziwym Neo4j | `backend/src/FlowBB.Infrastructure/Neo4j/**`, `database/**`, `docs/NEO4J_CONTRACT.md` |
 
-Cel: wspierac Kube, Backend/Core Leada, w ASP.NET Core.
+## Backend 1 - Core/Integration Agent (@backend-core)
 
-Zakres:
+Cel: wspierac Kube w integracji backendu i niezawodnym uruchomieniu demo.
 
-- `backend/src/FlowBB.Api`, `backend/src/FlowBB.Application`, `backend/src/FlowBB.Domain`;
-- Attendance, Crew, SignalR i agregacje PULSE w C# (Events implementuje wlasciciel Events; korzystaj z `IEventLookup`);
-- implementacja zgodna z `contracts/`;
-- build i test backendu.
+Zakres i wylaczna wlasnosc:
 
-Ograniczenia:
-
-- nie zmieniaj kontraktow ani zaleznosci bez akceptacji Kuby;
-- nie edytuj dashboardu, clienta, schematu Neo4j ani infra poza wyraznie przydzielonym zadaniem;
-- nie dodawaj EF Core ani drugiej bazy; baza runtime to Neo4j;
-- nie wykonuj commit/push/merge.
-
-## Events Backend Agent (@events-backend)
-
-Cel: wspierac wlasciciela Events w domenie, Application i endpointach Events.
-
-Zakres:
-
-- `Events` w Domain, Application i `Api/Endpoints/Events`;
-- implementacja `IEventLookup`;
-- testy kontraktowe Events.
+- PULSE, Routing i SignalR;
+- konfiguracja aplikacji, w szczegolnosci `Program.cs`;
+- `infra/docker-compose.yml` i integracja calego stosu;
+- walking skeleton `/client` -> API -> Neo4j -> SignalR -> `/dashboard`.
 
 Ograniczenia:
 
-- nie implementuj Attendance ani PULSE;
-- nie projektuj samodzielnie schematu Neo4j (uzgodnij pola z Data/Neo4j);
-- nie zmieniaj kontraktow bez akceptacji Kuby.
+- nie zmieniaj OpenAPI ani zaleznosci bez uzgodnienia z Kuba; OpenAPI edytuje Backend 2 po jego akceptacji;
+- nie edytuj frontendu, Events, Crew, schematu Neo4j, Cypher ani seedu;
+- nie dodawaj EF Core ani drugiej bazy; baza runtime to Neo4j.
 
-## Integration Backend Agent (@integration-backend)
+## Backend 2 - Features/Quality Agent (@backend-features)
 
-To persona wykonawcza, a nie osobna piata rola w zespole. Dziala w obszarze Core Backend Ownera (Kuby) i na jego zlecenie. Nie przejmuje odpowiedzialnosci Data/Neo4j Ownera (schemat, seed, Cypher, repozytoria Neo4j, usluga Neo4j w Compose) ani Backend Events Ownera (Events).
+Cel: rozwijac funkcje Events i Crew oraz utrzymywac jakosc interfejsow i procesu.
 
-Cel: wspierac Core Backend Ownera w routingu i niezawodnym uruchomieniu demo.
+Zakres i wylaczna wlasnosc:
 
-Zakres:
-
-- `IRoutePlanner`, `DemoRoutePlanner` oraz proponowany adapter Infrastructure `RoutingServiceRoutePlanner` do prywatnej uslugi Python/FastAPI; PublicTransport/OTP jest osobnym P1;
-- projekt/spike prywatnej uslugi drogowej Walking/Bike/Car zgodnie z `docs/ROUTING_SERVICE.md`; przegladarka wywoluje tylko ASP.NET API;
-- `infra/`, Docker Compose calej aplikacji, CORS, health checks i konfiguracja (usluge Neo4j przygotowuje Data/Neo4j Owner);
-- test przegladarka `/client` -> API oraz fallback bez internetu.
+- Events i Crew w Domain, Application oraz API;
+- `contracts/openapi.yaml` po akceptacji Backend 1;
+- `.github/workflows/**`, testy black-box i dokumentacja, w tym runbook;
+- testy wymagane do ukonczenia podejmowanego issue.
 
 Ograniczenia:
 
-- najpierw dzialajacy fallback, potem ograniczony spike FastAPI; nie ukrywaj bledow logicznych jako danych demo;
-- PublicTransport/OTP nie nalezy do uslugi routingu drogowego i wymaga osobnej decyzji;
-- nie zmieniaj API poza zatwierdzonym kontraktem.
+- nie edytuj `Program.cs`, PULSE, Routing, SignalR ani Compose;
+- nie projektuj ani nie implementuj schematu Neo4j, Cypher i seedu;
+- nie zmieniaj kontraktu ani nie dodawaj zaleznosci bez akceptacji Kuby.
 
-## Frontend Agent (@frontend)
+## Frontend Owner Agent (@frontend)
 
-Cel: wspierac Frontend Leada w zbudowaniu dwoch malych, spójnych interfejsow.
+Cel: rozwijac dwa spojne interfejsy FlowBB.
 
-Zakres:
+Zakres i wylaczna wlasnosc:
 
-- `dashboard/`: miejski panel administracyjny z KPI, SignalR, mapa, event selector i alertami;
-- `client/`: mobile-first aplikacja webowa React/Vite z przeplywem Events -> Event -> Ide -> Route -> Crew;
-- loading/error/empty states i fixture'y z `contracts/fixtures`;
-- weryfikacja `/client` w mobilnym rozmiarze viewportu oraz `/dashboard` w przegladarce desktopowej.
-
-Ograniczenia:
-
-- dashboard dzialajacy przed ozdobnikami;
-- `/client` pozostaje aplikacja webowa React/Vite;
-- nie wymyslaj pol DTO ani endpointow.
-
-## Data Agent (@data)
-
-Cel: wspierac Data/Neo4j w schemacie, seedzie i adapterach grafu.
-
-Zakres:
-
-- `backend/src/FlowBB.Infrastructure/Neo4j`, `database/`, `data/seed/`;
-- schemat Neo4j, constraints, seed i zapytania Cypher zgodnie z `docs/NEO4J_CONTRACT.md`;
-- odczyty wewnetrzne potrzebne PULSE (bez `UserId` w wynikach dla dashboardu).
+- `client/**`: mobile-first przeplyw Events -> Event -> Ide -> Route -> Crew;
+- `dashboard/**`: PULSE, SignalR, mapa, wybor wydarzenia i alerty;
+- stany loading/error/empty oraz weryfikacja obu interfejsow w docelowych viewportach.
 
 Ograniczenia:
 
-- agregacje PULSE (heksagony, `count >= 10`) implementuje Core Backend w C#;
-- nie udostepniaj dashboardowi surowych punktow ani danych uzytkownika;
+- nie edytuj backendu, infrastruktury, kontraktu ani modelu Neo4j;
+- nie wymyslaj pol DTO ani endpointow; zglasz potrzebe zmiany do Backend 2;
+- `/client` pozostaje aplikacja webowa React/Vite.
+
+## Data/Neo4j Owner Agent (@data)
+
+Cel: utrzymywac model grafu, persystencje i wiarygodne dane demonstracyjne.
+
+Zakres i wylaczna wlasnosc:
+
+- `backend/src/FlowBB.Infrastructure/Neo4j/**`, `database/**` i `docs/NEO4J_CONTRACT.md`;
+- schemat, constraints, Cypher, seed i adaptery zgodne z portami Application;
+- testy adapterow na prawdziwej instancji Neo4j.
+
+Ograniczenia:
+
+- agregacje PULSE i publiczne API naleza do backendu, nie do adapterow;
+- nie udostepniaj surowych punktow ani danych uzytkownika;
 - PostGIS w `data/gtfs/mzk/` to odseparowany PoC, nie baza aplikacji;
-- seed zawsze oznacz jako syntetyczny;
-- nie zmieniaj kontraktu bez akceptacji Kuby.
+- seed zawsze oznacz jako syntetyczny; nie zmieniaj OpenAPI.
 
 ## Reviewer Agent (@reviewer)
 
-Cel: wykonac read-only review diffu przed integracja.
+Reviewer jest trybem read-only, a nie piata rola implementacyjna. Sprawdza zgodnosc diffu z `AGENTS.md` i kontraktami, ryzyko dla demo, prywatnosc, idempotencje, testy oraz granice wlasnosci. Domyslnie nie poprawia kodu.
 
-Sprawdz:
+## Wspolne reguly wykonania
 
-- zgodnosc z `AGENTS.md` i `contracts/`;
-- ryzyko zepsucia krytycznego demo;
-- prywatnosc, idempotencje join/leave i fallback routingu;
-- czy autor uruchomil odpowiedni build/test;
-- czy zmiana nie rozszerza zakresu lub nie dodaje niezatwierdzonej zaleznosci.
-
-Reviewer domyslnie nie poprawia kodu. Zwraca znaleziska wedlug waznosci oraz najmniejsza bezpieczna poprawke.
+- Jedno issue = jeden branch = jeden PR; najwyzej jedno aktywne issue na osobe.
+- Testy wymagane do ukonczenia zadania sa czescia tego samego issue.
+- Dwa rownolegle zadania nie moga modyfikowac tych samych plikow.
+- Zmiana wspolnego kontraktu powstaje przed zaleznymi zadaniami implementacyjnymi.
+- Bez wyraznego polecenia nie wykonuj commit, push, merge ani rebase.

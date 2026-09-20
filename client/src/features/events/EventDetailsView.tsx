@@ -79,8 +79,7 @@ export function EventDetailsView({ event, onBack, onContinue }: EventDetailsView
                 <CalendarDays aria-hidden="true" className="size-5" />
               </span>
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-zinc-500">When</p>
-                <p className="mt-1 font-semibold capitalize text-white">{formatEventDateLong(event.startAt)}</p>
+                <p className="font-semibold capitalize text-white">{formatEventDateLong(event.startAt)}</p>
                 <p className="mt-1 flex items-center gap-2 text-sm text-zinc-400">
                   <Clock3 aria-hidden="true" className="size-4" />
                   {formatEventTimeRange(event.startAt, event.endAt)}
@@ -95,8 +94,7 @@ export function EventDetailsView({ event, onBack, onContinue }: EventDetailsView
                 <MapPin aria-hidden="true" className="size-5" />
               </span>
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-zinc-500">Where</p>
-                <p className="mt-1 font-semibold text-white">{event.venueName}</p>
+                <p className="font-semibold text-white">{event.venueName}</p>
                 <p className="mt-1 text-sm text-zinc-400">Bielsko-Biała</p>
               </div>
             </div>
@@ -125,8 +123,7 @@ export function EventDetailsView({ event, onBack, onContinue }: EventDetailsView
         <div>
           <div className="mb-3 flex items-end justify-between gap-4">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">Available transport</p>
-              <h2 className="mt-1 text-xl font-bold tracking-tight text-white">How can you get there?</h2>
+              <h2 className="text-xl font-bold tracking-tight text-white">How can you get there?</h2>
             </div>
             <span className="text-xs text-zinc-500">Choose in the next step</span>
           </div>
@@ -158,10 +155,7 @@ export function EventDetailsView({ event, onBack, onContinue }: EventDetailsView
             onClick={onContinue}
             className="h-auto min-h-14 w-full justify-between py-3.5 text-left"
           >
-            <span>
-              <span className="block text-base">Plan my trip</span>
-              <span className="block text-xs font-medium text-black/60">Choose how you&apos;ll get there</span>
-            </span>
+            <span className="text-base">Continue</span>
             <ArrowRight aria-hidden="true" className="size-5" />
           </Button>
         </div>

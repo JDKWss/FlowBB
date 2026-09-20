@@ -1,125 +1,102 @@
 # Plan pracy MVP FlowBB
 
-Uzupelnia `AGENTS.md` (zasady) i [ADR 001](adr/001-runtime-persistence.md) (baza runtime). Kontrakt danych: [NEO4J_CONTRACT.md](NEO4J_CONTRACT.md).
+Uzupelnia `AGENTS.md` (zasady) i [ADR 001](adr/001-runtime-persistence.md) (baza runtime). Kontrakt danych: [NEO4J_CONTRACT.md](NEO4J_CONTRACT.md). Backlog prowadzi [epic #23](https://github.com/JDKWss/FlowBB/issues/23), a decyzje o gotowosci MVP zbiera [bramka #93](https://github.com/JDKWss/FlowBB/issues/93).
 
-> **Status implementacji: 2026-09-20 (`develop`).** Ten dokument zachowuje
-> role, kolejnosc prac i bramki MVP. Tabele statusowe ponizej odrozniaja kod
-> istniejacy w repozytorium od modulow zarejestrowanych w uruchamianym API.
+> **Status implementacji: 2026-09-20, `origin/develop` `dffa9f8`.** Stan ponizej zostal zweryfikowany w kodzie, a nie odziedziczony z historycznych planow. Wyniki uruchomienia stosu sa w [DEMO_RUNBOOK.md](DEMO_RUNBOOK.md).
 
-## 1. Odpowiedzialnosci
+## 1. Odpowiedzialnosci i wylaczna wlasnosc
 
-| Osoba | Odpowiedzialnosc | Nie robi |
+| Rola | Odpowiedzialnosc | Wylaczna wlasnosc |
 |---|---|---|
-| Core Backend Owner (Kuba) | integracja backendu, `Program.cs`, SignalR, Attendance Application/API, PULSE API, `IRoutePlanner` i `DemoRoutePlanner`, integracja proponowanej prywatnej uslugi routingu, Docker Compose calej aplikacji, kontrakty, przeglad zmian | Events, schemat Neo4j, frontend |
-| Backend Events | domena, Application i endpointy Events, implementacja `IEventLookup`, testy kontraktowe Events | Attendance, Neo4j schema |
-| Data/Neo4j Owner | usluga Neo4j do Docker Compose, schemat, constraints, seed, Cypher, implementacje repozytoriow `Infrastructure/Neo4j`, konsultacje konfiguracji Neo4j | logika routingu, API, agregacja PULSE |
-| Frontend | `/client`, `/dashboard`, klient REST i SignalR | zmiany kontraktu |
+| Frontend Owner | Client i Dashboard | `client/**`, `dashboard/**` |
+| Backend 1 - Core/Integration (Kuba) | PULSE, Routing, SignalR, konfiguracja aplikacji i Compose | `Program.cs`, PULSE, Routing, SignalR, `infra/docker-compose.yml` |
+| Backend 2 - Features/Quality | Events, Crew, OpenAPI, CI, testy black-box i dokumentacja | Events, Crew, `contracts/openapi.yaml`, `.github/workflows/**`, runbook |
+| Data/Neo4j Owner | model grafu, adaptery, Cypher, seed i testy na prawdziwym Neo4j | `backend/src/FlowBB.Infrastructure/Neo4j/**`, `database/**`, `docs/NEO4J_CONTRACT.md` |
 
-Rola integracyjna nalezy do Core Backend Ownera: integracja backendu, `Program.cs`, SignalR, Attendance Application/API, PULSE API, `DemoRoutePlanner`, CORS, health check i Docker Compose na poziomie calej aplikacji. Data/Neo4j Owner przygotowuje usluge Neo4j do Compose i konsultuje jej konfiguracje, a Core Backend Owner wlacza ja do calego Compose. Crew (domena na `feature/crew-domain`) pozostaje u Core Backend Ownera, do czasu wskazania innego wlasciciela.
+Kuba pozostaje liderem projektu oraz zatwierdza wspolne kontrakty i nowe zaleznosci. Backend 2 edytuje `contracts/openapi.yaml` dopiero po jego akceptacji. Obszary niewymienione jako wylaczne sa przydzielane w pojedynczych issues bez naruszania tej tabeli.
 
-## 2. Granice modulow i stan implementacji
+## 2. Stan implementacji
 
-| Modul | Docelowe warstwy | Stan na `develop` 2026-09-20 | Podpiecie w `Program.cs` |
-|---|---|---|---|
-| Events | Domain, Application (`Events/*`), Api (`Endpoints/Events`), Infrastructure/Neo4j (odczyt) | domena, `IEventLookup`, endpointy i adapter Neo4j sa zaimplementowane | tak |
-| Attendance | Application, Api, SignalR (`Hubs`) | encja, handlery, endpointy, testy i adapter `IAttendanceRepository` dla Neo4j sa zaimplementowane | tak |
-| Crew | Domain (`Crews`), Application (`Crews/*`), Api, Infrastructure/Neo4j | domena, handlery, endpointy (`GET groups`, `POST/DELETE members`) i adapter Neo4j sa zaimplementowane | tak |
-| PULSE | Application (`Pulse/*`), Api, `Hubs` | handlery agregacji, endpointy, testy i adapter `IPulseDataReader` dla Neo4j sa zaimplementowane | tak |
-| Routing | Domain (`Routing`), Application (`Abstractions/Routing`, `Routing`), Infrastructure (`Routing`), Api (`Endpoints/Routing`); prywatna usluga Python/FastAPI | kompozyt kieruje Walking/Bike/Car do FastAPI, PublicTransport do `DemoRoutePlanner`; publiczna odpowiedz zawiera opcjonalny dystans i GeoJSON | tak, `CompositeRoutePlanner` |
-| SignalR | Api (`Hubs`) | hub i notifier istnieja; `/hubs/pulse` jest mapowany | tak |
+| Obszar | Stan na `origin/develop` | Dowod w repozytorium |
+|---|---|---|
+| Composition root | Events, Attendance, PULSE, Routing, Crew, SignalR i Neo4j sa zarejestrowane i zmapowane | `backend/src/FlowBB.Api/Program.cs` |
+| Events | lista, szczegoly i tworzenie wydarzenia dzialaja przez porty i adapter Neo4j | `backend/src/FlowBB.Api/Endpoints/Events/`, `backend/src/FlowBB.Infrastructure/Neo4j/Neo4jEventRepository.cs` |
+| Attendance | idempotentny upsert/delete, zapis snapshotu i publikacja PULSE sa zaimplementowane | `backend/src/FlowBB.Application/Attendance/`, `backend/src/FlowBB.Api/Endpoints/Events/AttendanceEndpoints.cs` |
+| Crew | domena, handlery, endpointy i adapter Neo4j sa podlaczone; join/leave sa idempotentne | `backend/src/FlowBB.Api/Endpoints/Crews/`, `backend/src/FlowBB.Infrastructure/Neo4j/Neo4jCrewRepository.cs` |
+| PULSE i SignalR | agregaty, prywatnosc `count >= 10`, hub i `PulseUpdated` sa podlaczone | `backend/src/FlowBB.Application/Pulse/`, `backend/src/FlowBB.Api/Hubs/` |
+| Routing | `CompositeRoutePlanner` wybiera RoadRouting dla Walking/Bike/Car, Demo dla PublicTransport i kontrolowanego fallbacku | `backend/src/FlowBB.Infrastructure/Routing/CompositeRoutePlanner.cs` |
+| Client | `HttpClientService` jest domyslny; mocki wlacza dopiero `VITE_USE_MOCKS=true` | `client/src/services/clientService.ts`, `client/.env.example` |
+| Dashboard | operacyjny widok PULSE korzysta z REST, SignalR i GeoJSON; zawiera tez tworzenie wydarzenia | `dashboard/src/App.tsx`, `dashboard/src/hooks/usePulseConnection.ts`, `dashboard/src/components/PulseMap.tsx` |
+| ReturnGap | pozostaje atrapa: `participantsWithoutReturn = 0`, alerty puste, a planery zwracaja `returnGap: false` | `backend/src/FlowBB.Application/Pulse/GetEventPulse/GetEventPulseHandler.cs`, `backend/src/FlowBB.Api/Endpoints/Pulse/PulseResponses.cs`, `backend/src/FlowBB.Infrastructure/Routing/` |
+| Dawny stack | pakiety EF Core/Npgsql i stare `Domain/Models` zostaly usuniete (#58, #59) | `backend/src/FlowBB.Infrastructure/FlowBB.Infrastructure.csproj`, brak `backend/src/FlowBB.Domain/Models/` |
 
-Uruchamiany host mapuje `/health`, `/health/ready`, Events, Attendance, Crew, PULSE, Routing,
-`/hubs/pulse` oraz dokumentacje API w srodowisku Development. Start calego stosu i smoke test:
-[`DEMO_RUNBOOK.md`](DEMO_RUNBOOK.md), sekcja 10.
+Host udostepnia `/health`, `/health/ready`, endpointy wszystkich modulow MVP, `/hubs/pulse` i dokumentacje API w srodowisku Development.
 
-Zasady: agent pracujacy nad Attendance nie implementuje Events (uzywa `IEventLookup`, w testach fake'a). Nie tworzymy produkcyjnego `DemoEventLookup`.
-
-## 3. Zaleznosci miedzy zadaniami (plan integracji)
+## 3. Zaleznosci i kierunek integracji
 
 ```text
-Dokumentacja (ta zmiana) --> Crew Domain (merge)
-                       \--> Schemat Neo4j (pola Events + Attendance)
-                                 |
-                                 +--> Events --> IEventLookup --> Attendance --> SignalR/PULSE --> Frontend dashboard (count + 1)
-Routing (DemoRoutePlanner) ---------------------------------------> Frontend /client (trasa)
+OpenAPI (Backend 2, akceptacja Backend 1)
+        |
+        +--> Client / Dashboard (Frontend)
+        +--> Events / Crew (Backend 2)
+        +--> PULSE / Routing / SignalR / Program.cs (Backend 1)
+
+Porty Application --> adaptery i model grafu (Data/Neo4j)
+Client --> API --> Neo4j --> SignalR --> Dashboard
 ```
 
-Docelowy realny routing drogowy zachowuje te sama granice Application:
-`IRoutePlanner -> RoutingServiceRoutePlanner -> prywatny REST -> FastAPI ->
-graf OSM`. Przegladarka nadal wywoluje tylko FlowBB.Api. PublicTransport nie
-wchodzi do tej uslugi. Projekt i bramka spike'a sa w
-[`ROUTING_SERVICE.md`](ROUTING_SERVICE.md) oraz proponowanym ADR 002.
+Zmiana wspolnego kontraktu musi byc scalona przed taskami, ktore od niej zaleza. Data implementuje porty persystencji bez przejmowania logiki Application; pozostale role nie modyfikuja Cypher ani seedu.
 
-## 4. Kolejnosc integracji i bramki
+## 4. Bramki MVP
 
-Ponizsza tabela definiuje kryteria bramek, a nie deklaruje ich ukonczenia.
-
-| # | Bramka | Kryterium akceptacji |
+| Bramka | Stan | Kryterium zamkniecia |
 |---|---|---|
-| 1 | Dokumentacja i architektura sa spojne, `develop` jest zielony | brak sprzecznych odniesien do bazy w `AGENTS.md`, `START_HERE.md`, `.agents`; `dotnet build` i `dotnet test` przechodza |
-| 2 | Crew Domain jest scalone po przejsciu testow | `feature/crew-domain` w `develop`, testy jednostkowe zielone |
-| 3 | Testy kontraktowe Events trafiaja na branch wlasciciela Events, a nie osobno na `develop`, jesli sa czerwone | `develop` nie zawiera czerwonych testow; `test/events-contract` scala Backend Events razem z implementacja |
-| 4 | Schemat Neo4j ma pola wymagane przez Events i Attendance | zgodnosc z `NEO4J_CONTRACT.md`: pola Event, `IS_GOING_TO` ze snapshotem, `DefaultOrigin*` uzytkownika. Schemat Crew dopiero po zatwierdzeniu propozycji przez wlasciciela Crew i Data/Neo4j |
-| 5 | Events dziala i udostepnia stabilny kontrakt dla Attendance | `GET /api/events` i `/{id}` zgodne z OpenAPI; `IEventLookup` dostepny |
-| 6 | Attendance jest idempotentne i integruje sie z SignalR | drugi identyczny POST nie zwieksza licznika; DELETE jest idempotentny; `PulseUpdated` po zatwierdzeniu transakcji; test idempotencji na prawdziwej instancji Neo4j |
-| 7 | Frontend obsluguje dashboard oraz aktualizacje `count + 1` | klik "Ide" w `/client` zmienia licznik w `/dashboard` bez odswiezania |
-| 8 | Routing MVP korzysta z deterministycznego planera demonstracyjnego | `DemoRoutePlanner` dziala bez internetu; brak zaleznosci od danych MZK |
-| 9 | PULSE spelnia regule prywatnosci `count >= 10` | test: komorka 9-osobowa ukryta, 10-osobowa zwrocona; brak `userId` i dokladnych wspolrzednych w odpowiedziach |
+| Cztery role i wlasnosc plikow | w trakcie (#83) | `AGENTS.md`, `START_HERE.md`, `.agents/agents.md` i ten plan sa spojne |
+| Backend funkcjonalny | wykonane w kodzie | Events, Attendance, Crew, PULSE, Routing i SignalR sa podlaczone do Neo4j |
+| Client na prawdziwym API | wykonane w kodzie (#89) | `VITE_USE_MOCKS=false`, pelny przeplyw mieszkanca bez fake'ow |
+| Dashboard PULSE | wykonane w kodzie (#87) | REST, SignalR, KPI i mapa heksagonow dzialaja na seedzie demo |
+| ReturnGap | otwarte (#84, #85, #86) | wspolna polityka PULSE/Routing, `EndAt` z Neo4j i wydarzenie demonstracyjne |
+| Stabilne uruchomienie i CI | otwarte (#80, #88, #90, #91, #92) | zielone workflow, stabilne profile Compose, black-box i testy Neo4j bez pominiec |
+| Proba prezentacji | otwarte (#57) | scenariusz wykonany dwa razy z timerem, zapisany backup i wyniki w runbooku |
+| Akceptacja MVP | otwarte (#93) | wspolny przebieg Client -> API -> Neo4j -> SignalR -> Dashboard oraz wszystkie kryteria bramki |
 
-Bramki 1-3 sa warunkiem startu bramek 4-9. Bramki 5 i 4 mozna prowadzic rownolegle po uzgodnieniu pol Event.
+PULSE nadal musi ukrywac komorki z `count < 10`, a publiczne odpowiedzi nie moga zawierac `userId` ani dokladnych punktow startowych. Te reguly nie sa odkładane przez otwarte bramki.
 
-## 5. Zasady rownoleglej pracy Claude i Codex
+## 5. Zasady rownoleglej pracy
 
-- Jedna osoba = jeden branch = jeden worktree. Worktree tworzy sie z `origin/develop` obok repozytorium, np. `D:\HACKATON\FlowBB-<zadanie>`.
-- Nigdy dwoch piszacych agentow w tym samym katalogu.
-- Agent edytuje tylko pliki swojego obszaru. Zmiany w `contracts/`, `Program.cs` i nowych zaleznosciach wymagaja zgody Core Backend.
-- Codex moze pisac testy kontraktowe lub review, Claude implementacje; kazdy na osobnym branchu. Testy na innym branchu (np. Events) nie sa zmieniane przez agenta Attendance.
-- Zadanie zaczyna sie od sprawdzenia, czy `origin/develop` zawiera zaleznosci (np. Events przed Attendance). Jesli nie, agent zglasza blocker zamiast implementowac cudzy modul.
-- Commit lokalny wykonuje agent tylko na wyrazne polecenie; `push`, merge i rebase robi czlowiek.
-- Diff czyta czlowiek przed commitem i merge'em.
+- Jedno issue = jeden branch = jeden PR; jedna osoba ma najwyzej jedno aktywne issue.
+- Issue zawiera implementacje i wszystkie testy potrzebne do jego ukonczenia.
+- Dwa rownolegle taski nie moga modyfikowac tych samych plikow.
+- Jedna osoba lub agent pracuje w jednym worktree utworzonym z `origin/develop`.
+- `Program.cs` edytuje tylko Backend 1; `contracts/openapi.yaml` tylko Backend 2 po akceptacji Backend 1; Neo4j, Cypher i seed tylko Data; frontend tylko Frontend Owner.
+- Zaleznosc nieobecna na `origin/develop` jest blockerem; agent nie implementuje w jej miejsce cudzego modulu.
+- Commit, push, merge i rebase wymagaja wyraznego polecenia czlowieka. Diff jest czytany przed integracja.
 
-## 6. Aktualne problemy znalezione w kodzie (zadania dla wlascicieli)
+## 6. Aktualny backlog i ryzyka
 
-Tej zmiany nie robi sie w ramach dokumentacji. Kazda pozycja wymaga osobnego zadania. Priorytety: **MVP** = potrzebne do scenariusza demo, **Porzadki** = maly task po potwierdzeniu, ze nic nie zalezy od starego kodu, **Po MVP** = nie blokuje MVP.
+Zrodlem pelnej listy i kolejnosci jest [epic #23](https://github.com/JDKWss/FlowBB/issues/23). Najwazniejsze otwarte elementy przed [bramka #93](https://github.com/JDKWss/FlowBB/issues/93):
 
-| # | Problem | Priorytet | Wlasciciel |
-|---|---|---|---|
-| 1 | `PLAN_EVENTS_LOAD.md` zachowuje historyczny plan PostGIS/EF Core; aktualny importer wydarzen do Neo4j nie istnieje | MVP | Backend Events + Data/Neo4j |
-| 2 | Dane MZK nie maja pelnych trips, kolejnosci przystankow, powiazania kursow i wszystkich wspolrzednych; nie sa grafem routingu | Po MVP | Core Backend Owner |
-| 3 | Kontener `routing` jest `unhealthy` bez recznego `routing-prepare` (brak grafow). Nie blokuje API; do decyzji, czy Compose ma go pomijac w trybie demo | Porzadki | Core Backend Owner |
+- ReturnGap nie ma jeszcze logiki biznesowej; `participantsWithoutReturn` pozostaje 0, alerty sa puste, a `returnGap` jest false (#84-#86).
+- CI wymaga zielonego formatowania oraz jobow client/dashboard/routing; testy prawdziwego Neo4j maja przechodzic bez pominiec (#80, #88, #92).
+- Profile Compose maja zapewnic stabilny tryb demonstracyjny, a krytyczna sciezka wymaga testu black-box (#90, #91).
+- Pelny scenariusz trzeba wykonac dwa razy z timerem i przygotowac material zapasowy (#57).
+- Dane MZK nadal nie sa kompletnym grafem transportu publicznego; PublicTransport pozostaje deterministycznym Demo.
 
-### Rozwiazane od utworzenia planu
+### Rozwiazane i niebedace juz blockerami
 
-- Nieuzywane zaleznosci dawnego stacku relacyjnego i jego lokalne narzedzie CLI zostaly usuniete; Neo4j pozostaje jedyna persystencja runtime.
-- Crew: domena, Application, endpointy i adapter Neo4j sa zarejestrowane w API (#54).
-- `/health` i `/health/ready` (Neo4j) zgodne z `HealthResponse` z OpenAPI (#55, #52).
-- Compose przekazuje `NEO4J_SEED_ON_STARTUP` do `api`, a API czeka na zdrowy lokalny Neo4j (#57).
-- Seed ma 84 syntetycznych uzytkownikow: 82 uczestnikow oraz dwa wolne konta demo. Smoke test uzywa `aaaaaaaa-...`, a klient `dddddddd-...`; pierwszy POST na `1111...` pokazuje `82 -> 83`.
-- Szeroki `IFlowBbGraphRepository`, `Neo4jFlowBbGraphRepository*` i modele `Domain/Models/*` (w tym stary `Event`) usuniete (#59). `Neo4jDatabaseInitializer`
-  korzysta bezposrednio z `IDriver` (te same constraints i seed); `Domain` nie zawiera interfejsow repozytoriow.
-- Zweryfikowane: start od czystego srodowiska, seed, restart API i `infra/smoke-test.ps1` (13 PASS, 0 FAIL, 0 SKIP)
-  na lokalnym Neo4j; wynik w `DEMO_RUNBOOK.md`, sekcja 10.
-
-- `Event` uzywa `Name`, `StartAt`, opcjonalnego `EndAt` oraz kanonicznych
-  `Category` i `Source`.
-- `User` uzywa `DefaultOriginLatitude/Longitude`, a `IS_GOING_TO` przechowuje
-  pelny snapshot wymagany przez Attendance, PULSE i Routing.
-- Adaptery Events, Attendance i PULSE dla Neo4j sa zarejestrowane w API.
-- Crew ma handlery, endpointy i adapter Neo4j z idempotentnym join/leave.
-- Realny routing drogowy jest podlaczony do publicznego endpointu przez prywatny FastAPI; kontrolowany fallback zachowuje `PlannerSource.Demo`.
-- Seed zawiera 82 poczatkowych uczestnikow koncertu oraz dwa konta demo bez
-  deklaracji; gesty obszary daja
-  widoczne komorki PULSE przy progu `count >= 10`.
-- `VenueId` pozostaje zaakceptowanym tekstowym slugiem.
-- Adapter ogolnego grafu konwertuje identyfikatory wezlow `Guid` do/z tekstu Neo4j.
-- Repozytorium zawiera `.env.example`, `infra/docker-compose.yml` i
-  `infra/smoke-test.ps1`.
-- `FlowBB.Domain.Tests`, `FlowBB.Application.Tests` i
-  `FlowBB.Api.IntegrationTests` zawieraja testy.
+- Crew jest zarejestrowane w `Program.cs` i ma adapter Neo4j.
+- Client domyslnie korzysta z `HttpClientService`; tryb mock jest jawnie opcjonalny.
+- Dashboard przestal byc szkieletem: ma widok PULSE, mape GeoJSON i klienta SignalR (#87).
+- Routing korzysta z `CompositeRoutePlanner`; niedostepnosc uslugi drogowej moze przejsc na jawny planner Demo.
+- Nieuzywane pakiety EF Core/Npgsql usunieto (#58), a szerokie stare repozytorium grafu i `Domain/Models` usunieto (#59).
+- Adaptery Events, Attendance, PULSE i Crew oraz readiness Neo4j sa podlaczone.
 
 ## 7. Weryfikacja ukonczenia
 
-- `dotnet build backend/FlowBB.sln` i `dotnet test backend/FlowBB.sln` przechodza na `develop`.
-- Walking skeleton: `/client` -> API -> Neo4j -> SignalR -> `/dashboard` (`+1`).
-- Test prywatnosci PULSE (`count >= 10`).
-- Analiza Sonar dla zmienionego kodu bez nowych Critical/Blocker/Major.
+- [Bramka #93](https://github.com/JDKWss/FlowBB/issues/93) jest zamknieta na podstawie wspolnego przebiegu, nie samej obecnosci kodu.
+- `dotnet build backend/FlowBB.sln`, `dotnet test backend/FlowBB.sln` i workflow CI przechodza.
+- `npm run lint` i `npm run build` przechodza w `client/` i `dashboard/`.
+- Testy adapterow wykonuja sie na prawdziwym Neo4j bez pominiec.
+- Walking skeleton `/client` -> API -> Neo4j -> SignalR -> `/dashboard` pokazuje `+1`.
+- Test prywatnosci PULSE potwierdza prog `count >= 10` i brak danych indywidualnych.
+- Scenariusz demonstracyjny zostal wykonany dwa razy z timerem, a wynik i backup zapisano zgodnie z runbookiem.

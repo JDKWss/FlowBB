@@ -20,8 +20,7 @@ export function StepProgress({
 
   return (
     <div className={className}>
-      <div className="mb-2 flex items-center justify-between gap-3 text-[0.7rem] font-bold tracking-[0.08em] text-ink-600 uppercase">
-        <span className="truncate">{label ?? 'Twój plan'}</span>
+      <div className="mb-2 flex items-center justify-end text-[0.7rem] font-bold text-ink-600">
         <span aria-hidden="true" className="shrink-0">
           {safeCurrent}/{safeTotal}
         </span>

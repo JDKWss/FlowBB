@@ -147,9 +147,6 @@ export function RouteView({
       <header className="mb-7 flex items-center justify-between gap-3">
         <FlowBackButton label="Back to transport selection" onClick={onBack} />
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
-            Your route
-          </p>
           <p className="truncate text-sm text-slate-400">{event.name}</p>
         </div>
         <Badge variant="secondary" className="h-auto bg-white/[0.06] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-neutral-300">
@@ -201,10 +198,7 @@ export function RouteView({
       <div className="mb-4">
         <div className="mb-3 flex items-end justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-400">
-              After the event
-            </p>
-            <h2 className="mt-1 text-xl font-bold">Return options</h2>
+            <h2 className="text-xl font-bold">Return options</h2>
           </div>
           <span className="text-xs text-slate-500">
             {route.returns.length} {route.returns.length === 1 ? 'option' : 'options'}

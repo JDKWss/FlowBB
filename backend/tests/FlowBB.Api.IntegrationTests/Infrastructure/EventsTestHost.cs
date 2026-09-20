@@ -31,6 +31,10 @@ public sealed class EventsTestHost : IAsyncDisposable
         builder.Services.AddProblemDetails();
         builder.Services.AddEventsModule();
         builder.Services.AddSingleton(repository);
+        if (repository is IEventWriter writer)
+        {
+            builder.Services.AddSingleton(writer);
+        }
 
         var app = builder.Build();
         app.MapEventsEndpoints();

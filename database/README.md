@@ -2,9 +2,9 @@
 
 Kontrakt danych: [../docs/NEO4J_CONTRACT.md](../docs/NEO4J_CONTRACT.md). Decyzja o bazie: [../docs/adr/001-runtime-persistence.md](../docs/adr/001-runtime-persistence.md).
 
-| Plik | Zawartosc | Idempotentny |
-|---|---|---|
-| `schema.cypher` | constraints unikalnosci i indeksy | tak (`IF NOT EXISTS`) |
+| Plik                    | Zawartosc                                                        | Idempotentny          |
+| ----------------------- | ---------------------------------------------------------------- | --------------------- |
+| `schema.cypher`         | constraints unikalnosci i indeksy                                | tak (`IF NOT EXISTS`) |
 | `flowbb-queries.cypher` | syntetyczny seed (`DEMO DATA / SYMULACJA`) i zapytania kontrolne | tak (`MERGE` + `SET`) |
 
 Kolejnosc: najpierw `schema.cypher`, potem seed. Oba pliki mozna uruchamiac wielokrotnie; drugie uruchomienie nie zmienia liczby wezlow (20) ani relacji (41).
@@ -85,7 +85,7 @@ Startup czeka na zakończenie inicjalizacji. Błąd połączenia albo błąd Cyp
 ### Dane zgodne z frontendem
 
 - 4 wydarzenia z `client/src/mocks/data.ts` wraz z tymi samymi identyfikatorami, nazwami, terminami, miejscami i współrzędnymi;
-- 83 syntetycznych użytkowników; `DEMO_USER_ID` klienta nie ma początkowej deklaracji ani członkostwa w Crew, a liczniki uczestników `82`, `46`, `28`, `64` są odwzorowane relacjami `IS_GOING_TO` pozostałych użytkowników;
+- 84 syntetycznych użytkowników; konta demo `aaaaaaaa-...` (smoke test) i `dddddddd-...` (klient) nie mają początkowej deklaracji ani członkostwa w Crew, a liczniki uczestników `82`, `46`, `28`, `64` są odwzorowane relacjami `IS_GOING_TO` pozostałych użytkowników;
 - 2 grupy CREW z tymi samymi identyfikatorami, limitami, tagami, punktami spotkania i liczbą członków `4` oraz `6`;
 - dodatkowe swobodne tagi, miejsca i syntetyczny organizator.
 
@@ -99,9 +99,9 @@ W Aura Query można nadal wkleić kolejne ponumerowane bloki z pliku. Backend au
 
 Oczekiwane wyniki:
 
-- liczba węzłów seedu: `User=83`, `Event=4`, `Venue=4`, `BusinessOwner=1`, `Tag=4`, `Crew=2`;
+- liczba węzłów seedu: `User=84`, `Event=4`, `Venue=4`, `BusinessOwner=1`, `Tag=4`, `Crew=2`;
 - uczestnicy wydarzeń: `82`, `46`, `28`, `64`;
-- użytkownik demo `aaaaaaaa-...`: zero relacji `IS_GOING_TO` i `MEMBER_OF`;
+- użytkownicy demo `aaaaaaaa-...` i `dddddddd-...`: zero relacji `IS_GOING_TO` i `MEMBER_OF`;
 - kontrola `HOSTED_AT`: zero wierszy;
 - `InvalidCoordinates=0`;
 - `InvalidEvents=0` i `InvalidAttendanceSnapshots=0`.
