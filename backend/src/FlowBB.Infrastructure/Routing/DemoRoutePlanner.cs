@@ -32,9 +32,7 @@ public sealed class DemoRoutePlanner : IRoutePlanner
     private const int TransitWaitMinutes = 5;
     private const string DemoLine = "7 (demo)";
 
-    private static readonly TimeSpan ArrivalBuffer = TimeSpan.FromMinutes(10);
-    private static readonly TimeSpan DefaultEventDuration = TimeSpan.FromHours(2);
-    private static readonly TimeSpan[] ReturnOffsets = [TimeSpan.FromMinutes(10), TimeSpan.FromMinutes(40)];
+    private static readonly TimeSpan[] ReturnAdditionalOffsets = [TimeSpan.Zero, TimeSpan.FromMinutes(30)];
 
     public Task<RoutePlan> PlanAsync(RouteRequest request, CancellationToken cancellationToken = default)
     {
@@ -54,19 +52,21 @@ public sealed class DemoRoutePlanner : IRoutePlanner
     {
         var steps = BuildSteps(request.Mode, distanceKm, outbound: true);
         var duration = steps.Sum(step => step.DurationMinutes);
-        var arrivalAt = request.EventStartAt - ArrivalBuffer;
+        var arrivalAt = RouteTiming.OutboundArrival(request.EventStartAt);
         return new JourneyOption(duration, arrivalAt.AddMinutes(-duration), arrivalAt, steps);
     }
 
     private static List<JourneyOption> BuildReturns(RouteRequest request, double distanceKm)
     {
-        var eventEnd = request.EventEndAt ?? request.EventStartAt + DefaultEventDuration;
+        var firstDeparture = RouteTiming.FirstReturnDeparture(request.EventStartAt, request.EventEndAt);
         var steps = BuildSteps(request.Mode, distanceKm, outbound: false);
         var duration = steps.Sum(step => step.DurationMinutes);
-        var offsets = request.Mode == TransportMode.PublicTransport ? ReturnOffsets : ReturnOffsets.Take(1);
+        var offsets = request.Mode == TransportMode.PublicTransport
+            ? ReturnAdditionalOffsets
+            : ReturnAdditionalOffsets.Take(1);
 
         return offsets
-            .Select(offset => eventEnd + offset)
+            .Select(offset => firstDeparture + offset)
             .Select(departureAt => new JourneyOption(duration, departureAt, departureAt.AddMinutes(duration), steps))
             .ToList();
     }

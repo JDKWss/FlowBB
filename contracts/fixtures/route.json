@@ -4,8 +4,10 @@
   "plannerSource": "Demo",
   "outbound": {
     "durationMinutes": 24,
+    "distanceMeters": null,
     "departureAt": "2026-09-25T18:26:00+02:00",
     "arrivalAt": "2026-09-25T18:50:00+02:00",
+    "geometry": null,
     "steps": [
       {
         "type": "Walk",
@@ -36,8 +38,10 @@
   "returns": [
     {
       "durationMinutes": 24,
+      "distanceMeters": null,
       "departureAt": "2026-09-25T21:40:00+02:00",
       "arrivalAt": "2026-09-25T22:04:00+02:00",
+      "geometry": null,
       "steps": [
         {
           "type": "Walk",
@@ -67,8 +71,10 @@
     },
     {
       "durationMinutes": 24,
+      "distanceMeters": null,
       "departureAt": "2026-09-25T22:10:00+02:00",
       "arrivalAt": "2026-09-25T22:34:00+02:00",
+      "geometry": null,
       "steps": [
         {
           "type": "Walk",

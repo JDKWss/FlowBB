@@ -61,6 +61,30 @@ public class RouteModelTests
     }
 
     [Fact]
+    public void RouteGeometry_WithValidLongitudeLatitudeCoordinates_CreatesLineString()
+    {
+        var geometry = new RouteGeometry([
+            new RouteCoordinate(19.03384, 49.81272),
+            new RouteCoordinate(19.04431, 49.82245)
+        ]);
+
+        geometry.Type.Should().Be("LineString");
+        geometry.Coordinates.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public void RouteGeometry_RejectsTooFewOrInvalidCoordinates()
+    {
+        var tooShort = () => new RouteGeometry([new RouteCoordinate(19, 49)]);
+        var invalidLongitude = () => new RouteCoordinate(double.PositiveInfinity, 49);
+        var invalidLatitude = () => new RouteCoordinate(19, 91);
+
+        tooShort.Should().Throw<ArgumentException>();
+        invalidLongitude.Should().Throw<ArgumentOutOfRangeException>();
+        invalidLatitude.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
     public void JourneyOption_WithoutStepsOrWithArrivalBeforeDeparture_Throws()
     {
         var noSteps = () => new JourneyOption(1, Departure, Departure.AddMinutes(1), []);
@@ -148,6 +172,6 @@ public class RouteModelTests
     public void EnumNames_MatchOpenApiContract()
     {
         Enum.GetNames<RouteStepType>().Should().Equal("Walk", "Transit", "Bike", "Car", "Wait");
-        Enum.GetNames<PlannerSource>().Should().Equal("Demo", "OpenTripPlanner");
+        Enum.GetNames<PlannerSource>().Should().Equal("Demo", "RoadRouting", "OpenTripPlanner");
     }
 }

@@ -10,7 +10,10 @@ public static class RoutingEndpoints
 {
     public static IServiceCollection AddRoutingModule(this IServiceCollection services)
     {
-        services.TryAddSingleton<IRoutePlanner, DemoRoutePlanner>();
+        services.TryAddSingleton<DemoRoutePlanner>();
+        services.TryAddTransient<RoutingServiceRoutePlanner>();
+        services.TryAddTransient<CompositeRoutePlanner>();
+        services.TryAddTransient<IRoutePlanner>(provider => provider.GetRequiredService<CompositeRoutePlanner>());
         services.AddScoped<GetEventRouteHandler>();
         return services;
     }
