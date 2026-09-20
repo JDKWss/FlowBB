@@ -1,6 +1,6 @@
 # ADR 002: Road-routing service architecture
 
-- Status: **Proposed**
+- Status: **Accepted for the MVP** (2026-09-20); production acceptance remains open (see "Decision record")
 - Date: 2026-09-20
 - Owners: Core Backend Owner; infrastructure/dependency changes require explicit approval
 - Technical specification: [FlowBB road-routing service](../ROUTING_SERVICE.md)
@@ -38,7 +38,7 @@ is an infrastructure artifact and the service does not need an application
 database. The current public contract also lacks road geometry and total
 distance; changing it is a separate decision.
 
-## Proposed decision
+## Decision
 
 Introduce a private FastAPI `routing` service in the existing Compose stack.
 ASP.NET calls it over the internal network, conceptually at
@@ -207,16 +207,45 @@ routing. Rollback after future integration selects the demo planner through
 configuration and removes/disables the routing service; handlers and
 `IRoutePlanner` remain unchanged.
 
-## Unresolved decisions
+## Decision record
 
-- exact Python and library versions;
-- PBF preprocessing path and artifact format;
-- clip margin and maximum snap distance;
-- detailed Walking/Bike/Car costs and bicycle preferences;
-- timeout, worker count and whether one retry is justified;
-- internal error DTO/versioning and maneuver scope;
-- artifact storage/update owner and OSM attribution placement;
-- separate public OpenAPI fields for distance, geometry and planner source.
+**2026-09-20, issue #82.** The team accepts this ADR **for the MVP**: a private FastAPI service, OSMnx + NetworkX on
+prebuilt local graphs, ASP.NET adapter behind `IRoutePlanner`, and `DemoRoutePlanner` as the controlled fallback and
+as the default demo mode (`Routing:Mode=Demo`; road routing is opt-in with `ROUTING_MODE=RoadRouting` and the Compose
+profile `real-routing`, see [DEMO_RUNBOOK.md](../DEMO_RUNBOOK.md)). The Core Backend Owner confirms this in review of the
+PR that records it.
 
-This ADR remains **Proposed** until the Core Backend Owner accepts the spike,
-dependencies and deployment changes.
+Evidence behind the MVP acceptance (2026-09-20, Compose from clean volumes): the graphs build with `routing-prepare`
+(5 min 4 s), Walking, Bike and Car return `plannerSource: RoadRouting` with distance and GeoJSON geometry,
+PublicTransport stays on `DemoRoutePlanner`, the fallback is classified (transport failure, timeout, graph not ready)
+and covered by `RoutePlannerCompositionTests`, and `infra/smoke-test.ps1` and the `Smoke/` suite pass in both modes.
+
+**Not accepted yet (production).** The measured acceptance gate in [ROUTING_SERVICE.md](../ROUTING_SERVICE.md)
+section 15 is incomplete: golden routes, snapping limit, one-way handling, load time, latency, memory and artifact size
+on demo hardware are not measured (#127). Production acceptance also needs the artifact preparation, refresh
+ownership and 503 mapping without fallback (#110), and OSM attribution (#128).
+
+If the measured gate fails, the rollback stays as described above: set `Routing:Mode=Demo`.
+
+## Open points
+
+Resolved by the MVP implementation (recorded here, revisit for production):
+
+| Point | State in the MVP |
+|---|---|
+| Python and library versions | Python 3.12.11, FastAPI 0.141.1, OSMnx 2.1.1, NetworkX 3.6.1, pydantic 2.13.5, uvicorn 0.53.0 (`routing-service/requirements.txt`, `Dockerfile`) |
+| Preprocessing path and artifact format | manual `routing-prepare` with OSMnx `graph_from_point` (Overpass) writing GraphML and a checksummed `manifest.json` to the `routing-data` volume; a pinned local PBF is a production question (#110) |
+| Clip margin and snap distance | 6 km around 49.8176, 19.0391; `ROUTING_MAX_SNAP_METERS` = 500 |
+| Costs | Walking and Bike minimise edge length with speeds 4.8 and 15 km/h; Car minimises prepared `travel_time`; no separate bike suitability cost |
+| Timeout, retry, workers | total timeout 3 s (`Routing:TimeoutSeconds`), no retry, one uvicorn worker |
+| Errors and maneuvers | classified internal failures mapped to `RoutingServiceFailure`; no versioned internal contract; one step per route (`steps` without maneuvers) |
+| Public OpenAPI fields | `plannerSource` (`RoadRouting`), `distanceMeters` and `geometry` exist in `contracts/openapi.yaml` |
+
+Open, each with an issue:
+
+| Point | Issue |
+|---|---|
+| Measured acceptance gate on demo hardware | #127 |
+| Artifact storage, refresh owner, production preparation, 503 without fallback | #110 |
+| OSM attribution placement | #128 |
+| Pinned local PBF, indexed snapping, bike cost, internal contract versioning, worker count | consciously deferred to production; tracked under #110 and #127 |
