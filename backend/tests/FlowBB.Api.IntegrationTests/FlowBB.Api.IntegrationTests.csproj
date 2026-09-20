@@ -25,4 +25,13 @@
     <ProjectReference Include="..\..\src\FlowBB.Api\FlowBB.Api.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="..\..\..\contracts\fixtures\*.json"
+             Link="Contracts\Fixtures\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\..\contracts\fixtures\*.geojson"
+             Link="Contracts\Fixtures\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

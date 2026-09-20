@@ -1,0 +1,6 @@
+{
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.10",
+  "title": "The group is full.",
+  "status": 409,
+  "traceId": "00-demo-trace-409-00"
+}
