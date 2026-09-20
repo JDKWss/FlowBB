@@ -43,6 +43,20 @@ public sealed class AttendanceSmokeTests : SmokeTestBase
         after.GetProperty("modalSplit").GetProperty("bike").GetInt32().Should().Be(bikeBefore + 1);
     }
 
+    [SmokeFact]
+    public async Task Declare_PublicTransportOnTheLateEvent_AddsToTheReturnGapAndOtherModesDoNot()
+    {
+        var before = await Api.ParticipantsWithoutReturnAsync(EventId);
+
+        (await Api.DeclareAsync(EventId, UserId, "PublicTransport")).Dispose();
+        var withPublicTransport = await Api.ParticipantsWithoutReturnAsync(EventId);
+        (await Api.DeclareAsync(EventId, UserId, "Bike")).Dispose();
+        var withBike = await Api.ParticipantsWithoutReturnAsync(EventId);
+
+        withPublicTransport.Should().Be(before + 1, "a public transport rider of a late event has no return");
+        withBike.Should().Be(before, "changing the mode to Bike removes the person from the gap");
+    }
+
     [SmokeTheory]
     [InlineData("{\"userId\":\"d1000000-0000-0000-0000-000000000082\",\"transportMode\":\"Teleport\"}", "application/json")]
     [InlineData("{\"userId\":\"00000000-0000-0000-0000-000000000000\",\"transportMode\":\"Walking\"}", "application/json")]

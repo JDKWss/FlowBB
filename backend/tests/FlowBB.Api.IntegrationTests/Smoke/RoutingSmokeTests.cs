@@ -78,6 +78,20 @@ public sealed class RoutingSmokeTests : SmokeTestBase
     }
 
     [SmokeFact]
+    public async Task Route_OnTheEarlyEvent_HasNoReturnGapEvenForPublicTransport()
+    {
+        // "Koncert na Rynku" konczy sie o 21:30, wiec przy PublicTransport powrot istnieje.
+        (await Api.DeclareAsync(SmokeSeed.Concert, SmokeSeed.DemoUser, "PublicTransport")).Dispose();
+
+        using var response = await Api.GetAsync(RoutePath(SmokeSeed.Concert, SmokeSeed.DemoUser));
+        var plan = await SmokeClient.ReadAsync(response);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        plan.GetProperty("returnGap").GetBoolean().Should().BeFalse();
+        plan.GetProperty("returns").GetArrayLength().Should().BeGreaterThan(0);
+    }
+
+    [SmokeFact]
     public async Task Route_WithoutADeclaredAttendance_Returns404()
     {
         using var response = await Api.GetAsync(RoutePath(SmokeSeed.Run, SmokeSeed.FreeUser));

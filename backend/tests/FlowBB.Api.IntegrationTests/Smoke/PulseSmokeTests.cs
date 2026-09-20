@@ -26,6 +26,45 @@ public sealed class PulseSmokeTests : SmokeTestBase
     }
 
     [SmokeFact]
+    public async Task EventPulse_OfTheLateEvent_ReportsTheReturnGapOfItsPublicTransportParticipants()
+    {
+        // "Nocny Bieg" konczy sie o 23:15 (Europe/Warsaw), po 22:00, wiec kazdy uczestnik PublicTransport nie ma powrotu.
+        var pulse = await Api.PulseAsync(SmokeSeed.Run);
+
+        var gap = pulse.GetProperty("participantsWithoutReturn").GetInt32();
+        gap.Should().BeGreaterThan(0);
+        gap.Should().Be(pulse.GetProperty("modalSplit").GetProperty("publicTransport").GetInt32());
+        var alert = pulse.GetProperty("alerts").EnumerateArray()
+            .Should().ContainSingle(item => item.GetProperty("code").GetString() == "ReturnGap").Subject;
+        alert.GetProperty("severity").GetString().Should().Be("Warning");
+    }
+
+    [SmokeFact]
+    public async Task EventPulse_OfTheEarlyEvent_HasNoReturnGap()
+    {
+        // "Koncert na Rynku" konczy sie o 21:30, przed 22:00.
+        var pulse = await Api.PulseAsync(SmokeSeed.Concert);
+
+        pulse.GetProperty("participantsWithoutReturn").GetInt32().Should().Be(0);
+        pulse.GetProperty("alerts").GetArrayLength().Should().Be(0);
+    }
+
+    [SmokeFact]
+    public async Task Summary_SumsTheReturnGapOfAllEvents()
+    {
+        var summary = await Api.GetJsonAsync("/api/pulse/summary");
+        var events = await Api.GetJsonAsync("/api/events");
+
+        var total = 0;
+        foreach (var item in events.EnumerateArray())
+        {
+            total += await Api.ParticipantsWithoutReturnAsync(item.GetProperty("id").GetGuid());
+        }
+
+        summary.GetProperty("participantsWithoutReturn").GetInt32().Should().Be(total);
+    }
+
+    [SmokeFact]
     public async Task EventPulse_WithUnknownEvent_Returns404()
     {
         using var response = await Api.GetAsync($"/api/pulse/events/{SmokeSeed.Unknown}");
